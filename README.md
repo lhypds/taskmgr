@@ -1,9 +1,9 @@
 
-Task Manager CL
-===============
+taskmgr
+=======
 
 
-Task management in command line.  
+Task management tool.
 
 
 How It Works
