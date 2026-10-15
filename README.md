@@ -36,20 +36,21 @@ Shows the task counter, task folder path, and default text editor.
 Dependencies
 ------------
 
-Node.js
+Node.js  
+pnpm  
 
 
 Installation
 ------------
 
 Install:  
-`npm install`  
+`pnpm install`  
 
 Install globally:  
-`npm install -g .`
+`pnpm link`
 
 Uninstall:  
-`npm uninstall -g taskmgr`
+`pnpm unlink` (run inside the taskmgr folder)
 
 
 Setup
@@ -174,3 +175,54 @@ Gestures
 Mouse scroll up/down  
 Scroll through the task list.  
 (Not working on Windows.)  
+
+
+Web UI
+------
+
+A browser interface with the same features as the command line, served on localhost.  
+
+Start:  
+`pnpm run webui`  
+or, after installing globally: `taskmgr-web`  
+Then open the printed URL (default `http://127.0.0.1:3456/`).  
+
+Preview in the foreground and open it in the browser (Ctrl+C to stop):  
+`./preview.sh` or `./preview.sh /path/to/tasks`  
+
+Run as a background service with pm2 (`pnpm add -g pm2`):  
+`./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, reinstall and restart.  
+The pm2 process name is `PM2_NAME` in `.env` (default `taskmgr`), configured in `ecosystem.config.cjs`.  
+
+Tasks root folder, first match wins:  
+1. Command-line argument: `node webui/server.js /path/to/tasks`  
+2. `TASKS_ROOT` in `.env`  
+3. `tasksRoot` in `webui/settings.json`  
+4. Home folder `~/` (default)  
+
+`.env` example (`~` is expanded to the home folder):  
+```
+TASKS_ROOT=~/tasks
+PORT=3456
+```
+
+`webui/settings.json` example:  
+```
+{
+  "tasksRoot": "/Users/me/tasks",
+  "port": 3456,
+  "host": "127.0.0.1"
+}
+```
+
+Features:  
+Same task list, ordering and status markers (`[ ]`, `[x]`, `[p]`, `[+]`) as the CLI.  
+Add and edit tasks in an in-browser editor for `task.txt` (`ctrl/cmd+s` saves, `esc` cancels).  
+Navigate into task folders to see subtasks, and back up (never above the root).  
+Preview details, toggle done / pending, delete, refresh.  
+`Enter` shows the task folder with its attachments (clickable), and a button opens it in the OS file manager.  
+Status bar shows the counters and the current folder path.  
+
+Shortcuts are the same as the CLI (`j`, `k`, `h`, `l`, `a`, `e`, `space`, `enter`, `x`, `p`, `d`, `r`),  
+plus `o` to open the folder in the OS file manager and `?` to show the shortcut list.  
+`q` quits: it stops the web UI server (under pm2 the process is restarted automatically).  

@@ -4,11 +4,14 @@
   "description": "Simple task management CLI.",
   "bin": {
     "taskmgr": "cli.js",
-    "tm": "cli.js"
+    "tm": "cli.js",
+    "taskmgr-web": "webui/server.js"
   },
   "main": "cli.js",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "start": "node cli.js"
+    "start": "node cli.js",
+    "webui": "node webui/server.js"
   },
   "dependencies": {
     "blessed": "^0.1.81",
