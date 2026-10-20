@@ -16,18 +16,18 @@ function getEnvVar(key, defaultValue) {
 
 const PORT = getEnvVar('PORT', '3456');
 const PM2_NAME = getEnvVar('PM2_NAME', 'taskmgr');
-const TASKS_ROOT = getEnvVar('TASKS_ROOT', '');
+const TASKMGR_CONFIG = getEnvVar('TASKMGR_CONFIG', '');
 
 module.exports = {
   apps: [
     {
       name: PM2_NAME,
-      script: 'webui/server.js',
+      script: 'server/index.js',
       cwd: __dirname,
       time: true,
       env: {
         PORT: PORT,
-        TASKS_ROOT: TASKS_ROOT,
+        TASKMGR_CONFIG: TASKMGR_CONFIG,
         NODE_ENV: 'production',
       },
     },

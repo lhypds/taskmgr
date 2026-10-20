@@ -11,7 +11,7 @@ How It Works
 
 The application bacically read the folders in current directory, listing all tasks.  
 Each task is a folder with a `task.txt` file inside it.  
-The folder name is the task ID, which is a timestamp in seconds.  
+The folder name is the task ID, which is the creation time formatted as `YYYYMMDDHHmm`.  
 After start it with `taskmgr` or `tm`, it will list all tasks in current folder, and user can move between tasks.  
 
 
@@ -168,6 +168,10 @@ Pending a task.
 q  
 Quit the application.  
 
+:  
+Enter command mode (like Vim). Supported commands:  
+`:h` or `:help` shows a help popup with all shortcuts.  
+
 
 Gestures
 --------
@@ -180,49 +184,48 @@ Scroll through the task list.
 Web UI
 ------
 
-A browser interface with the same features as the command line, served on localhost.  
+A React app (Vite + Express) over the same task folders, in a plain black-and-white style.  
+It manages several *works*, each with common tasks and any number of *projects*:  
 
-Start:  
-`pnpm run webui`  
-or, after installing globally: `taskmgr-web`  
-Then open the printed URL (default `http://127.0.0.1:3456/`).  
-
-Preview in the foreground and open it in the browser (Ctrl+C to stop):  
-`./preview.sh` or `./preview.sh /path/to/tasks`  
-
-Run as a background service with pm2 (`pnpm add -g pm2`):  
-`./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, reinstall and restart.  
-The pm2 process name is `PM2_NAME` in `.env` (default `taskmgr`), configured in `ecosystem.config.cjs`.  
-
-Tasks root folder, first match wins:  
-1. Command-line argument: `node webui/server.js /path/to/tasks`  
-2. `TASKS_ROOT` in `.env`  
-3. `tasksRoot` in `webui/settings.json`  
-4. Home folder `~/` (default)  
-
-`.env` example (`~` is expanded to the home folder):  
 ```
-TASKS_ROOT=~/tasks
-PORT=3456
+work
+  project
+    task
 ```
 
-`webui/settings.json` example:  
+Opening the web root shows that tree; pick a work (its common tasks) or one of its projects  
+to list, filter, add, edit, mark done or pending, delete, and open subtasks and attachments.  
+
+Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-ignored):  
 ```
 {
-  "tasksRoot": "/Users/me/tasks",
   "port": 3456,
-  "host": "127.0.0.1"
+  "host": "127.0.0.1",
+  "works": [
+    {
+      "work": "gcc3.com",
+      "root": "~/gcc3/tasks",
+      "projects": [
+        { "name": "project a", "root": "~/gcc3/project-a/tasks" }
+      ]
+    }
+  ]
 }
 ```
+`root` is the folder holding the task folders (`~` is expanded). The file is re-read when it changes.  
+`PORT` / `HOST` in `.env` override the values in the file; `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
 
-Features:  
-Same task list, ordering and status markers (`[ ]`, `[x]`, `[p]`, `[+]`) as the CLI.  
-Add and edit tasks in an in-browser editor for `task.txt` (`ctrl/cmd+s` saves, `esc` cancels).  
-Navigate into task folders to see subtasks, and back up (never above the root).  
-Preview details, toggle done / pending, delete, refresh.  
-`Enter` shows the task folder with its attachments (clickable), and a button opens it in the OS file manager.  
-Status bar shows the counters and the current folder path.  
+Setup (installs dependencies, creates `.env` and `taskmgr.json` from the examples, builds the frontend):  
+`./setup.sh`  
 
-Shortcuts are the same as the CLI (`j`, `k`, `h`, `l`, `a`, `e`, `space`, `enter`, `x`, `p`, `d`, `r`),  
-plus `o` to open the folder in the OS file manager and `?` to show the shortcut list.  
-`q` quits: it stops the web UI server (under pm2 the process is restarted automatically).  
+Run as a background service with pm2 (`pnpm add -g pm2`):  
+`./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, rebuild and restart.  
+Then open the printed URL (default `http://127.0.0.1:3456/`).  
+The pm2 process name is `PM2_NAME` in `.env` (default `taskmgr`), configured in `ecosystem.config.cjs`.  
+
+Develop with hot reload in the foreground (Ctrl+C to stop):  
+`./preview.sh` or `./preview.sh /path/to/taskmgr.json` (also `pnpm run dev`)  
+
+Production server without pm2, after `pnpm run build`:  
+`NODE_ENV=production node server/index.js [path/to/taskmgr.json]`  
+or, after installing globally: `taskmgr-web`  

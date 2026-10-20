@@ -1,0 +1,167 @@
+.table {
+  /* check | id | task | labels | origin | edited | subtasks */
+  --cols: 32px 104px minmax(160px, 1fr) minmax(80px, 220px) 96px 132px 28px;
+  min-width: 720px;
+  padding-bottom: 12px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: var(--cols);
+  align-items: center;
+  border-bottom: var(--line) solid var(--soft-line);
+  outline: none;
+}
+
+.row > div {
+  padding: 7px 6px;
+  min-width: 0;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row > div:first-child {
+  padding-left: 12px;
+  overflow: visible;
+}
+
+.row[role="button"] {
+  cursor: pointer;
+}
+
+.row[role="button"]:hover {
+  background: var(--bg-hover);
+}
+
+.row[role="button"]:focus-visible {
+  box-shadow: inset 0 0 0 var(--line) var(--focus);
+}
+
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-alt);
+  border-bottom: var(--line) solid var(--border);
+  font-weight: 600;
+}
+
+.row[data-status="done"] .titleText {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.row[data-status="done"] > div,
+.row[data-status="pending"] > div {
+  color: var(--muted);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.titleText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labels {
+  display: flex;
+  gap: 4px;
+}
+
+.origin {
+  color: var(--muted);
+}
+
+.enter {
+  padding: 0 !important;
+  display: flex;
+  justify-content: center;
+}
+
+.enterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: var(--line) solid var(--border);
+  background: var(--bg);
+}
+
+.enterButton:hover {
+  background: var(--border);
+  color: var(--bg);
+}
+
+.enterButton svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Checkbox: the native control stays for keyboard access but is not drawn. */
+.check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.checkInput {
+  position: absolute;
+  width: 0;
+  height: 0;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border: var(--line) solid var(--border);
+  background: var(--bg);
+  color: var(--bg);
+}
+
+.box::before {
+  content: "";
+  width: 6px;
+  height: 4px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-20%) rotate(-45deg);
+  opacity: 0;
+}
+
+.check:hover .box {
+  background: var(--bg-hover);
+}
+
+.checkInput:checked + .box {
+  background: var(--border);
+}
+
+.checkInput:checked + .box::before {
+  opacity: 1;
+}
+
+.checkInput:focus-visible + .box {
+  outline: var(--line) solid var(--focus);
+  outline-offset: 2px;
+}

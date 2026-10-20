@@ -2,9 +2,13 @@ node_modules/
 .vscode
 .DS_Store
 .env
+taskmgr.json
 
 # ignore task folders that start with these prefixes (top-level)
 /17*/
 /18*/
 /19*/
 /20*/
+
+# built web UI
+dist/

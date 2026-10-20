@@ -1,0 +1,193 @@
+@import url(https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/fira_code.css);
+
+:root {
+  --font-title: "Fira Code VF", monospace;
+  --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  --fg: #111111;
+  --muted: #767676;
+  --faint: #bbbbbb;
+  --border: #000000;
+  --soft-line: #e2e2e2;
+  --focus: #0969da;
+  --line: 1px; /* hairline width */
+  --bg: #ffffff;
+  --bg-alt: #f6f6f6;
+  --bg-hover: #f0f0f0;
+  --ok: #1a7f37;
+  --warn: #9a6700;
+  --err: #cf222e;
+  --ok-bg: #e9f5ec;
+  --warn-bg: #fbf1dc;
+  --err-bg: #fbe9eb;
+}
+
+/* The page itself never scrolls; the list does. overscroll-behavior stops the viewport from
+   rubber-banding when the list runs out of scroll. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: Helvetica, Arial, "Hiragino Sans", "PingFang SC", "Noto Sans CJK JP", sans-serif;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100vh;
+  height: 100dvh;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: var(--line) solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--bg);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn.primary {
+  background: var(--border);
+  color: var(--bg);
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: #333333;
+}
+
+.btn.danger {
+  border-color: var(--err);
+  color: var(--err);
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: var(--err);
+  color: var(--bg);
+}
+
+/* Large variant for the action row at the bottom of a modal. */
+.btn.lg {
+  height: 28px;
+  min-width: 96px;
+  padding: var(--line) 20px 0;
+  justify-content: center;
+}
+
+.btn svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.input,
+.select,
+.textarea {
+  display: block;
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  border: var(--line) solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  outline: none;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: var(--line) solid var(--focus);
+  outline-offset: -1px;
+}
+
+.textarea {
+  height: auto;
+  padding: 6px 8px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border: var(--line) solid var(--soft-line);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tag.done {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-color: transparent;
+}
+
+.tag.pending {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: transparent;
+}
+
+.tag.todo {
+  color: var(--fg);
+  background: var(--bg-alt);
+  border-color: transparent;
+}

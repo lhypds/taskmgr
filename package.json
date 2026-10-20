@@ -1,22 +1,35 @@
 {
   "name": "taskmgr",
   "version": "0.1.0",
-  "description": "Simple task management CLI.",
+  "description": "Simple task management CLI with a web UI.",
   "bin": {
     "taskmgr": "cli.js",
     "tm": "cli.js",
-    "taskmgr-web": "webui/server.js"
+    "taskmgr-web": "server/index.js"
   },
   "main": "cli.js",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "start": "node cli.js",
-    "webui": "node webui/server.js"
+    "dev": "NODE_ENV=development node server/index.js",
+    "build": "vite build",
+    "webui": "node server/index.js"
   },
   "dependencies": {
     "blessed": "^0.1.81",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "express": "^5.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.4",
+    "ress": "^6.0.0"
   },
   "author": "GitHub Copilot",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "vite": "^8.3.4"
+  }
 }

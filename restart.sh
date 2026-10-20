@@ -9,6 +9,7 @@ cd "$ROOT"
 echo "Pulling latest code..."
 git pull --ff-only
 
+# Installs dependencies and rebuilds the web UI
 "$ROOT/setup.sh"
 
 "$ROOT/stop.sh"

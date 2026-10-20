@@ -7,7 +7,15 @@ if [ ! -f .env ]; then
   echo "Copied .env.example to .env"
 fi
 
+if [ ! -f taskmgr.json ]; then
+  cp taskmgr.json.example taskmgr.json
+  echo "Copied taskmgr.json.example to taskmgr.json"
+fi
+
 echo "Installing dependencies..."
 pnpm install
 
-echo "Done. Edit .env (TASKS_ROOT, PORT), then run ./start.sh for the web UI or ./install.sh to install taskmgr as a global command."
+echo "Building the web UI..."
+pnpm run build
+
+echo "Done. Edit taskmgr.json (works, projects and their task folders) and .env (PORT), then run ./start.sh for the web UI or ./install.sh to install taskmgr as a global command."

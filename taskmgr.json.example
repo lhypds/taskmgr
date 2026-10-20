@@ -1,0 +1,19 @@
+{
+  "port": 3456,
+  "host": "127.0.0.1",
+  "works": [
+    {
+      "work": "gcc3.com",
+      "root": "~/gcc3/tasks",
+      "projects": [
+        { "name": "project a", "root": "~/gcc3/project-a/tasks" },
+        { "name": "project b", "root": "~/gcc3/project-b/tasks" }
+      ]
+    },
+    {
+      "work": "personal",
+      "root": "~/tasks",
+      "projects": []
+    }
+  ]
+}
