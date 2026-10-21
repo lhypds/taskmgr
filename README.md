@@ -228,22 +228,20 @@ Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-igno
 The bare `tm` command reads the same file:  
 ```
 {
-  "port": 3456,
-  "host": "127.0.0.1",
   "works": [
     {
       "work": "gcc3.com",
       "orgin": "gcc3",
       "tasks_path": "~/gcc3/tasks",
       "repositories": [
-        { "name": "repository a", "tasks_path": "~/gcc3/repository-a/tasks" }
+        { "name": "repository a", "tasks_path": "~/gcc3/repository-a/tasks", "source_path": "~/gcc3/repository-a" }
       ]
     }
   ]
 }
 ```
-`tasks_path` is the folder holding the task folders (`~` is expanded). `orgin` (optional) is the organization the work is for, shown next to its name. The file is re-read when it changes.  
-`PORT` / `HOST` in `.env` override the values in the file; `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
+`tasks_path` is the folder holding the task folders (`~` is expanded). `orgin` (optional) is the organization the work is for, shown next to its name. `source_path` (optional) is a repository's source code folder. The file is re-read when it changes.  
+`PORT` / `HOST` in `.env` set the port (default 3456) and host (default 127.0.0.1); `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
 
 Login: the web UI asks for a username and password. Accounts are a list in `data/users.json`  
 (copy `data/users.example.json`; the file is git-ignored; `TASKMGR_USERS` in `.env` points at one elsewhere),  

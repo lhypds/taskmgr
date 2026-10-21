@@ -4,15 +4,17 @@
 // is a folder of tasks:
 //
 //   {
-//     "port": 3456,            // optional, PORT in .env / environment wins
-//     "host": "127.0.0.1",     // optional, HOST in .env / environment wins
 //     "works": [
 //       {
 //         "work": "gcc3.com",
-//         "orgin": "gcc3",                        // optional, the organization the work is for
-//         "tasks_path": "~/gcc3",                       // common tasks of this work
+//         "orgin": "gcc3",                      // optional, the organization the work is for
+//         "tasks_path": "~/gcc3",               // common tasks of this work
 //         "repositories": [
-//           { "name": "repository a", "tasks_path": "~/gcc3/a" }   // tasks of one repository
+//           {
+//             "name": "repository a",
+//             "tasks_path": "~/gcc3/a/tasks",   // tasks of one repository
+//             "source_path": "~/gcc3/a"         // optional, its source code
+//           }
 //         ]
 //       }
 //     ]
@@ -89,7 +91,13 @@ function normalizeWorks(raw) {
         if (name.includes('/')) throw new Error(`Repository name "${name}" of "${work}" must not contain "/".`);
         if (seenRepositories.has(name)) throw new Error(`Duplicate repository name "${name}" in "${work}".`);
         seenRepositories.add(name);
-        return { name, root: path.resolve(expandHome(p.tasks_path.trim())) };
+        if (p.source_path !== undefined && typeof p.source_path !== 'string') throw new Error(`Repository "${name}" of "${work}": "source_path" must be a string.`);
+        const source = (p.source_path || '').trim();
+        return {
+          name,
+          root: path.resolve(expandHome(p.tasks_path.trim())),
+          sourcePath: source ? path.resolve(expandHome(source)) : ''
+        };
       })
     };
   });
@@ -105,7 +113,7 @@ function parseConfig(text, configPath) {
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`${configPath} must contain a JSON object.`);
   try {
-    return { works: normalizeWorks(raw.works), port: raw.port, host: raw.host };
+    return { works: normalizeWorks(raw.works) };
   } catch (e) {
     throw new Error(`${configPath}: ${e.message}`);
   }
@@ -147,8 +155,8 @@ function resolveConfig(argv) {
   }
 
   const first = readConfigFile(configPath);
-  const port = parseInt(process.env.PORT || first.port || 3456, 10);
-  const host = process.env.HOST || first.host || '127.0.0.1';
+  const port = parseInt(process.env.PORT || 3456, 10);
+  const host = process.env.HOST || '127.0.0.1';
   const usersPath = path.resolve(expandHome((process.env.TASKMGR_USERS || '').trim() || DEFAULT_USERS_PATH));
 
   // Works are re-read when the file's mtime changes; a broken edit keeps the last good list.
@@ -171,7 +179,6 @@ function resolveConfig(argv) {
   }
 
   // Replace the config file; an invalid one is refused and the file left as it was.
-  // port and host only apply on the next start.
   function writeText(text) {
     const parsed = parseConfig(text, configPath);
     fs.writeFileSync(configPath, text);

@@ -208,7 +208,7 @@ function listSpaces() {
     work: w.work,
     orgin: w.orgin,
     ...describe(w.root),
-    repositories: w.repositories.map(p => ({ name: p.name, ...describe(p.root) }))
+    repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, ...describe(p.root) }))
   }));
 }
 
@@ -465,14 +465,14 @@ mountFrontend().then(() => {
     console.log(`  users      : ${config.usersPath}`);
     for (const w of config.getWorks()) {
       console.log(`  work       : ${w.work}${w.orgin ? ` (${w.orgin})` : ''}  ${w.root}`);
-      for (const p of w.repositories) console.log(`    repository : ${p.name}  ${p.root}`);
+      for (const p of w.repositories) console.log(`    repository : ${p.name}  ${p.root}${p.sourcePath ? `  (source: ${p.sourcePath})` : ''}`);
     }
     console.log(`  url        : http://${config.host}:${config.port}/`);
     console.log('Press Ctrl+C to stop.');
   });
   server.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
-      console.error(`Error: port ${config.port} is already in use. Set PORT in .env or "port" in taskmgr.json.`);
+      console.error(`Error: port ${config.port} is already in use. Set PORT in .env.`);
     } else {
       console.error(`Error: ${e.message}`);
     }
