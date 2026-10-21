@@ -16,6 +16,23 @@ Start it with `tm <folder>` to list the tasks in that folder, or with a bare `tm
 or a project from the `taskmgr.json` tree first (see `Command`); then move between the tasks.  
 
 
+`tasks` Folder
+--------------
+
+Create a `tasks` folder inside a repository folder and globally gitignore it.  
+Use `globally_ignore_tasks.sh` or `.bat` for Windows or below command.  
+
+```
+git config --global core.excludesFile ~/.gitignore_global
+vim ~/.gitignore_global
+```
+
+Add `tasks/` into it.  
+Or run `./globally_ignore_tasks.sh` (Windows: `globally_ignore_tasks.bat`), which does both.  
+
+You can manage all tasks in or not in a repository folder.  
+
+
 Features
 --------
 
@@ -92,22 +109,6 @@ it is created from `taskmgr.json.example` first. `TASKMGR_CONFIG` in `.env` poin
 Prints the commands above. To open a folder named `config` or `help`, prefix it: `tm ./config`.  
 
 
-Create Shortcut
----------------
-
-On macOS, create a `.command` file in the tasks folder, with content:  
-
-```
-#!/bin/bash
-taskmgr current_directory_path
-```
-
-Make it executable:  
-`chmod +x yourfile.command`
-
-Then you can double click the file to start `taskmgr`.  
-
-
 Task files
 ----------
 
@@ -132,7 +133,7 @@ Task List
 
 Example:  
 ```
-      id           edit_at        task
+     id           edit_at        task
 [x]  202508142100  202508142100  Buy apple.   
 [ ]  202508142100  202508142100  Buy orange.  
 ```
