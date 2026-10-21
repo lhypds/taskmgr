@@ -427,7 +427,7 @@ function createTaskView(screen, onBack) {
     try { refresh(sel); } catch (e) { try { screen.render(); } catch (err) { /* ignore */ } }
   });
 
-  // 4. Add a new task (or open the existing task for the current minute)
+  // 4. Add a new task (id = current minute, bumped if that id is already taken)
   taskKey('a', () => {
     // do not toggle pending if preview is open
     if (isPreviewing) return;

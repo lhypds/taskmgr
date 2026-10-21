@@ -102,14 +102,26 @@ function compareIdsDesc(a, b) {
   return String(b.id).localeCompare(String(a.id));
 }
 
+// Return the first free task id in dir starting from `now` (YYYYMMDDHHmm).
+// If a task with that id already exists (bare or renamed "<id> title"), the
+// minute is bumped by one until an unused id is found, so two tasks created in
+// the same minute get distinct folders. Date arithmetic handles hour/day rollover.
+function nextFreeTaskId(dir, now) {
+  const d = new Date(now.getTime());
+  let id = formatTaskId(d);
+  while (findTaskDirById(dir, id) || fs.existsSync(path.join(dir, id))) {
+    d.setMinutes(d.getMinutes() + 1);
+    id = formatTaskId(d);
+  }
+  return id;
+}
+
 function createTask(dir, labels = '', origin = '', status = 'todo', details = '') {
   const now = new Date();
-  // task id is the creation time as YYYYMMDDHHmm (local time).
-  // If a task with this id already exists (bare or renamed "<id> title"),
-  // return its path so the caller opens it instead of creating a duplicate.
-  const id = formatTaskId(now);
-  const existingDir = findTaskDirById(dir, id);
-  if (existingDir) return path.join(existingDir, TASK_FILE);
+  // task id is the creation time as YYYYMMDDHHmm (local time), bumped by a
+  // minute per collision so a second task in the same minute never reuses
+  // (or opens) the first one's folder.
+  const id = nextFreeTaskId(dir, now);
   const taskDir = path.join(dir, id);
   fs.mkdirSync(taskDir);
   const taskPath = path.join(taskDir, TASK_FILE);

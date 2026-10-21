@@ -268,17 +268,13 @@ app.get('/api/tasks', (req, res) => {
   res.json(listDir(spaceFrom(req.query), String(req.query.dir || '')));
 });
 
-// Create a task in `dir` with the given fields. Ids are the creation minute, so a second
-// task in the same minute is refused rather than silently reusing the first one's folder.
+// Create a task in `dir` with the given fields. Ids are the creation minute; a second
+// task in the same minute gets the next free minute as its id (see createTask).
 app.post('/api/tasks', (req, res) => {
   const body = req.body || {};
   const { root } = spaceFrom(body);
   const dirAbs = resolveDir(root, body.dir || '');
-  const before = new Set(fs.readdirSync(dirAbs));
   const taskPath = createTask(dirAbs);
-  if (before.has(path.basename(path.dirname(taskPath)))) {
-    throw new HttpError(409, 'A task was already created this minute. Try again in a minute.');
-  }
   const taskDir = writeTaskFields(path.dirname(taskPath), body);
   res.status(201).json({ task: serializeTask(root, taskFromDir(taskDir)) });
 });
