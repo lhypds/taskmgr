@@ -37,12 +37,14 @@ function getEditor() {
   return getEditorInfo().editor;
 }
 
-// Returns the argument list to open filePath and jump to the last line in insert mode.
+// Returns the argument list to open filePath and jump to the last line in insert mode
+// (pass { atEnd: false } to just open the file, e.g. for the config file).
 // `editor` may contain extra arguments (e.g. "code --wait"); they are kept.
-function getEditorArgs(editor, filePath) {
+function getEditorArgs(editor, filePath, { atEnd = true } = {}) {
   const tokens = (editor || '').trim().split(/\s+/).filter(Boolean);
   const extra = tokens.slice(1);
   const base = path.basename(tokens[0] || '');
+  if (!atEnd) return [...extra, filePath];
   if (base === 'vim' || base === 'nvim' || base === 'vi') {
     // +normal! GA  =>  go to last line (G), enter insert mode at end of line (A)
     return [...extra, '+normal! GA', filePath];
@@ -54,10 +56,10 @@ function getEditorArgs(editor, filePath) {
 }
 
 // Command + args ready for spawn, for the resolved editor.
-function getEditorCommand(filePath) {
+function getEditorCommand(filePath, options) {
   const editor = getEditor();
   const cmd = editor.trim().split(/\s+/)[0];
-  return { cmd, args: getEditorArgs(editor, filePath) };
+  return { cmd, args: getEditorArgs(editor, filePath, options) };
 }
 
 module.exports = { getEditor, getEditorArgs, getEditorCommand, getEditorInfo };

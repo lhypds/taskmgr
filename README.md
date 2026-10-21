@@ -13,7 +13,7 @@ The application bacically read the folders in current directory, listing all tas
 Each task is a folder with a `task.txt` file inside it.  
 The folder name is the task ID, which is the creation time formatted as `YYYYMMDDHHmm`.  
 Start it with `tm <folder>` to list the tasks in that folder, or with a bare `tm` to pick a work  
-and a project from `taskmgr.json` first (see `Command`); then move between the tasks.  
+or a project from the `taskmgr.json` tree first (see `Command`); then move between the tasks.  
 
 
 Features
@@ -70,11 +70,26 @@ Opens that folder as a task list. No `taskmgr.json` is needed.
 If there is no task, it will show a message: "No tasks found."
 
 `tm` (or `taskmgr`) without arguments  
-Opens the works listed in `taskmgr.json` (the same file as the web UI, see `Web UI` below).  
-Select a work with `enter`, then one of its projects, or `(common tasks)` for the tasks of the work itself,  
-to enter that folder's task list. A work without projects opens directly.  
-`h` at the top of a task list goes back to the work / project list.  
-Each row shows the task counters of the folder, or `folder not found` if it does not exist yet.  
+Shows the works listed in `taskmgr.json` (the same file as the web UI, see `Web UI` below) as a tree,  
+each work followed by its projects:  
+
+```
+  work / project
+  acme         todo:3 done:1 pending:0   ~/acme/tasks
+  ├─ alpha     todo:1 done:0 pending:0   ~/acme/alpha/tasks
+  └─ beta      folder not found          ~/acme/beta/tasks
+  personal     todo:2 done:5 pending:1   ~/tasks
+```
+
+Select a row with `enter` to open its task list: a work row opens the common tasks of the work,  
+a project row opens that project. `h` at the top of a task list goes back to the tree.  
+
+`tm config`  
+Opens `taskmgr.json` in the editor (`EDITOR` in `.env`, see above). If the file does not exist yet,  
+it is created from `taskmgr.json.example` first. `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
+
+`tm help` (or `tm -h`, `tm --help`)  
+Prints the commands above. To open a folder named `config` or `help`, prefix it: `tm ./config`.  
 
 
 Create Shortcut
@@ -151,7 +166,7 @@ Move from tasks.
 h and l  
 → or ← (arrow keys)
 Move from main task and subtasks.  
-`h` at the top of the list goes back to the work / project list (when started with a bare `tm`).  
+`h` at the top of the list goes back to the work / project tree (when started with a bare `tm`).  
 
 x  
 Mark a task as done.  

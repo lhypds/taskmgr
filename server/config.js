@@ -104,7 +104,9 @@ function readConfigFile(configPath) {
   }
 }
 
-function resolveConfig(argv) {
+// Where the config file is, without reading it: { configPath, source }.
+// Precedence: argument, then TASKMGR_CONFIG, then <project>/taskmgr.json.
+function resolveConfigPath(argv) {
   loadDotenv();
 
   const arg = (argv && argv.length > 0) ? argv[0] : '';
@@ -114,6 +116,11 @@ function resolveConfig(argv) {
   if (arg) { configPath = arg; source = 'argument'; }
   else if (envPath) { configPath = envPath; source = '.env (TASKMGR_CONFIG)'; }
   configPath = path.resolve(expandHome(configPath));
+  return { configPath, source };
+}
+
+function resolveConfig(argv) {
+  const { configPath, source } = resolveConfigPath(argv);
 
   if (!fs.existsSync(configPath)) {
     const hint = (configPath === DEFAULT_CONFIG_PATH && fs.existsSync(EXAMPLE_CONFIG_PATH))
@@ -143,4 +150,4 @@ function resolveConfig(argv) {
   return { configPath, configSource: source, port, host, getWorks };
 }
 
-module.exports = { resolveConfig, DEFAULT_CONFIG_PATH };
+module.exports = { resolveConfig, resolveConfigPath, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH };

@@ -22,14 +22,14 @@ function Counts({ counts }) {
 }
 
 // One row of the tree: a link into the space when its folder exists, otherwise an inert row.
-function SpaceRow({ to, exists, level, label, root, counts }) {
+function SpaceRow({ to, exists, level, last, label, root, counts }) {
   const className = [styles.row, level === "project" ? styles.project : styles.work, exists ? "" : styles.disabled]
     .filter(Boolean)
     .join(" ");
   const body = (
     <>
       <span className={styles.tree} aria-hidden="true">
-        {level === "project" ? "└" : ""}
+        {level === "project" ? (last ? "└" : "├") : ""}
       </span>
       <span className={styles.name}>{label}</span>
       <span className={`mono ${styles.root}`} title={root}>
@@ -73,7 +73,7 @@ export default function Spaces() {
     <div className={styles.page}>
       <main className={styles.main}>
         <h1 className={styles.title}>taskmgr</h1>
-        <p className={styles.tagline}>Pick a work for its common tasks, or one of its projects.</p>
+        <p className={styles.tagline}>Pick a work for its common tasks, or one of its projects below it.</p>
 
         {error ? (
           <div className={styles.state}>
@@ -90,12 +90,13 @@ export default function Spaces() {
             {works.map((w) => (
               <div key={w.work} className={styles.group}>
                 <SpaceRow to={api.spacePath(w.work)} exists={w.exists} level="work" label={w.work} root={w.root} counts={w.counts} />
-                {w.projects.map((p) => (
+                {w.projects.map((p, i) => (
                   <SpaceRow
                     key={p.name}
                     to={api.spacePath(w.work, p.name)}
                     exists={p.exists}
                     level="project"
+                    last={i === w.projects.length - 1}
                     label={p.name}
                     root={p.root}
                     counts={p.counts}

@@ -15,7 +15,7 @@ const {
 } = require('./utils/taskUtils');
 const { clearScreen } = require('./utils/screenUtils');
 const { getEditor, getEditorInfo, getEditorCommand } = require('./utils/editorUtils');
-const { resolveConfig } = require('./server/config');
+const { resolveConfig, resolveConfigPath, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH } = require('./server/config');
 
 // load .env
 const path = require('path');
@@ -139,8 +139,8 @@ function quit(screen) {
   process.exit(0);
 }
 
-// Work / project picker shown by a bare `tm`: first the works of taskmgr.json, then the
-// projects of the chosen work (its common tasks first). onPick({ label, root }) opens one.
+// Work / project tree shown by a bare `tm`: every work of taskmgr.json with its projects
+// nested beneath it, each row being one folder of tasks. onPick({ label, root }) opens one.
 function createWorkPicker(screen, config, onPick) {
   const header = blessed.box({
     parent: screen,
@@ -160,10 +160,8 @@ function createWorkPicker(screen, config, onPick) {
     content: '', style: STATUS_BAR_STYLE, hidden: true
   });
 
-  let step = 'works';   // 'works' | 'projects'
-  let work = null;      // the work whose projects are listed (step 'projects')
-  let entries = [];     // one per list row: { name, label, root, work? }
-  const lastSelected = { works: 0, projects: 0 };
+  let entries = [];     // one per list row: { name, label, root }
+  let lastSelected = 0;
 
   function describe(root) {
     if (!isDirectory(root)) return 'folder not found';
@@ -173,28 +171,30 @@ function createWorkPicker(screen, config, onPick) {
     } catch (e) { return ''; }
   }
 
+  // Flatten the works into rows: the work itself (its common tasks), then its projects
+  // indented with tree glyphs.
+  function buildEntries(works) {
+    const rows = [];
+    for (const w of works) {
+      rows.push({ name: w.work, label: w.work, root: w.root });
+      w.projects.forEach((p, i) => {
+        const glyph = (i === w.projects.length - 1) ? '└─ ' : '├─ ';
+        rows.push({ name: glyph + p.name, label: `${w.work} / ${p.name}`, root: p.root });
+      });
+    }
+    return rows;
+  }
+
   function render() {
-    const works = config.getWorks();
-    if (step === 'projects') {
-      work = works.find(w => w.work === work.work) || null; // the config may have changed
-      if (!work) step = 'works';
-    }
-    if (step === 'works') {
-      header.setContent('  work');
-      entries = works.map(w => ({ name: w.work, label: w.work, root: w.root, work: w }));
-    } else {
-      header.setContent(`  ${work.work}  >  project`);
-      entries = [{ name: '(common tasks)', label: work.work, root: work.root }]
-        .concat(work.projects.map(p => ({ name: p.name, label: `${work.work} / ${p.name}`, root: p.root })));
-    }
+    entries = buildEntries(config.getWorks());
+    header.setContent('  work / project');
     const infos = entries.map(e => describe(e.root));
     const nameWidth = Math.max(4, ...entries.map(e => displayWidth(e.name)));
     const infoWidth = Math.max(4, ...infos.map(displayWidth));
     list.setItems(entries.map((e, i) =>
       `  ${formatOriginForDisplay(e.name, nameWidth)}  ${formatOriginForDisplay(infos[i], infoWidth)}  ${e.root}`));
-    list.select(Math.min(lastSelected[step], Math.max(0, entries.length - 1)));
-    const hint = (step === 'works') ? 'enter: open  q: quit' : 'enter: open  h: back  q: quit';
-    statusBar.setContent(`${hint}  \`${config.configPath}\``);
+    list.select(Math.min(lastSelected, Math.max(0, entries.length - 1)));
+    statusBar.setContent(`enter: open  r: refresh  q: quit  \`${config.configPath}\``);
     screen.render();
   }
 
@@ -206,12 +206,14 @@ function createWorkPicker(screen, config, onPick) {
   }
 
   function hide() {
-    lastSelected[step] = (typeof list.selected === 'number') ? list.selected : 0;
+    lastSelected = (typeof list.selected === 'number') ? list.selected : 0;
     header.hide(); list.hide(); statusBar.hide();
     screen.render();
   }
 
-  function openEntry(e) {
+  list.key(['enter', 'l', 'right'], () => {
+    const e = entries[list.selected];
+    if (!e) return;
     if (!isDirectory(e.root)) {
       statusBar.setContent(`Folder not found: ${e.root}`);
       screen.render();
@@ -219,27 +221,6 @@ function createWorkPicker(screen, config, onPick) {
     }
     hide();
     onPick({ label: e.label, root: e.root });
-  }
-
-  list.key(['enter', 'l', 'right'], () => {
-    const e = entries[list.selected];
-    if (!e) return;
-    if (step === 'works' && e.work.projects.length > 0) {
-      lastSelected.works = list.selected;
-      lastSelected.projects = 0;
-      step = 'projects';
-      work = e.work;
-      render();
-      return;
-    }
-    openEntry(e);
-  });
-
-  list.key(['h', 'left', 'escape'], () => {
-    if (step === 'works') return;
-    lastSelected.projects = list.selected;
-    step = 'works';
-    render();
   });
 
   list.key('r', () => render());
@@ -498,7 +479,7 @@ function createTaskView(screen, onBack) {
     '',
     '  j / k, up / down   move between tasks',
     '  h / l, left/right  go to parent / into subtasks',
-    ...(onBack ? ['  h at the top      back to the work / project list'] : []),
+    ...(onBack ? ['  h at the top      back to the work / project tree'] : []),
     '  a                  add a task (opens editor)',
     '  e / i              edit the selected task',
     '  space              preview task details',
@@ -747,7 +728,7 @@ function createTaskView(screen, onBack) {
 
     try {
       if (cwd === initialRoot) {
-        // top of this folder: never move above it; go back to the work / project list instead
+        // top of this folder: never move above it; go back to the work / project tree instead
         if (onBack) {
           close();
           onBack();
@@ -799,8 +780,54 @@ function createTaskView(screen, onBack) {
   return { open, close };
 }
 
+const USAGE = `Usage: tm [<folder> | config | help]
+
+  tm              pick a work and a project from taskmgr.json, then open its tasks
+  tm <folder>     open that folder as a task list (e.g. tm . or tm ~/tasks)
+  tm config       open taskmgr.json in the editor (created from taskmgr.json.example if missing)
+  tm help         show this help (also -h, --help)
+
+To open a folder named "config" or "help", prefix it: tm ./config
+
+The editor is EDITOR (or VISUAL) from .env / the environment; default: ${process.platform === 'win32' ? 'notepad' : 'vim'}.
+Config file: TASKMGR_CONFIG in .env / the environment, else ${DEFAULT_CONFIG_PATH}.
+Inside the task list, type :h for the key bindings.`;
+
+// `tm config`: open the config file in the editor. A missing default config is first
+// created from taskmgr.json.example, so a fresh install can be configured right away.
+function editConfig() {
+  const { configPath, source } = resolveConfigPath([]);
+  if (!fs.existsSync(configPath)) {
+    if (configPath === DEFAULT_CONFIG_PATH && fs.existsSync(EXAMPLE_CONFIG_PATH)) {
+      fs.copyFileSync(EXAMPLE_CONFIG_PATH, configPath);
+      console.log(`Created ${configPath} from taskmgr.json.example`);
+    } else {
+      console.error(`Config file not found: ${configPath} (from ${source}).`);
+      process.exit(1);
+    }
+  }
+  const { spawnSync } = require('child_process');
+  const { cmd, args } = getEditorCommand(configPath, { atEnd: false });
+  const result = spawnSync(cmd, args, { stdio: 'inherit' });
+  if (result.error) {
+    console.error(`Cannot start editor "${cmd}": ${result.error.code || result.error.message}`);
+    process.exit(1);
+  }
+  process.exit(result.status === null ? 1 : result.status);
+}
+
 function main() {
   const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (command === 'help' || command === '-h' || command === '--help') {
+    console.log(USAGE);
+    return;
+  }
+  if (command === 'config') {
+    editConfig();
+    return;
+  }
 
   // `tm <folder>`: open that folder as a task list.
   if (args.length > 0) {
@@ -811,7 +838,7 @@ function main() {
     // Check if the path exists and is a directory
     try {
       if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
-        console.error(`Error: "${providedPath}" is not a valid directory.`);
+        console.error(`Error: "${providedPath}" is not a valid directory. Run \`tm help\` for usage.`);
         process.exit(1);
       }
     } catch (error) {
@@ -824,13 +851,13 @@ function main() {
     return;
   }
 
-  // `tm`: pick a work and a project from taskmgr.json, then open its folder.
+  // `tm`: pick a work or one of its projects from the taskmgr.json tree, then open its folder.
   let config;
   try {
     config = resolveConfig([]);
   } catch (e) {
     console.error(`Error: ${e.message}`);
-    console.error('Run `tm <folder>` (for example `tm .`) to open a folder of tasks directly.');
+    console.error('Run `tm config` to edit the config, or `tm <folder>` (for example `tm .`) to open a folder of tasks directly.');
     process.exit(1);
   }
 
