@@ -58,7 +58,7 @@ Setup
 -----
 
 .env  
-`EDITOR=nvim`  
+`EDITOR=vim` (default when EDITOR is not set)  
 Available editors: `vim`, `nvim`, `subl`(Sublime Text), `notepad`  
 
 
