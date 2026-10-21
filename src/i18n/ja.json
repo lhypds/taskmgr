@@ -148,6 +148,10 @@
     "command": {
       "keys": ":",
       "desc": "コマンドモード（:h または :help でこの画面）"
+    },
+    "quit": {
+      "keys": ":q / :quit",
+      "desc": "ログアウト"
     }
   },
   "login": {

@@ -1,9 +1,9 @@
 
-taskmgr
-=======
+tim
+===
 
 
-Task management tool.
+Task manager improved.  
 
 
 How It Works
@@ -192,12 +192,10 @@ Refresh the task list.
 p  
 Pending a task.  
 
-q  
-Quit the application.  
-
 :  
 Enter command mode (like Vim). Supported commands:  
 `:h` or `:help` shows a help popup with all shortcuts.  
+`:q` or `:quit` quits the application; in a task list opened from the work / project tree it goes back to the tree instead.
 
 
 Gestures

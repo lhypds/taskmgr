@@ -4,7 +4,8 @@ import { register } from "./toastApi";
 
 const POSITION_STYLES = {
   top: { top: 24, bottom: "auto" },
-  bottom: { bottom: 24, top: "auto" },
+  // rests on the status bar's top border (24px bar + the hairline)
+  bottom: { bottom: "calc(24px + var(--line))", top: "auto" },
 };
 
 const Toast = () => {

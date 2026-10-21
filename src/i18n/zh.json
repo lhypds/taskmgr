@@ -148,6 +148,10 @@
     "command": {
       "keys": ":",
       "desc": "命令模式（:h 或 :help 显示此帮助）"
+    },
+    "quit": {
+      "keys": ":q / :quit",
+      "desc": "退出登录"
     }
   },
   "login": {

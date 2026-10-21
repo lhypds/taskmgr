@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SpaceTree, TaskList, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, LanguageSwitcher, UserMenu } from "@components";
 import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon } from "@components/icons";
 import { showToast } from "@ui";
+import { useAuth } from "@store";
 import * as api from "@utils/api";
 import { labelList } from "@utils/task";
 import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
@@ -33,6 +34,7 @@ function writeFlag(key, value) {
 // project) and the folder inside it in ?dir=, so back/forward and reload keep both.
 export default function Home() {
   const { t } = useTranslation();
+  const { logout } = useAuth();
   const { work = "", project = "" } = useParams();
   const space = useMemo(() => (work ? { work, project } : null), [work, project]);
   const spaceTo = work ? api.spacePath(work, project) : null;
@@ -239,6 +241,8 @@ export default function Home() {
     const cmd = raw.trim();
     if (!cmd) return;
     if (cmd === "h" || cmd === "help") setHelp(true);
+    // a page cannot close its own tab, so quitting means logging out
+    else if (cmd === "q" || cmd === "quit") logout();
     else showToast(t("toast.notCommand", { cmd }));
   }
 

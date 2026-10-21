@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
-import { Modal } from "@ui";
+import { Modal, TextArea } from "@ui";
 import { TrashIcon, ChevronRightIcon } from "@components/icons";
 import Attachments, { useTaskFiles } from "@components/Attachments";
 import * as api from "@utils/api";
@@ -65,9 +65,10 @@ export default function TaskEditorModal({ isOpen, space, task, saving, onCancel,
   return (
     <Modal isOpen={isOpen} onClose={onCancel} title={task ? task.title || t("common.untitled") : t("editor.newTask")} closeOnOverlay={false} className={styles.modal}>
       <form className={styles.form} onSubmit={submit} onKeyDown={onKeyDown}>
-        <textarea
+        <TextArea
           ref={textRef}
-          className={`textarea ${styles.text}`}
+          className={styles.text}
+          minHeight={320}
           value={text ?? ""}
           placeholder={text === null ? t("common.loading") : ""}
           disabled={text === null}
@@ -96,7 +97,7 @@ export default function TaskEditorModal({ isOpen, space, task, saving, onCancel,
                   {t("common.subtasks")}
                 </button>
               )}
-              <button type="button" className="btn danger" onClick={() => onDelete(task)}>
+              <button type="button" className="btn" onClick={() => onDelete(task)}>
                 <TrashIcon />
                 {t("common.delete")}
               </button>

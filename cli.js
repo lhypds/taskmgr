@@ -141,6 +141,95 @@ function quit(screen) {
   process.exit(0);
 }
 
+// Vim-style command line in a status bar (created with `input: true`): enter() turns the bar
+// into a ':' prompt. Keys are read directly (no textbox) and the buffer is drawn in the bar.
+// Enter runs onRun(cmd), which returns false for an unknown command; esc, ctrl-c or backspace
+// on empty leave. onExit restores the focus and the bar's usual content.
+function createCommandLine(screen, statusBar, { onRun, onExit }) {
+  let active = false;
+  let buffer = '';
+
+  function draw() {
+    statusBar.setContent(':' + buffer);
+    try { screen.render(); } catch (e) { }
+    // put the terminal cursor right after the typed text
+    try {
+      let col = 1;
+      for (const ch of buffer) col += isCJKChar(ch) ? 2 : 1;
+      screen.program.cup(screen.height - 1, col);
+      screen.program.showCursor();
+    } catch (e) { }
+  }
+
+  function enter() {
+    active = true;
+    buffer = '';
+    screen.grabKeys = true; // suppress all screen-level shortcuts
+    try { statusBar.focus(); } catch (e) { }
+    draw();
+  }
+
+  function exit() {
+    active = false;
+    buffer = '';
+    screen.grabKeys = false;
+    try { screen.program.hideCursor(); } catch (e) { }
+    onExit();
+  }
+
+  statusBar.on('keypress', (ch, key) => {
+    if (!active) return;
+    const name = (key && key.name) || '';
+    if (name === 'return') return; // blessed emits 'return' and 'enter' for the same key
+    if (name === 'escape' || (key && key.ctrl && name === 'c')) { exit(); return; }
+    if (name === 'enter') {
+      const cmd = buffer.trim();
+      exit();
+      if (cmd && onRun(cmd) === false) {
+        // unknown command: show a short message in the status bar until the next refresh
+        statusBar.setContent(`Not a command: ${cmd}`);
+        try { screen.render(); } catch (e) { }
+      }
+      return;
+    }
+    if (name === 'backspace') {
+      if (!buffer) { exit(); return; } // like vim: backspace on empty leaves
+      buffer = buffer.slice(0, -1);
+      draw();
+      return;
+    }
+    if (key && (key.ctrl || key.meta)) return;
+    if (ch && !/^[\x00-\x1f\x7f]$/.test(ch)) {
+      buffer += ch;
+      draw();
+    }
+  });
+
+  return { enter, isActive: () => active };
+}
+
+// Centered help popup, focused; q, esc, enter or space call onClose, which destroys it.
+function createHelpBox(screen, text, onClose) {
+  const lines = text.split('\n');
+  const width = Math.max(...lines.map(l => l.length)) + 4; // text + border + padding
+  const box = blessed.box({
+    parent: screen,
+    top: 'center', left: 'center',
+    width: Math.min(width, screen.width - 2),
+    height: Math.min(lines.length + 2, screen.height - 2),
+    content: text,
+    padding: { left: 1, right: 1 },
+    scrollable: true, alwaysScroll: true,
+    border: { type: 'line' },
+    keys: true, mouse: true,
+    style: { fg: 'white', bg: 'black', border: { fg: MODAL_BORDER_COLOR } }
+  });
+  box.key(['q', 'escape', 'enter', 'space'], onClose);
+  try { box.focus(); } catch (e) { }
+  try { screen.render(); } catch (e) { }
+  return box;
+}
+
 // Work / project tree shown by a bare `tm`: every work of taskmgr.json with its projects
 // nested beneath it, each row being one folder of tasks. onPick({ label, root }) opens one.
 function createWorkPicker(screen, config, onPick) {
@@ -159,7 +248,9 @@ function createWorkPicker(screen, config, onPick) {
   const statusBar = blessed.box({
     parent: screen,
     bottom: 0, left: 0, height: 1, width: '100%',
-    content: '', style: STATUS_BAR_STYLE, hidden: true
+    content: '',
+    input: true, // keyable: receives keypresses while in command mode
+    style: STATUS_BAR_STYLE, hidden: true
   });
 
   let entries = [];     // one per list row: { name, label, root }
@@ -196,7 +287,11 @@ function createWorkPicker(screen, config, onPick) {
     list.setItems(entries.map((e, i) =>
       `  ${formatOriginForDisplay(e.name, nameWidth)}  ${formatOriginForDisplay(infos[i], infoWidth)}  ${e.root}`));
     list.select(Math.min(lastSelected, Math.max(0, entries.length - 1)));
-    statusBar.setContent(`enter: open  r: refresh  q: quit  \`${config.configPath}\``);
+    showStatus();
+  }
+
+  function showStatus() {
+    statusBar.setContent(`enter: open  e: edit config  r: refresh  :h help  :q quit  \`${config.configPath}\``);
     screen.render();
   }
 
@@ -226,6 +321,60 @@ function createWorkPicker(screen, config, onPick) {
   });
 
   list.key('r', () => render());
+
+  // Edit taskmgr.json in the editor, suspending the TUI; the tree is re-read afterwards.
+  list.key('e', () => {
+    const { spawnSync } = require('child_process');
+    const { cmd, args } = getEditorCommand(config.configPath, { atEnd: false });
+    try { screen.leave(); } catch (e) { }
+    const result = spawnSync(cmd, args, { stdio: 'inherit' });
+    try {
+      if (typeof screen.enter === 'function') screen.enter();
+      else if (screen.program && typeof screen.program.enter === 'function') screen.program.enter();
+    } catch (e) { }
+    try { screen.realloc(); } catch (e) { }
+    render();
+    if (result.error) {
+      statusBar.setContent(`Cannot start editor "${cmd}": ${result.error.code || result.error.message}`);
+      screen.render();
+    }
+  });
+
+  const HELP_TEXT = [
+    ' taskmgr work / project tree',
+    '',
+    '  j / k, up / down   move between works and projects',
+    '  enter / l / right  open its tasks',
+    '  e                  edit taskmgr.json',
+    '  r                  refresh the tree',
+    '  :                  command mode  (:h or :help shows this)',
+    '  :q / :quit         quit',
+    '',
+    ' press q, esc or enter to close'
+  ].join('\n');
+
+  let helpBox = null;
+  function closeHelp() {
+    if (!helpBox) return;
+    try { helpBox.destroy(); } catch (e) { }
+    helpBox = null;
+    try { list.focus(); } catch (e) { }
+    screen.render();
+  }
+
+  const commandLine = createCommandLine(screen, statusBar, {
+    onRun(cmd) {
+      if (cmd === 'h' || cmd === 'help') helpBox = createHelpBox(screen, HELP_TEXT, closeHelp);
+      else if (cmd === 'q' || cmd === 'quit') quit(screen);
+      else return false;
+    },
+    onExit() {
+      try { list.focus(); } catch (e) { }
+      showStatus();
+    }
+  });
+
+  list.key(':', () => commandLine.enter());
 
   return { show, hide };
 }
@@ -264,10 +413,8 @@ function createTaskView(screen, onBack) {
     hidden: true
   });
 
-  let isCommandMode = false;
-
   function updateStatusBar(tasks) {
-    if (isCommandMode) return; // keep the typed command visible
+    if (commandLine.isActive()) return; // keep the typed command visible
     const ts = tasks || list.tasksData || [];
 
     // Show: <counters> [work / project] `path-to-task-folder` <editor>
@@ -295,7 +442,7 @@ function createTaskView(screen, onBack) {
   const noTasksBox = blessed.box({
     parent: screen,
     top: 'center', left: 'center', width: 'shrink', height: 'shrink',
-    content: 'No tasks found. Press `a` to add a task, or `q` to quit.',
+    content: 'No tasks found. Press `a` to add a task, or `:q` to quit.',
     border: { type: 'line' },
     style: { border: { fg: 'gray' } },
     hidden: true
@@ -405,12 +552,8 @@ function createTaskView(screen, onBack) {
   }
 
   // Shortcuts
-  // 1. Exit the application (also from the picker)
-  screen.key(['q', 'C-c'], () => {
-    // do not quit if preview is open: q closes the preview instead
-    if (active && isPreviewing) return;
-    quit(screen);
-  });
+  // 1. Exit the application (also from the picker); :q / :quit go through the command line
+  screen.key('C-c', () => quit(screen));
 
   // 2. Refresh the task list
   taskKey('l', () => {
@@ -514,7 +657,7 @@ function createTaskView(screen, onBack) {
   }
 
   taskKey('a', () => {
-    if (isPreviewing || isNaming || isCommandMode) return;
+    if (isPreviewing || isNaming || commandLine.isActive()) return;
     openNameModal();
   });
 
@@ -568,106 +711,39 @@ function createTaskView(screen, onBack) {
     '  d                  delete the selected task',
     '  r                  refresh the task list',
     '  :                  command mode  (:h or :help shows this)',
-    '  q                  quit',
+    onBack ? '  :q / :quit         back to the work / project tree' : '  :q / :quit         quit',
     '',
     ' press q, esc or enter to close'
   ].join('\n');
 
   function showHelp() {
     if (isPreviewing) closePreview();
-    const helpLines = HELP_TEXT.split('\n');
-    const helpWidth = Math.max(...helpLines.map(l => l.length)) + 4; // text + border + padding
-    previewBox = blessed.box({
-      parent: screen,
-      top: 'center', left: 'center',
-      width: Math.min(helpWidth, screen.width - 2),
-      height: Math.min(helpLines.length + 2, screen.height - 2),
-      content: HELP_TEXT,
-      padding: { left: 1, right: 1 },
-      scrollable: true, alwaysScroll: true,
-      border: { type: 'line' },
-      keys: true, mouse: true,
-      style: { fg: 'white', bg: 'black', border: { fg: MODAL_BORDER_COLOR } }
-    });
-    isPreviewing = true; // reuse the preview guards so other shortcuts stay inactive
-    previewBox.key(['q', 'escape', 'enter', 'space'], closePreview);
     try { list.blur(); } catch (e) { }
-    try { previewBox.focus(); } catch (e) { }
-    try { screen.render(); } catch (e) { }
+    previewBox = createHelpBox(screen, HELP_TEXT, closePreview);
+    isPreviewing = true; // reuse the preview guards so other shortcuts stay inactive
   }
 
   // 6.2. Command mode, vim style: ':' turns the status bar into a command line.
-  // Keys are read directly (no textbox) and the buffer is drawn in the status bar.
-  let cmdBuffer = '';
-
-  function drawCommandLine() {
-    statusBar.setContent(':' + cmdBuffer);
-    try { screen.render(); } catch (e) { }
-    // put the terminal cursor right after the typed text
-    try {
-      let col = 1;
-      for (const ch of cmdBuffer) col += isCJKChar(ch) ? 2 : 1;
-      screen.program.cup(screen.height - 1, col);
-      screen.program.showCursor();
-    } catch (e) { }
-  }
-
-  function enterCommandMode() {
-    isCommandMode = true;
-    cmdBuffer = '';
-    screen.grabKeys = true; // suppress all screen-level shortcuts
-    try { statusBar.focus(); } catch (e) { }
-    drawCommandLine();
-  }
-
-  function exitCommandMode() {
-    isCommandMode = false;
-    cmdBuffer = '';
-    screen.grabKeys = false;
-    try { screen.program.hideCursor(); } catch (e) { }
-    try { list.focus(); } catch (e) { }
-    updateStatusBar();
-  }
-
-  function runCommand(raw) {
-    const cmd = (raw || '').trim();
-    if (!cmd) return;
-    if (cmd === 'h' || cmd === 'help') {
-      showHelp();
-      return;
-    }
-    // unknown command: show a short message in the status bar until the next refresh
-    statusBar.setContent(`Not a command: ${cmd}`);
-    try { screen.render(); } catch (e) { }
-  }
-
-  statusBar.on('keypress', (ch, key) => {
-    if (!isCommandMode) return;
-    const name = (key && key.name) || '';
-    if (name === 'return') return; // blessed emits 'return' and 'enter' for the same key
-    if (name === 'escape' || (key && key.ctrl && name === 'c')) { exitCommandMode(); return; }
-    if (name === 'enter') {
-      const cmd = cmdBuffer;
-      exitCommandMode();
-      runCommand(cmd);
-      return;
-    }
-    if (name === 'backspace') {
-      if (!cmdBuffer) { exitCommandMode(); return; } // like vim: backspace on empty leaves
-      cmdBuffer = cmdBuffer.slice(0, -1);
-      drawCommandLine();
-      return;
-    }
-    if (key && (key.ctrl || key.meta)) return;
-    if (ch && !/^[\x00-\x1f\x7f]$/.test(ch)) {
-      cmdBuffer += ch;
-      drawCommandLine();
+  const commandLine = createCommandLine(screen, statusBar, {
+    onRun(cmd) {
+      if (cmd === 'h' || cmd === 'help') showHelp();
+      else if (cmd === 'q' || cmd === 'quit') {
+        // opened from the work / project tree: go back to it; `tm <folder>`: quit
+        if (onBack) {
+          close();
+          onBack();
+        } else quit(screen);
+      } else return false;
+    },
+    onExit() {
+      try { list.focus(); } catch (e) { }
+      updateStatusBar();
     }
   });
 
   taskKey(':', () => {
-    if (isPreviewing || isCommandMode) return;
-    enterCommandMode();
+    if (isPreviewing || commandLine.isActive()) return;
+    commandLine.enter();
   });
 
   taskKey('space', () => {

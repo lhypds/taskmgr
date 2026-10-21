@@ -148,6 +148,10 @@
     "command": {
       "keys": ":",
       "desc": "command mode  (:h or :help shows this)"
+    },
+    "quit": {
+      "keys": ":q / :quit",
+      "desc": "log out"
     }
   },
   "login": {
