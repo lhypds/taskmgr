@@ -15,6 +15,7 @@ const {
 } = require('./utils/taskUtils');
 const { clearScreen } = require('./utils/screenUtils');
 const { getEditor, getEditorInfo, getEditorCommand } = require('./utils/editorUtils');
+const { resolveConfig } = require('./server/config');
 
 // load .env
 const path = require('path');
@@ -100,56 +101,175 @@ function renderList(screen, list, tasks, selected) {
   screen.render();
 }
 
-function main() {
-  // Allow changing cwd when navigating into task folders
-  // Check if a path argument was provided
-  const args = process.argv.slice(2);
-  let cwd = process.cwd();
+// Width of a string in terminal cells (CJK characters take two).
+function displayWidth(s) {
+  let w = 0;
+  for (const ch of (s || '').toString()) w += isCJKChar(ch) ? 2 : 1;
+  return w;
+}
 
-  if (args.length > 0) {
-    const providedPath = args[0];
-    // Resolve the path (handles relative paths)
-    const resolvedPath = path.resolve(providedPath);
+function isDirectory(p) {
+  try { return fs.statSync(p).isDirectory(); } catch (e) { return false; }
+}
 
-    // Check if the path exists and is a directory
-    try {
-      if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
-        cwd = resolvedPath;
-      } else {
-        console.error(`Error: "${providedPath}" is not a valid directory.`);
-        process.exit(1);
-      }
-    } catch (error) {
-      console.error(`Error: Cannot access "${providedPath}": ${error.message}`);
-      process.exit(1);
-    }
+function countTasks(dir) {
+  const counts = { todo: 0, done: 0, pending: 0 };
+  for (const t of readTasks(dir)) {
+    const st = (t.status || '').toLowerCase();
+    if (st === 'done') counts.done++;
+    else if (st === 'pending') counts.pending++;
+    else counts.todo++;
   }
+  return counts;
+}
 
-  const initialRoot = cwd; // do not allow navigating above this directory
+// Claude-like orange for the selected row (blessed maps hex to the nearest terminal color)
+const SELECTED_STYLE = { bg: '#DA7756', fg: 'white', bold: true };
+const STATUS_BAR_STYLE = (process.platform === 'win32')
+  ? { bg: 'green', fg: 'white' }
+  : { bg: 'gray', fg: 'black' };
 
-  // Create the screen
-  const screen = blessed.screen({ smartCSR: true, title: 'taskmgr', fullUnicode: true, mouse: true });
+function createScreen() {
+  return blessed.screen({ smartCSR: true, title: 'taskmgr', fullUnicode: true, mouse: true });
+}
 
-  // Header row (always visible)
+function quit(screen) {
+  try { screen.destroy(); } catch (e) { }
+  clearScreen();
+  process.exit(0);
+}
+
+// Work / project picker shown by a bare `tm`: first the works of taskmgr.json, then the
+// projects of the chosen work (its common tasks first). onPick({ label, root }) opens one.
+function createWorkPicker(screen, config, onPick) {
   const header = blessed.box({
     parent: screen,
     top: 0, left: 0, height: 1, width: '100%',
-    content: '     id            origin    edit_at       task'
+    content: '', hidden: true
+  });
+  const list = blessed.list({
+    parent: screen,
+    top: 1, left: 0, width: '100%', height: '100%-2',
+    keys: true, vi: true, mouse: true,
+    style: { selected: SELECTED_STYLE },
+    hidden: true
+  });
+  const statusBar = blessed.box({
+    parent: screen,
+    bottom: 0, left: 0, height: 1, width: '100%',
+    content: '', style: STATUS_BAR_STYLE, hidden: true
   });
 
-  // Claude-like orange for the selected row (blessed maps hex to the nearest terminal color)
-  const selectedStyle = { bg: '#DA7756', fg: 'white', bold: true };
+  let step = 'works';   // 'works' | 'projects'
+  let work = null;      // the work whose projects are listed (step 'projects')
+  let entries = [];     // one per list row: { name, label, root, work? }
+  const lastSelected = { works: 0, projects: 0 };
+
+  function describe(root) {
+    if (!isDirectory(root)) return 'folder not found';
+    try {
+      const c = countTasks(root);
+      return `todo:${c.todo} done:${c.done} pending:${c.pending}`;
+    } catch (e) { return ''; }
+  }
+
+  function render() {
+    const works = config.getWorks();
+    if (step === 'projects') {
+      work = works.find(w => w.work === work.work) || null; // the config may have changed
+      if (!work) step = 'works';
+    }
+    if (step === 'works') {
+      header.setContent('  work');
+      entries = works.map(w => ({ name: w.work, label: w.work, root: w.root, work: w }));
+    } else {
+      header.setContent(`  ${work.work}  >  project`);
+      entries = [{ name: '(common tasks)', label: work.work, root: work.root }]
+        .concat(work.projects.map(p => ({ name: p.name, label: `${work.work} / ${p.name}`, root: p.root })));
+    }
+    const infos = entries.map(e => describe(e.root));
+    const nameWidth = Math.max(4, ...entries.map(e => displayWidth(e.name)));
+    const infoWidth = Math.max(4, ...infos.map(displayWidth));
+    list.setItems(entries.map((e, i) =>
+      `  ${formatOriginForDisplay(e.name, nameWidth)}  ${formatOriginForDisplay(infos[i], infoWidth)}  ${e.root}`));
+    list.select(Math.min(lastSelected[step], Math.max(0, entries.length - 1)));
+    const hint = (step === 'works') ? 'enter: open  q: quit' : 'enter: open  h: back  q: quit';
+    statusBar.setContent(`${hint}  \`${config.configPath}\``);
+    screen.render();
+  }
+
+  function show() {
+    header.show(); list.show(); statusBar.show();
+    render();
+    try { list.focus(); } catch (e) { }
+    screen.render();
+  }
+
+  function hide() {
+    lastSelected[step] = (typeof list.selected === 'number') ? list.selected : 0;
+    header.hide(); list.hide(); statusBar.hide();
+    screen.render();
+  }
+
+  function openEntry(e) {
+    if (!isDirectory(e.root)) {
+      statusBar.setContent(`Folder not found: ${e.root}`);
+      screen.render();
+      return;
+    }
+    hide();
+    onPick({ label: e.label, root: e.root });
+  }
+
+  list.key(['enter', 'l', 'right'], () => {
+    const e = entries[list.selected];
+    if (!e) return;
+    if (step === 'works' && e.work.projects.length > 0) {
+      lastSelected.works = list.selected;
+      lastSelected.projects = 0;
+      step = 'projects';
+      work = e.work;
+      render();
+      return;
+    }
+    openEntry(e);
+  });
+
+  list.key(['h', 'left', 'escape'], () => {
+    if (step === 'works') return;
+    lastSelected.projects = list.selected;
+    step = 'works';
+    render();
+  });
+
+  list.key('r', () => render());
+
+  return { show, hide };
+}
+
+// The task list of one folder. Created once; open(root, label) shows it for that folder.
+// `h` at the top of the folder calls onBack (when given) after hiding the view.
+function createTaskView(screen, onBack) {
+  let cwd = process.cwd();
+  let initialRoot = cwd; // do not allow navigating above this directory
+  let spaceLabel = '';   // "work" or "work / project" when opened from the picker
+  let active = false;
+
+  // Header row (always visible while the view is active)
+  const header = blessed.box({
+    parent: screen,
+    top: 0, left: 0, height: 1, width: '100%',
+    content: '     id            origin    edit_at       task',
+    hidden: true
+  });
 
   const list = blessed.list({
     parent: screen,
     top: 1, left: 0, width: '100%', height: '100%-1',
     keys: true, vi: true, mouse: true,
-    style: { selected: selectedStyle }
+    style: { selected: SELECTED_STYLE },
+    hidden: true
   });
-
-  const statusBarStyle = (process.platform === 'win32')
-    ? { bg: 'green', fg: 'white' }
-    : { bg: 'gray', fg: 'black' };
 
   // status bar shown at the bottom of the screen
   const statusBar = blessed.box({
@@ -157,7 +277,8 @@ function main() {
     bottom: 0, left: 0, height: 1, width: '100%',
     content: '',
     input: true, // keyable: receives keypresses while in command mode
-    style: statusBarStyle
+    style: STATUS_BAR_STYLE,
+    hidden: true
   });
 
   let isCommandMode = false;
@@ -165,9 +286,8 @@ function main() {
   function updateStatusBar(tasks) {
     if (isCommandMode) return; // keep the typed command visible
     const ts = tasks || list.tasksData || [];
-    const total = ts.length;
 
-    // Show: <counters> `path-to-task-folder` <editor>
+    // Show: <counters> [work / project] `path-to-task-folder` <editor>
     const editor = getEditor();
 
     // counters for statuses: todo (including empty), done, pending
@@ -180,10 +300,11 @@ function main() {
     }
 
     const counterString = `todo:${todoCount} done:${doneCount} pending:${pendingCount}`;
+    const spaceString = spaceLabel ? ` [${spaceLabel}]` : '';
     const pathString = ' ' + '`' + cwd + '`';
     const { missing } = getEditorInfo();
     const editorString = ' ' + editor + (missing ? ` (EDITOR=${missing} not found)` : '');
-    statusBar.setContent(counterString + pathString + editorString);
+    statusBar.setContent(counterString + spaceString + pathString + editorString);
     try { screen.render(); } catch (e) { }
   }
 
@@ -249,7 +370,32 @@ function main() {
     // Update the status bar
     updateStatusBar(tasks);
   }
-  refresh(0);
+
+  function open(root, label) {
+    cwd = root;
+    initialRoot = root;
+    spaceLabel = label || '';
+    active = true;
+    try { header.show(); } catch (e) { }
+    try { list.show(); } catch (e) { }
+    try { statusBar.show(); } catch (e) { }
+    refresh(0);
+    try { list.focus(); } catch (e) { }
+    screen.render();
+  }
+
+  function close() {
+    active = false;
+    for (const w of [header, list, statusBar, noTasksBox]) {
+      try { w.hide(); } catch (e) { }
+    }
+    screen.render();
+  }
+
+  // Shortcuts of this view only fire while it is shown (the picker shares the screen).
+  function taskKey(keys, fn) {
+    screen.key(keys, (...a) => { if (!active) return; fn(...a); });
+  }
 
   // Open a task file in the editor, suspending the TUI while it runs.
   // Returns false (and shows a message) if the editor could not be started.
@@ -275,18 +421,15 @@ function main() {
   }
 
   // Shortcuts
-  // 1. Exit the application
+  // 1. Exit the application (also from the picker)
   screen.key(['q', 'C-c'], () => {
-    // do not toggle pending if preview is open
-    if (isPreviewing) return;
-
-    try { screen.destroy(); } catch (e) { }
-    clearScreen();
-    process.exit(0);
+    // do not quit if preview is open: q closes the preview instead
+    if (active && isPreviewing) return;
+    quit(screen);
   });
 
   // 2. Refresh the task list
-  screen.key('l', () => {
+  taskKey('l', () => {
     // do not toggle pending if preview is open
     if (isPreviewing) return;
 
@@ -294,7 +437,7 @@ function main() {
   });
 
   // 3. Refresh the task list
-  screen.key('r', () => {
+  taskKey('r', () => {
     // do not toggle pending if preview is open
     if (isPreviewing) return;
 
@@ -304,7 +447,7 @@ function main() {
   });
 
   // 4. Add a new task (or open the existing task for the current minute)
-  screen.key('a', () => {
+  taskKey('a', () => {
     // do not toggle pending if preview is open
     if (isPreviewing) return;
 
@@ -316,10 +459,10 @@ function main() {
   });
 
   // 5. Edit a task
-  screen.key('e', () => {
+  function editSelected() {
     // Close preview if it's open
     if (isPreviewing) {
-      closePreview()
+      closePreview();
     }
 
     const tasks = list.tasksData || readTasks(cwd);
@@ -329,21 +472,9 @@ function main() {
       try { list.focus(); } catch (e) { }
       if (ok) refresh(list.selected);
     }
-  });
-  screen.key('i', () => {
-    // Close preview if it's open
-    if (isPreviewing) {
-      closePreview()
-    }
-
-    const tasks = list.tasksData || readTasks(cwd);
-    const t = tasks[list.selected];
-    if (t) {
-      const ok = openInEditor(t.path);
-      try { list.focus(); } catch (e) { }
-      if (ok) refresh(list.selected);
-    }
-  });
+  }
+  taskKey('e', editSelected);
+  taskKey('i', editSelected);
 
   // 6. Preview task content on space (previously toggled done)
   let previewBox = null;
@@ -367,6 +498,7 @@ function main() {
     '',
     '  j / k, up / down   move between tasks',
     '  h / l, left/right  go to parent / into subtasks',
+    ...(onBack ? ['  h at the top      back to the work / project list'] : []),
     '  a                  add a task (opens editor)',
     '  e / i              edit the selected task',
     '  space              preview task details',
@@ -473,12 +605,12 @@ function main() {
     }
   });
 
-  screen.key(':', () => {
+  taskKey(':', () => {
     if (isPreviewing || isCommandMode) return;
     enterCommandMode();
   });
 
-  screen.key('space', () => {
+  taskKey('space', () => {
     // If a preview is open, close it (toggle behavior)
     if (isPreviewing && previewBox) {
       closePreview();
@@ -523,14 +655,7 @@ function main() {
     isPreviewing = true;
 
     // Close preview with common keys and restore focus
-    previewBox.key(['q', 'escape', 'enter', 'space'], () => {
-      try { previewBox.hide(); } catch (e) { }
-      try { previewBox.destroy(); } catch (e) { }
-      previewBox = null;
-      isPreviewing = false;
-      try { list.focus(); } catch (e) { }
-      try { screen.render(); } catch (e) { }
-    });
+    previewBox.key(['q', 'escape', 'enter', 'space'], closePreview);
 
     // Ensure list doesn't capture keys while preview is open
     try { list.blur(); } catch (e) { }
@@ -538,19 +663,16 @@ function main() {
     try { screen.render(); } catch (e) { }
   });
 
-  // 6.5. Toggle pending status with 'p' — mark pending/todo and refresh ordering
-  screen.key('p', () => {
-    // do not toggle pending if preview is open
-    if (isPreviewing) return;
-
+  // Toggle a status on the selected task and keep it selected in the new ordering.
+  function toggleStatus(status) {
     const tasks = list.tasksData || readTasks(cwd);
     const cur = (typeof list.selected === 'number') ? list.selected : 0;
     const t = tasks[cur];
     if (!t) return;
     const id = t.id;
 
-    if ((t.status || '').toLowerCase() !== 'pending') {
-      markTask(t, 'pending');
+    if ((t.status || '').toLowerCase() !== status) {
+      markTask(t, status);
     } else {
       markTask(t, 'todo');
     }
@@ -562,11 +684,18 @@ function main() {
     const sel = idx >= 0 ? idx : Math.min(cur, newTasks.length - 1);
     try { list.select(sel); } catch (e) { }
     try { screen.render(); } catch (e) { }
+  }
+
+  // 6.5. Toggle pending status with 'p' — mark pending/todo and refresh ordering
+  taskKey('p', () => {
+    // do not toggle pending if preview is open
+    if (isPreviewing) return;
+    toggleStatus('pending');
   });
 
   // 7. Open current task folder
-  screen.key('enter', () => {
-    // do not toggle pending if preview is open
+  taskKey('enter', () => {
+    // do not open if preview is open
     if (isPreviewing) return;
 
     const tasks = list.tasksData || readTasks(cwd);
@@ -575,8 +704,8 @@ function main() {
   });
 
   // 8. Delete a task
-  screen.key('d', () => {
-    // do not toggle pending if preview is open
+  taskKey('d', () => {
+    // do not delete if preview is open
     if (isPreviewing) return;
 
     const tasks = list.tasksData || readTasks(cwd);
@@ -588,50 +717,17 @@ function main() {
   });
 
   // 8.5. Mark task as done
-  screen.key('x', () => {
-    // do not toggle pending if preview is open
+  taskKey('x', () => {
+    // do not toggle done if preview is open
     if (isPreviewing) return;
-
-    const tasks = list.tasksData || readTasks(cwd);
-    const cur = (typeof list.selected === 'number') ? list.selected : 0;
-    const t = tasks[cur];
-    if (!t) return;
-    const id = t.id;
-
-    if ((t.status || '').toLowerCase() !== 'done') {
-      markTask(t, 'done');
-    } else {
-      markTask(t, 'todo');
-    }
-
-    // refresh list and re-select the same task by id in new ordering
-    refresh();
-    const newTasks = list.tasksData || readTasks(cwd);
-    const idx = newTasks.findIndex(x => x.id === id);
-    const sel = idx >= 0 ? idx : Math.min(cur, newTasks.length - 1);
-    try { list.select(sel); } catch (e) { }
-    try { screen.render(); } catch (e) { }
+    toggleStatus('done');
   });
 
   // 9. Change current working directory
-  // - Right arrow: change cwd into the selected task's folder (the directory containing the task file)
-  // - Left arrow: go up to the parent directory
-  screen.key(['right'], () => {
-    // do not toggle pending if preview is open
-    if (isPreviewing) return;
-
-    try {
-      const tasks = list.tasksData || readTasks(cwd);
-      const t = tasks[list.selected];
-      if (!t || !t.path) return;
-      const newCwd = path.dirname(t.path);
-      if (!newCwd || newCwd === cwd) return;
-      cwd = newCwd;
-      refresh(0);
-    } catch (e) { /* ignore */ }
-  });
-  screen.key(['l'], () => {
-    // do not toggle pending if preview is open
+  // - Right arrow / l: change cwd into the selected task's folder (the directory containing the task file)
+  // - Left arrow / h: go up to the parent directory; at the top, back to the picker (when there is one)
+  taskKey(['right', 'l'], () => {
+    // do not navigate if preview is open
     if (isPreviewing) return;
 
     try {
@@ -645,29 +741,19 @@ function main() {
     } catch (e) { /* ignore */ }
   });
 
-  screen.key(['left'], () => {
-    // do not toggle pending if preview is open
+  taskKey(['left', 'h'], () => {
+    // do not navigate if preview is open
     if (isPreviewing) return;
 
     try {
-      const parent = path.dirname(cwd);
-      if (!parent || parent === cwd) return;
-      // prevent moving above the initial root directory where the program started
-      const rel = path.relative(initialRoot, parent);
-      if (rel === '' || (!rel.startsWith('..'))) {
-        // parent is inside or equal to initialRoot -> allow
-        cwd = parent;
-        refresh(0);
-      } else {
-        // parent would be outside initialRoot -> ignore
+      if (cwd === initialRoot) {
+        // top of this folder: never move above it; go back to the work / project list instead
+        if (onBack) {
+          close();
+          onBack();
+        }
+        return;
       }
-    } catch (e) { /* ignore */ }
-  });
-  screen.key(['h'], () => {
-    // do not toggle pending if preview is open
-    if (isPreviewing) return;
-
-    try {
       const parent = path.dirname(cwd);
       if (!parent || parent === cwd) return;
       // prevent moving above the initial root directory where the program started
@@ -676,8 +762,6 @@ function main() {
         // parent is inside or equal to initialRoot -> allow
         cwd = parent;
         refresh(0);
-      } else {
-        // parent would be outside initialRoot -> ignore
       }
     } catch (e) { /* ignore */ }
   });
@@ -698,7 +782,7 @@ function main() {
 
   // Handle mouse wheel events on both screen and list (covers more terminals, incl. some Windows hosts)
   function onMouseWheel(data) {
-    if (!data) return;
+    if (!active || !data) return;
     const action = data.action || data.type || '';
     const button = data.button || '';
     // common names: 'wheelup' / 'wheeldown', also some terminals use button values
@@ -712,8 +796,48 @@ function main() {
   screen.on('mouse', onMouseWheel);
   list.on('mouse', onMouseWheel);
 
-  list.focus();
-  screen.render();
+  return { open, close };
+}
+
+function main() {
+  const args = process.argv.slice(2);
+
+  // `tm <folder>`: open that folder as a task list.
+  if (args.length > 0) {
+    const providedPath = args[0];
+    // Resolve the path (handles relative paths)
+    const resolvedPath = path.resolve(providedPath);
+
+    // Check if the path exists and is a directory
+    try {
+      if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
+        console.error(`Error: "${providedPath}" is not a valid directory.`);
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error(`Error: Cannot access "${providedPath}": ${error.message}`);
+      process.exit(1);
+    }
+
+    const screen = createScreen();
+    createTaskView(screen, null).open(resolvedPath, '');
+    return;
+  }
+
+  // `tm`: pick a work and a project from taskmgr.json, then open its folder.
+  let config;
+  try {
+    config = resolveConfig([]);
+  } catch (e) {
+    console.error(`Error: ${e.message}`);
+    console.error('Run `tm <folder>` (for example `tm .`) to open a folder of tasks directly.');
+    process.exit(1);
+  }
+
+  const screen = createScreen();
+  const taskView = createTaskView(screen, () => picker.show());
+  const picker = createWorkPicker(screen, config, (space) => taskView.open(space.root, space.label));
+  picker.show();
 }
 
 main();

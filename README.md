@@ -12,7 +12,8 @@ How It Works
 The application bacically read the folders in current directory, listing all tasks.  
 Each task is a folder with a `task.txt` file inside it.  
 The folder name is the task ID, which is the creation time formatted as `YYYYMMDDHHmm`.  
-After start it with `taskmgr` or `tm`, it will list all tasks in current folder, and user can move between tasks.  
+Start it with `tm <folder>` to list the tasks in that folder, or with a bare `tm` to pick a work  
+and a project from `taskmgr.json` first (see `Command`); then move between the tasks.  
 
 
 Features
@@ -30,7 +31,7 @@ Refer `Shortcuts` section.
 Support a `vi` style keybindings, like `j`, `k`, `h`, `l` to navigate between tasks and subtasks.  
 
 Status bar  
-Shows the task counter, task folder path, and default text editor.  
+Shows the task counter, the work / project, the task folder path, and the default text editor.  
 
 
 Dependencies
@@ -64,9 +65,16 @@ Available editors: `vim`, `nvim`, `subl`(Sublime Text), `notepad`
 Command
 -------
 
-`taskmgr`
-After start it will list all tasks in current folder.  
+`tm <folder>` (or `taskmgr <folder>`), e.g. `tm .` or `tm ~/tasks`  
+Opens that folder as a task list. No `taskmgr.json` is needed.  
 If there is no task, it will show a message: "No tasks found."
+
+`tm` (or `taskmgr`) without arguments  
+Opens the works listed in `taskmgr.json` (the same file as the web UI, see `Web UI` below).  
+Select a work with `enter`, then one of its projects, or `(common tasks)` for the tasks of the work itself,  
+to enter that folder's task list. A work without projects opens directly.  
+`h` at the top of a task list goes back to the work / project list.  
+Each row shows the task counters of the folder, or `folder not found` if it does not exist yet.  
 
 
 Create Shortcut
@@ -143,6 +151,7 @@ Move from tasks.
 h and l  
 → or ← (arrow keys)
 Move from main task and subtasks.  
+`h` at the top of the list goes back to the work / project list (when started with a bare `tm`).  
 
 x  
 Mark a task as done.  
@@ -196,7 +205,8 @@ work
 Opening the web root shows that tree; pick a work (its common tasks) or one of its projects  
 to list, filter, add, edit, mark done or pending, delete, and open subtasks and attachments.  
 
-Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-ignored):  
+Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-ignored).  
+The bare `tm` command reads the same file:  
 ```
 {
   "port": 3456,
