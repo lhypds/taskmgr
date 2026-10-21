@@ -11,13 +11,15 @@ const path = require('path');
 const express = require('express');
 
 const {
+  TASK_FILE,
+  isTaskFolder,
+  readTaskDir,
   createTask,
   saveTask,
   markTask,
   deleteTask,
   renameTaskByFirstLine,
   openTask,
-  parseTask,
   readTasks,
   hasSubtask,
   compareIdsDesc
@@ -26,7 +28,6 @@ const { formatDate } = require('../utils/dateUtils');
 const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig } = require('./config');
 
-const TASK_FILE = 'task.txt';
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
 // Dev (Vite middleware, hot reload) when NODE_ENV=development, or when nothing is built yet;
@@ -96,19 +97,14 @@ function resolveDir(root, rel) {
 function resolveTaskDir(root, rel) {
   if (!rel) throw new HttpError(400, 'Missing task path.');
   const abs = resolveDir(root, rel);
-  if (!fs.existsSync(path.join(abs, TASK_FILE))) {
+  if (!isTaskFolder(abs)) {
     throw new HttpError(404, 'Task not found.');
   }
   return abs;
 }
 
-function taskFromDir(taskDirAbs) {
-  const taskPath = path.join(taskDirAbs, TASK_FILE);
-  const parsed = parseTask(fs.readFileSync(taskPath, 'utf8'));
-  parsed.id = path.basename(taskDirAbs).split(' ')[0];
-  parsed.path = taskPath;
-  return parsed;
-}
+// A task folder without a task file still reads as a task (see readTaskDir).
+const taskFromDir = readTaskDir;
 
 function firstDetailLine(details) {
   return (details || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
@@ -160,10 +156,9 @@ function crumbsFor(root, abs) {
   const crumbs = [];
   let cur = abs;
   while (cur !== root) {
-    const taskPath = path.join(cur, TASK_FILE);
     let title = path.basename(cur);
-    if (fs.existsSync(taskPath)) {
-      try { title = firstDetailLine(parseTask(fs.readFileSync(taskPath, 'utf8')).details) || title; } catch (e) { /* keep folder name */ }
+    if (isTaskFolder(cur)) {
+      try { title = firstDetailLine(readTaskDir(cur).details) || title; } catch (e) { /* keep folder name */ }
     }
     crumbs.unshift({ rel: toRel(root, cur), title });
     cur = path.dirname(cur);
@@ -226,7 +221,7 @@ function listFiles(root, taskDirAbs) {
       name: e.name,
       rel: toRel(root, abs),
       isDir: e.isDirectory(),
-      isSubtask: e.isDirectory() && fs.existsSync(path.join(abs, TASK_FILE)),
+      isSubtask: e.isDirectory() && isTaskFolder(abs),
       size
     });
   }

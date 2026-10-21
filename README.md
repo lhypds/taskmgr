@@ -153,8 +153,11 @@ l
 List tasks, or refresh task list.  
 
 a  
-Add a task, it will create a folder inside current directory,  
-and open the default text editor (like Vim) to edit the `task.txt` file.  
+Add a task: a small dialog asks for the task name (enter to create, esc to cancel).  
+It creates a folder `<id> <name>` inside current directory (the id is the creation  
+minute, `YYYYMMDDHHmm`; a second task in the same minute gets the next minute),  
+puts the name on the first line of `task.txt` and opens it in the default text  
+editor (like Vim).  
 
 e  
 Edit a task with the default text editor.  

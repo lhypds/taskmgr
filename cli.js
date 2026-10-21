@@ -4,6 +4,7 @@ const blessed = require('blessed');
 const { isCJKChar } = require('./utils/cjkUtils');
 const {
   createTask,
+  ensureTaskFile,
   markTask,
   updateLastEdit,
   deleteTask,
@@ -125,6 +126,7 @@ function countTasks(dir) {
 
 // Claude-like orange for the selected row (blessed maps hex to the nearest terminal color)
 const SELECTED_STYLE = { bg: '#DA7756', fg: 'white', bold: true };
+const MODAL_BORDER_COLOR = '#DA7756';
 const STATUS_BAR_STYLE = (process.platform === 'win32')
   ? { bg: 'green', fg: 'white' }
   : { bg: 'gray', fg: 'black' };
@@ -383,6 +385,7 @@ function createTaskView(screen, onBack) {
   function openInEditor(taskPath) {
     const { spawnSync } = require('child_process');
     const { cmd, args } = getEditorCommand(taskPath);
+    try { ensureTaskFile(taskPath); } catch (e) { }  // folder-only task: write its file first
     try { screen.leave(); } catch (e) { }
     const result = spawnSync(cmd, args, { stdio: 'inherit' });
     // re-enter blessed / alternate screen (be defensive about APIs)
@@ -427,16 +430,92 @@ function createTaskView(screen, onBack) {
     try { refresh(sel); } catch (e) { try { screen.render(); } catch (err) { /* ignore */ } }
   });
 
-  // 4. Add a new task (id = current minute, bumped if that id is already taken)
-  taskKey('a', () => {
-    // do not toggle pending if preview is open
-    if (isPreviewing) return;
+  // 4. Add a new task: a modal asks for the task name, then the folder is created
+  // as "<id> <name>" (id = current minute, bumped if that id is already taken),
+  // the name becomes the first line of the task and the editor opens on it.
+  // Enter with an empty name creates an unnamed task; esc cancels.
+  // Keys are read directly (no blessed textbox) so CJK input draws correctly.
+  let nameBox = null;
+  let nameBuffer = '';
+  let isNaming = false;
+  const NAME_PROMPT = 'New task name';
 
-    const taskPath = createTask(cwd);
+  function drawNameModal() {
+    const width = Math.min(screen.width - 2, Math.max(40, displayWidth(nameBuffer) + 6));
+    nameBox.width = width;
+    nameBox.setContent(`${NAME_PROMPT}\n\n${nameBuffer}`);
+    try { screen.render(); } catch (e) { }
+    // put the terminal cursor right after the typed text (border + padding = 2 cells)
+    try {
+      const row = nameBox.atop + 1 + 2;
+      const col = nameBox.aleft + 2 + displayWidth(nameBuffer);
+      screen.program.cup(row, col);
+      screen.program.showCursor();
+    } catch (e) { }
+  }
+
+  function closeNameModal() {
+    isNaming = false;
+    nameBuffer = '';
+    screen.grabKeys = false;
+    if (nameBox) {
+      try { nameBox.destroy(); } catch (e) { }
+      nameBox = null;
+    }
+    try { screen.program.hideCursor(); } catch (e) { }
+    try { list.focus(); } catch (e) { }
+    try { screen.render(); } catch (e) { }
+  }
+
+  function createNamedTask(name) {
+    const taskPath = createTask(cwd, '', '', 'todo', name.trim());
     const ok = openInEditor(taskPath);
     // restore focus and refresh tasks after editor exits
     try { list.focus(); } catch (e) { }
     if (ok) refresh();
+  }
+
+  function openNameModal() {
+    isNaming = true;
+    nameBuffer = '';
+    screen.grabKeys = true; // suppress all screen-level shortcuts while typing
+    nameBox = blessed.box({
+      parent: screen,
+      top: 'center', left: 'center', height: 5,
+      padding: { left: 1, right: 1 },
+      border: { type: 'line' },
+      style: { fg: 'white', bg: 'black', border: { fg: MODAL_BORDER_COLOR } }
+    });
+    nameBox.on('keypress', (ch, key) => {
+      if (!isNaming) return;
+      const name = (key && key.name) || '';
+      if (name === 'return') return; // blessed emits 'return' and 'enter' for the same key
+      if (name === 'escape' || (key && key.ctrl && name === 'c')) { closeNameModal(); return; }
+      if (name === 'enter') {
+        const taskName = nameBuffer;
+        closeNameModal();
+        createNamedTask(taskName);
+        return;
+      }
+      if (name === 'backspace') {
+        nameBuffer = nameBuffer.slice(0, -1);
+        drawNameModal();
+        return;
+      }
+      if (key && (key.ctrl || key.meta)) return;
+      if (ch && !/^[\x00-\x1f\x7f]$/.test(ch)) {
+        nameBuffer += ch;
+        drawNameModal();
+      }
+    });
+    try { list.blur(); } catch (e) { }
+    try { nameBox.focus(); } catch (e) { }
+    drawNameModal();
+  }
+
+  taskKey('a', () => {
+    if (isPreviewing || isNaming || isCommandMode) return;
+    openNameModal();
   });
 
   // 5. Edit a task
@@ -480,7 +559,7 @@ function createTaskView(screen, onBack) {
     '  j / k, up / down   move between tasks',
     '  h / l, left/right  go to parent / into subtasks',
     ...(onBack ? ['  h at the top      back to the work / project tree'] : []),
-    '  a                  add a task (opens editor)',
+    '  a                  add a task (asks for a name, then opens editor)',
     '  e / i              edit the selected task',
     '  space              preview task details',
     '  enter              open the task folder',
@@ -508,7 +587,7 @@ function createTaskView(screen, onBack) {
       scrollable: true, alwaysScroll: true,
       border: { type: 'line' },
       keys: true, mouse: true,
-      style: { fg: 'white', bg: 'black', border: { fg: 'blue' } }
+      style: { fg: 'white', bg: 'black', border: { fg: MODAL_BORDER_COLOR } }
     });
     isPreviewing = true; // reuse the preview guards so other shortcuts stay inactive
     previewBox.key(['q', 'escape', 'enter', 'space'], closePreview);
@@ -630,7 +709,7 @@ function createTaskView(screen, onBack) {
       mouse: true,
       alwaysScroll: true,
       scrollbar: { ch: ' ', track: { bg: 'gray' }, style: { bg: 'white' } },
-      style: { fg: 'white', bg: 'black', border: { fg: 'blue' } }
+      style: { fg: 'white', bg: 'black', border: { fg: MODAL_BORDER_COLOR } }
     });
     // mark preview as active
     isPreviewing = true;

@@ -35,21 +35,58 @@ function parseTask(text) {
   return out;
 }
 
+// Folder names that are tasks by name alone: a 12-digit creation minute,
+// optionally followed by a space and a title ("202610191522 fix mail").
+const TASK_FOLDER_RE = /^\d{12}( |$)/;
+
+// A directory is a task folder when its name has the time prefix, or (for
+// folders named some other way) when it contains a task file.
+function isTaskFolder(dirAbs) {
+  try {
+    if (!fs.statSync(dirAbs).isDirectory()) return false;
+  } catch (e) {
+    return false;
+  }
+  return TASK_FOLDER_RE.test(path.basename(dirAbs)) || fs.existsSync(path.join(dirAbs, TASK_FILE));
+}
+
+// Read the task of a task folder. A folder without a task file (one made by
+// hand, or just "<id> title") is still a task: todo, titled after the folder
+// name, with the folder's modification time as last_edit.
+function readTaskDir(dirAbs) {
+  const name = path.basename(dirAbs);
+  const taskPath = path.join(dirAbs, TASK_FILE);
+  let parsed;
+  if (fs.existsSync(taskPath)) {
+    parsed = parseTask(fs.readFileSync(taskPath, 'utf8'));
+  } else {
+    let lastEdit = '';
+    try { lastEdit = formatDate(fs.statSync(dirAbs).mtime); } catch (e) { /* ignore */ }
+    parsed = { status: 'todo', labels: '', origin: '', last_edit: lastEdit, details: folderTitle(name) };
+  }
+  parsed.id = folderId(name);  // only the id prefix
+  parsed.path = taskPath;
+  return parsed;
+}
+
+// Make sure the task file of a task folder exists, so an editor or a write
+// finds a well-formed file. Returns the task file path.
+function ensureTaskFile(taskPath) {
+  if (!fs.existsSync(taskPath)) {
+    const task = readTaskDir(path.dirname(taskPath));
+    task.last_edit = formatDate(new Date());
+    saveTask(task);
+  }
+  return taskPath;
+}
+
 function readTasks(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const tasks = [];
   for (const e of entries) {
-    if (e.isDirectory()) {
-      const id = e.name;
-      const taskPath = path.join(dir, id, TASK_FILE);
-      if (fs.existsSync(taskPath)) {
-        const content = fs.readFileSync(taskPath, 'utf8');
-        const parsed = parseTask(content);
-        parsed.id = e.name.split(' ')[0];  // only the id prefix
-        parsed.path = taskPath;
-        tasks.push(parsed);
-      }
-    }
+    if (!e.isDirectory()) continue;
+    const dirAbs = path.join(dir, e.name);
+    if (isTaskFolder(dirAbs)) tasks.push(readTaskDir(dirAbs));
   }
 
   // sort by id descending (newest first)
@@ -57,20 +94,13 @@ function readTasks(dir) {
   return tasks;
 }
 
-// Determine whether a task directory contains any subtasks.
-// A subtask is a subdirectory that contains a task.txt file.
+// Determine whether a task directory contains any subtasks (task folders).
 function hasSubtask(taskDir) {
   try {
     if (!taskDir) return false;
     if (!fs.existsSync(taskDir) || !fs.statSync(taskDir).isDirectory()) return false;
     const entries = fs.readdirSync(taskDir, { withFileTypes: true });
-    for (const e of entries) {
-      if (e.isDirectory()) {
-        const subTaskPath = path.join(taskDir, e.name, TASK_FILE);
-        if (fs.existsSync(subTaskPath)) return true;
-      }
-    }
-    return false;
+    return entries.some(e => e.isDirectory() && isTaskFolder(path.join(taskDir, e.name)));
   } catch (e) {
     return false;
   }
@@ -82,18 +112,39 @@ function formatTaskId(d) {
     `${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
-// Find the directory of the task with the given id inside dir, or null.
-// Matches both the bare id folder and a renamed "<id> title" folder.
-function findTaskDirById(dir, id) {
+// Task folders are named "<id>" or "<id> <title>": the id is the first
+// space-separated token of the folder name.
+function folderId(name) {
+  return name.split(' ')[0];
+}
+
+// The title part of a task folder name ("" for a bare id).
+function folderTitle(name) {
+  const i = name.indexOf(' ');
+  return i < 0 ? '' : name.slice(i + 1).trim();
+}
+
+// Turn a task title into the folder-name suffix: drop characters that are
+// unsafe in folder names and cap the length.
+function folderSuffix(title) {
+  return (title || '').replace(/[\/\\:*?"<>|]/g, '').trim().slice(0, 80);
+}
+
+// Folder name for a task: "<id>" or "<id> <title>" when a title is given.
+function taskFolderName(id, title) {
+  const suffix = folderSuffix(title);
+  return suffix ? `${id} ${suffix}` : id;
+}
+
+// Whether any folder in dir already uses this id, bare or with a title suffix.
+// Folders without a task file count too: the id must stay unique in the folder.
+function isTaskIdTaken(dir, id) {
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const e of entries) {
-      if (!e.isDirectory() || e.name.split(' ')[0] !== id) continue;
-      const candidate = path.join(dir, e.name);
-      if (fs.existsSync(path.join(candidate, TASK_FILE))) return candidate;
-    }
-  } catch (e) { /* ignore */ }
-  return null;
+    return entries.some(e => e.isDirectory() && folderId(e.name) === id);
+  } catch (e) {
+    return false;
+  }
 }
 
 // Compare two task ids (digit strings), newest first.
@@ -109,20 +160,27 @@ function compareIdsDesc(a, b) {
 function nextFreeTaskId(dir, now) {
   const d = new Date(now.getTime());
   let id = formatTaskId(d);
-  while (findTaskDirById(dir, id) || fs.existsSync(path.join(dir, id))) {
+  while (isTaskIdTaken(dir, id)) {
     d.setMinutes(d.getMinutes() + 1);
     id = formatTaskId(d);
   }
   return id;
 }
 
+// The task title is the first non-empty line of its details.
+function firstDetailLine(details) {
+  return (details || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
+}
+
+// Create a task folder in dir and return the path of its task file.
+// The folder is "<id>" or, when details start with a title line, "<id> <title>".
 function createTask(dir, labels = '', origin = '', status = 'todo', details = '') {
   const now = new Date();
   // task id is the creation time as YYYYMMDDHHmm (local time), bumped by a
   // minute per collision so a second task in the same minute never reuses
   // (or opens) the first one's folder.
   const id = nextFreeTaskId(dir, now);
-  const taskDir = path.join(dir, id);
+  const taskDir = path.join(dir, taskFolderName(id, firstDetailLine(details)));
   fs.mkdirSync(taskDir);
   const taskPath = path.join(taskDir, TASK_FILE);
   const nowStr = formatDate(now);
@@ -166,16 +224,13 @@ function renameTaskByFirstLine(taskPath) {
   try {
     const content = fs.readFileSync(taskPath, 'utf8');
     const parsed = parseTask(content);
-    const firstLine = (parsed.details || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
+    const firstLine = firstDetailLine(parsed.details);
     if (!firstLine) return taskPath;
     const taskDir = path.dirname(taskPath);
     const parentDir = path.dirname(taskDir);
     const oldName = path.basename(taskDir);
-    // strip any existing suffix (keep only the datetime prefix)
-    const idPart = oldName.split(' ')[0];
-    // sanitize: remove characters unsafe for folder names
-    const suffix = firstLine.replace(/[\/\\:*?"<>|]/g, '').trim().slice(0, 80);
-    const newName = `${idPart} ${suffix}`;
+    // keep the id, replace any existing title suffix
+    const newName = taskFolderName(folderId(oldName), firstLine);
     if (oldName === newName) return taskPath;
     const newDir = path.join(parentDir, newName);
     fs.renameSync(taskDir, newDir);
@@ -198,6 +253,10 @@ function openTask(task) {
 }
 
 module.exports = {
+  TASK_FILE,
+  isTaskFolder,
+  readTaskDir,
+  ensureTaskFile,
   createTask,
   saveTask,
   markTask,
