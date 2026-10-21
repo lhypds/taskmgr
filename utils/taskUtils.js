@@ -45,7 +45,7 @@ function readTasks(dir) {
       if (fs.existsSync(taskPath)) {
         const content = fs.readFileSync(taskPath, 'utf8');
         const parsed = parseTask(content);
-        parsed.id = e.name.split(' ')[0];  // only the datetime prefix
+        parsed.id = e.name.split(' ')[0];  // only the id prefix
         parsed.path = taskPath;
         tasks.push(parsed);
       }
@@ -53,7 +53,7 @@ function readTasks(dir) {
   }
 
   // sort by id descending (newest first)
-  tasks.sort((a, b) => b.id.localeCompare(a.id));
+  tasks.sort(compareIdsDesc);
   return tasks;
 }
 
@@ -76,13 +76,40 @@ function hasSubtask(taskDir) {
   }
 }
 
+function formatTaskId(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}` +
+    `${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+// Find the directory of the task with the given id inside dir, or null.
+// Matches both the bare id folder and a renamed "<id> title" folder.
+function findTaskDirById(dir, id) {
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      if (!e.isDirectory() || e.name.split(' ')[0] !== id) continue;
+      const candidate = path.join(dir, e.name);
+      if (fs.existsSync(path.join(candidate, TASK_FILE))) return candidate;
+    }
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+// Compare two task ids (digit strings), newest first.
+// Ids are zero-padded timestamps, so string order equals time order.
+function compareIdsDesc(a, b) {
+  return String(b.id).localeCompare(String(a.id));
+}
+
 function createTask(dir, labels = '', origin = '', status = 'todo', details = '') {
   const now = new Date();
-  const id = now.getFullYear().toString() +
-    String(now.getMonth() + 1).padStart(2, '0') +
-    String(now.getDate()).padStart(2, '0') +
-    String(now.getHours()).padStart(2, '0') +
-    String(now.getMinutes()).padStart(2, '0');
+  // task id is the creation time as YYYYMMDDHHmm (local time).
+  // If a task with this id already exists (bare or renamed "<id> title"),
+  // return its path so the caller opens it instead of creating a duplicate.
+  const id = formatTaskId(now);
+  const existingDir = findTaskDirById(dir, id);
+  if (existingDir) return path.join(existingDir, TASK_FILE);
   const taskDir = path.join(dir, id);
   fs.mkdirSync(taskDir);
   const taskPath = path.join(taskDir, TASK_FILE);
@@ -168,5 +195,6 @@ module.exports = {
   openTask,
   parseTask,
   readTasks,
-  hasSubtask
+  hasSubtask,
+  compareIdsDesc
 };

@@ -10,10 +10,11 @@ const {
   renameTaskByFirstLine,
   openTask,
   readTasks,
-  hasSubtask
+  hasSubtask,
+  compareIdsDesc
 } = require('./utils/taskUtils');
 const { clearScreen } = require('./utils/screenUtils');
-const { getEditor, getEditorArgs } = require('./utils/editorUtils');
+const { getEditor, getEditorInfo, getEditorCommand } = require('./utils/editorUtils');
 
 // load .env
 const path = require('path');
@@ -136,9 +137,8 @@ function main() {
     content: '     id            origin    edit_at       task'
   });
 
-  const selectedStyle = (process.platform === 'win32')
-    ? { bg: 'blue', fg: 'white', bold: true }
-    : { bg: 'blue', fg: 'white', bold: true };
+  // Claude-like orange for the selected row (blessed maps hex to the nearest terminal color)
+  const selectedStyle = { bg: '#DA7756', fg: 'white', bold: true };
 
   const list = blessed.list({
     parent: screen,
@@ -156,10 +156,14 @@ function main() {
     parent: screen,
     bottom: 0, left: 0, height: 1, width: '100%',
     content: '',
+    input: true, // keyable: receives keypresses while in command mode
     style: statusBarStyle
   });
 
+  let isCommandMode = false;
+
   function updateStatusBar(tasks) {
+    if (isCommandMode) return; // keep the typed command visible
     const ts = tasks || list.tasksData || [];
     const total = ts.length;
 
@@ -177,7 +181,8 @@ function main() {
 
     const counterString = `todo:${todoCount} done:${doneCount} pending:${pendingCount}`;
     const pathString = ' ' + '`' + cwd + '`';
-    const editorString = ' ' + editor;
+    const { missing } = getEditorInfo();
+    const editorString = ' ' + editor + (missing ? ` (EDITOR=${missing} not found)` : '');
     statusBar.setContent(counterString + pathString + editorString);
     try { screen.render(); } catch (e) { }
   }
@@ -234,10 +239,8 @@ function main() {
       const sa = statusOrder(a.status);
       const sb = statusOrder(b.status);
       if (sa !== sb) return sa - sb;
-      // within same status, sort by id descending (bigger id first)
-      const ai = parseInt(a.id, 10) || 0;
-      const bi = parseInt(b.id, 10) || 0;
-      return bi - ai;
+      // within same status, sort by id descending (newest first)
+      return compareIdsDesc(a, b);
     });
 
     renderList(screen, list, tasks, selectedIndex);
@@ -247,6 +250,29 @@ function main() {
     updateStatusBar(tasks);
   }
   refresh(0);
+
+  // Open a task file in the editor, suspending the TUI while it runs.
+  // Returns false (and shows a message) if the editor could not be started.
+  function openInEditor(taskPath) {
+    const { spawnSync } = require('child_process');
+    const { cmd, args } = getEditorCommand(taskPath);
+    try { screen.leave(); } catch (e) { }
+    const result = spawnSync(cmd, args, { stdio: 'inherit' });
+    // re-enter blessed / alternate screen (be defensive about APIs)
+    try {
+      if (typeof screen.enter === 'function') screen.enter();
+      else if (screen.program && typeof screen.program.enter === 'function') screen.program.enter();
+    } catch (e) { }
+    if (result.error) {
+      try { screen.render(); } catch (e) { }
+      statusBar.setContent(`Cannot start editor "${cmd}": ${result.error.code || result.error.message}`);
+      try { screen.render(); } catch (e) { }
+      return false;
+    }
+    updateLastEdit(taskPath);
+    renameTaskByFirstLine(taskPath);
+    return true;
+  }
 
   // Shortcuts
   // 1. Exit the application
@@ -277,28 +303,16 @@ function main() {
     try { refresh(sel); } catch (e) { try { screen.render(); } catch (err) { /* ignore */ } }
   });
 
-  // 4. Add a new task
+  // 4. Add a new task (or open the existing task for the current minute)
   screen.key('a', () => {
     // do not toggle pending if preview is open
     if (isPreviewing) return;
 
     const taskPath = createTask(cwd);
-    const editor = getEditor();
-    const { spawnSync } = require('child_process');
-    // temporarily leave blessed fullscreen so editor can use the terminal
-    try { screen.leave(); } catch (e) { }
-    spawnSync(editor, getEditorArgs(editor, taskPath), { stdio: 'inherit' });
-    updateLastEdit(taskPath);
-    renameTaskByFirstLine(taskPath);
-    // re-enter blessed / alternate screen (be defensive about APIs)
-    try {
-      if (typeof screen.enter === 'function') screen.enter();
-      else if (screen.program && typeof screen.program.enter === 'function') screen.program.enter();
-    } catch (e) { }
-    // restore screen, focus and refresh tasks after editor exits
-    try { screen.render(); } catch (e) { }
+    const ok = openInEditor(taskPath);
+    // restore focus and refresh tasks after editor exits
     try { list.focus(); } catch (e) { }
-    refresh();
+    if (ok) refresh();
   });
 
   // 5. Edit a task
@@ -311,20 +325,9 @@ function main() {
     const tasks = list.tasksData || readTasks(cwd);
     const t = tasks[list.selected];
     if (t) {
-      const editor = getEditor();
-      const { spawnSync } = require('child_process');
-      try { screen.leave(); } catch (e) { }
-      spawnSync(editor, getEditorArgs(editor, t.path), { stdio: 'inherit' });
-      updateLastEdit(t.path);
-      renameTaskByFirstLine(t.path);
-      // re-enter blessed / alternate screen (be defensive about APIs)
-      try {
-        if (typeof screen.enter === 'function') screen.enter();
-        else if (screen.program && typeof screen.program.enter === 'function') screen.program.enter();
-      } catch (e) { }
-      try { screen.render(); } catch (e) { }
+      const ok = openInEditor(t.path);
       try { list.focus(); } catch (e) { }
-      refresh(list.selected);
+      if (ok) refresh(list.selected);
     }
   });
   screen.key('i', () => {
@@ -336,20 +339,9 @@ function main() {
     const tasks = list.tasksData || readTasks(cwd);
     const t = tasks[list.selected];
     if (t) {
-      const editor = getEditor();
-      const { spawnSync } = require('child_process');
-      try { screen.leave(); } catch (e) { }
-      spawnSync(editor, getEditorArgs(editor, t.path), { stdio: 'inherit' });
-      updateLastEdit(t.path);
-      renameTaskByFirstLine(t.path);
-      // re-enter blessed / alternate screen (be defensive about APIs)
-      try {
-        if (typeof screen.enter === 'function') screen.enter();
-        else if (screen.program && typeof screen.program.enter === 'function') screen.program.enter();
-      } catch (e) { }
-      try { screen.render(); } catch (e) { }
+      const ok = openInEditor(t.path);
       try { list.focus(); } catch (e) { }
-      refresh(list.selected);
+      if (ok) refresh(list.selected);
     }
   });
 
@@ -368,6 +360,123 @@ function main() {
       try { screen.render(); } catch (e) { }
     }
   }
+
+  // 6.1. Help modal (opened from command mode with :h / :help)
+  const HELP_TEXT = [
+    ' taskmgr shortcuts',
+    '',
+    '  j / k, up / down   move between tasks',
+    '  h / l, left/right  go to parent / into subtasks',
+    '  a                  add a task (opens editor)',
+    '  e / i              edit the selected task',
+    '  space              preview task details',
+    '  enter              open the task folder',
+    '  x                  mark done / undone',
+    '  p                  mark pending / todo',
+    '  d                  delete the selected task',
+    '  r                  refresh the task list',
+    '  :                  command mode  (:h or :help shows this)',
+    '  q                  quit',
+    '',
+    ' press q, esc or enter to close'
+  ].join('\n');
+
+  function showHelp() {
+    if (isPreviewing) closePreview();
+    const helpLines = HELP_TEXT.split('\n');
+    const helpWidth = Math.max(...helpLines.map(l => l.length)) + 4; // text + border + padding
+    previewBox = blessed.box({
+      parent: screen,
+      top: 'center', left: 'center',
+      width: Math.min(helpWidth, screen.width - 2),
+      height: Math.min(helpLines.length + 2, screen.height - 2),
+      content: HELP_TEXT,
+      padding: { left: 1, right: 1 },
+      scrollable: true, alwaysScroll: true,
+      border: { type: 'line' },
+      keys: true, mouse: true,
+      style: { fg: 'white', bg: 'black', border: { fg: 'blue' } }
+    });
+    isPreviewing = true; // reuse the preview guards so other shortcuts stay inactive
+    previewBox.key(['q', 'escape', 'enter', 'space'], closePreview);
+    try { list.blur(); } catch (e) { }
+    try { previewBox.focus(); } catch (e) { }
+    try { screen.render(); } catch (e) { }
+  }
+
+  // 6.2. Command mode, vim style: ':' turns the status bar into a command line.
+  // Keys are read directly (no textbox) and the buffer is drawn in the status bar.
+  let cmdBuffer = '';
+
+  function drawCommandLine() {
+    statusBar.setContent(':' + cmdBuffer);
+    try { screen.render(); } catch (e) { }
+    // put the terminal cursor right after the typed text
+    try {
+      let col = 1;
+      for (const ch of cmdBuffer) col += isCJKChar(ch) ? 2 : 1;
+      screen.program.cup(screen.height - 1, col);
+      screen.program.showCursor();
+    } catch (e) { }
+  }
+
+  function enterCommandMode() {
+    isCommandMode = true;
+    cmdBuffer = '';
+    screen.grabKeys = true; // suppress all screen-level shortcuts
+    try { statusBar.focus(); } catch (e) { }
+    drawCommandLine();
+  }
+
+  function exitCommandMode() {
+    isCommandMode = false;
+    cmdBuffer = '';
+    screen.grabKeys = false;
+    try { screen.program.hideCursor(); } catch (e) { }
+    try { list.focus(); } catch (e) { }
+    updateStatusBar();
+  }
+
+  function runCommand(raw) {
+    const cmd = (raw || '').trim();
+    if (!cmd) return;
+    if (cmd === 'h' || cmd === 'help') {
+      showHelp();
+      return;
+    }
+    // unknown command: show a short message in the status bar until the next refresh
+    statusBar.setContent(`Not a command: ${cmd}`);
+    try { screen.render(); } catch (e) { }
+  }
+
+  statusBar.on('keypress', (ch, key) => {
+    if (!isCommandMode) return;
+    const name = (key && key.name) || '';
+    if (name === 'return') return; // blessed emits 'return' and 'enter' for the same key
+    if (name === 'escape' || (key && key.ctrl && name === 'c')) { exitCommandMode(); return; }
+    if (name === 'enter') {
+      const cmd = cmdBuffer;
+      exitCommandMode();
+      runCommand(cmd);
+      return;
+    }
+    if (name === 'backspace') {
+      if (!cmdBuffer) { exitCommandMode(); return; } // like vim: backspace on empty leaves
+      cmdBuffer = cmdBuffer.slice(0, -1);
+      drawCommandLine();
+      return;
+    }
+    if (key && (key.ctrl || key.meta)) return;
+    if (ch && !/^[\x00-\x1f\x7f]$/.test(ch)) {
+      cmdBuffer += ch;
+      drawCommandLine();
+    }
+  });
+
+  screen.key(':', () => {
+    if (isPreviewing || isCommandMode) return;
+    enterCommandMode();
+  });
 
   screen.key('space', () => {
     // If a preview is open, close it (toggle behavior)
