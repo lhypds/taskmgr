@@ -230,7 +230,7 @@ function createHelpBox(screen, text, onClose) {
   return box;
 }
 
-// Work / project tree shown by a bare `tm`: every work of taskmgr.json with its projects
+// Work / repository tree shown by a bare `tm`: every work of taskmgr.json with its repositories
 // nested beneath it, each row being one folder of tasks. onPick({ label, root }) opens one.
 function createWorkPicker(screen, config, onPick) {
   const header = blessed.box({
@@ -264,14 +264,14 @@ function createWorkPicker(screen, config, onPick) {
     } catch (e) { return ''; }
   }
 
-  // Flatten the works into rows: the work itself (its common tasks), then its projects
+  // Flatten the works into rows: the work itself (its common tasks), then its repositories
   // indented with tree glyphs.
   function buildEntries(works) {
     const rows = [];
     for (const w of works) {
-      rows.push({ name: w.work, label: w.work, root: w.root });
-      w.projects.forEach((p, i) => {
-        const glyph = (i === w.projects.length - 1) ? '└─ ' : '├─ ';
+      rows.push({ name: w.work + (w.orgin ? ` (${w.orgin})` : ''), label: w.work, root: w.root });
+      w.repositories.forEach((p, i) => {
+        const glyph = (i === w.repositories.length - 1) ? '└─ ' : '├─ ';
         rows.push({ name: glyph + p.name, label: `${w.work} / ${p.name}`, root: p.root });
       });
     }
@@ -280,7 +280,7 @@ function createWorkPicker(screen, config, onPick) {
 
   function render() {
     entries = buildEntries(config.getWorks());
-    header.setContent('  work / project');
+    header.setContent('  work / repository');
     const infos = entries.map(e => describe(e.root));
     const nameWidth = Math.max(4, ...entries.map(e => displayWidth(e.name)));
     const infoWidth = Math.max(4, ...infos.map(displayWidth));
@@ -341,9 +341,9 @@ function createWorkPicker(screen, config, onPick) {
   });
 
   const HELP_TEXT = [
-    ' taskmgr work / project tree',
+    ' taskmgr work / repository tree',
     '',
-    '  j / k, up / down   move between works and projects',
+    '  j / k, up / down   move between works and repositories',
     '  enter / l / right  open its tasks',
     '  e                  edit taskmgr.json',
     '  r                  refresh the tree',
@@ -384,7 +384,7 @@ function createWorkPicker(screen, config, onPick) {
 function createTaskView(screen, onBack) {
   let cwd = process.cwd();
   let initialRoot = cwd; // do not allow navigating above this directory
-  let spaceLabel = '';   // "work" or "work / project" when opened from the picker
+  let spaceLabel = '';   // "work" or "work / repository" when opened from the picker
   let active = false;
 
   // Header row (always visible while the view is active)
@@ -417,7 +417,7 @@ function createTaskView(screen, onBack) {
     if (commandLine.isActive()) return; // keep the typed command visible
     const ts = tasks || list.tasksData || [];
 
-    // Show: <counters> [work / project] `path-to-task-folder` <editor>
+    // Show: <counters> [work / repository] `path-to-task-folder` <editor>
     const editor = getEditor();
 
     // counters for statuses: todo (including empty), done, pending
@@ -701,7 +701,7 @@ function createTaskView(screen, onBack) {
     '',
     '  j / k, up / down   move between tasks',
     '  h / l, left/right  go to parent / into subtasks',
-    ...(onBack ? ['  h at the top      back to the work / project tree'] : []),
+    ...(onBack ? ['  h at the top      back to the work / repository tree'] : []),
     '  a                  add a task (asks for a name, then opens editor)',
     '  e / i              edit the selected task',
     '  space              preview task details',
@@ -711,7 +711,7 @@ function createTaskView(screen, onBack) {
     '  d                  delete the selected task',
     '  r                  refresh the task list',
     '  :                  command mode  (:h or :help shows this)',
-    onBack ? '  :q / :quit         back to the work / project tree' : '  :q / :quit         quit',
+    onBack ? '  :q / :quit         back to the work / repository tree' : '  :q / :quit         quit',
     '',
     ' press q, esc or enter to close'
   ].join('\n');
@@ -728,7 +728,7 @@ function createTaskView(screen, onBack) {
     onRun(cmd) {
       if (cmd === 'h' || cmd === 'help') showHelp();
       else if (cmd === 'q' || cmd === 'quit') {
-        // opened from the work / project tree: go back to it; `tm <folder>`: quit
+        // opened from the work / repository tree: go back to it; `tm <folder>`: quit
         if (onBack) {
           close();
           onBack();
@@ -883,7 +883,7 @@ function createTaskView(screen, onBack) {
 
     try {
       if (cwd === initialRoot) {
-        // top of this folder: never move above it; go back to the work / project tree instead
+        // top of this folder: never move above it; go back to the work / repository tree instead
         if (onBack) {
           close();
           onBack();
@@ -937,7 +937,7 @@ function createTaskView(screen, onBack) {
 
 const USAGE = `Usage: tm [<folder> | config | help]
 
-  tm              pick a work and a project from taskmgr.json, then open its tasks
+  tm              pick a work and a repository from taskmgr.json, then open its tasks
   tm <folder>     open that folder as a task list (e.g. tm . or tm ~/tasks)
   tm config       open taskmgr.json in the editor (created from taskmgr.json.example if missing)
   tm help         show this help (also -h, --help)
@@ -1006,7 +1006,7 @@ function main() {
     return;
   }
 
-  // `tm`: pick a work or one of its projects from the taskmgr.json tree, then open its folder.
+  // `tm`: pick a work or one of its repositories from the taskmgr.json tree, then open its folder.
   let config;
   try {
     config = resolveConfig([]);

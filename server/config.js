@@ -1,6 +1,6 @@
 // Configuration for the web UI.
 //
-// taskmgr.json (next to package.json by default) lists the works and their projects; each one
+// taskmgr.json (next to package.json by default) lists the works and their repositories; each one
 // is a folder of tasks:
 //
 //   {
@@ -9,9 +9,10 @@
 //     "works": [
 //       {
 //         "work": "gcc3.com",
-//         "root": "~/gcc3",                       // common tasks of this work
-//         "projects": [
-//           { "name": "project a", "root": "~/gcc3/a" }   // tasks of one project
+//         "orgin": "gcc3",                        // optional, the organization the work is for
+//         "tasks_path": "~/gcc3",                       // common tasks of this work
+//         "repositories": [
+//           { "name": "repository a", "tasks_path": "~/gcc3/a" }   // tasks of one repository
 //         ]
 //       }
 //     ]
@@ -57,7 +58,7 @@ function isNonEmptyString(v) {
 }
 
 // Validate and normalize the "works" array: names trimmed, roots expanded to absolute paths,
-// names unique (projects unique within their work) so they can be used as URL segments.
+// names unique (repositories unique within their work) so they can be used as URL segments.
 function normalizeWorks(raw) {
   if (!Array.isArray(raw) || raw.length === 0) {
     throw new Error('"works" must be a non-empty array.');
@@ -66,27 +67,29 @@ function normalizeWorks(raw) {
   return raw.map((w, i) => {
     if (!w || typeof w !== 'object') throw new Error(`works[${i}] must be an object.`);
     if (!isNonEmptyString(w.work)) throw new Error(`works[${i}].work must be a non-empty string.`);
-    if (!isNonEmptyString(w.root)) throw new Error(`works[${i}] ("${w.work}") needs a "root" folder.`);
+    if (!isNonEmptyString(w.tasks_path)) throw new Error(`works[${i}] ("${w.work}") needs a "tasks_path" folder.`);
     const work = w.work.trim();
     if (work.includes('/')) throw new Error(`works[${i}].work "${work}" must not contain "/".`);
     if (seenWorks.has(work)) throw new Error(`Duplicate work name "${work}".`);
     seenWorks.add(work);
+    if (w.orgin !== undefined && typeof w.orgin !== 'string') throw new Error(`works[${i}].orgin ("${work}") must be a string.`);
 
-    const seenProjects = new Set();
-    const projects = (w.projects === undefined ? [] : w.projects);
-    if (!Array.isArray(projects)) throw new Error(`works[${i}].projects ("${work}") must be an array.`);
+    const seenRepositories = new Set();
+    const repositories = (w.repositories === undefined ? [] : w.repositories);
+    if (!Array.isArray(repositories)) throw new Error(`works[${i}].repositories ("${work}") must be an array.`);
     return {
       work,
-      root: path.resolve(expandHome(w.root.trim())),
-      projects: projects.map((p, j) => {
-        if (!p || typeof p !== 'object') throw new Error(`works[${i}].projects[${j}] ("${work}") must be an object.`);
-        if (!isNonEmptyString(p.name)) throw new Error(`works[${i}].projects[${j}].name ("${work}") must be a non-empty string.`);
-        if (!isNonEmptyString(p.root)) throw new Error(`Project "${p.name}" of "${work}" needs a "root" folder.`);
+      orgin: (w.orgin || '').trim(),
+      root: path.resolve(expandHome(w.tasks_path.trim())),
+      repositories: repositories.map((p, j) => {
+        if (!p || typeof p !== 'object') throw new Error(`works[${i}].repositories[${j}] ("${work}") must be an object.`);
+        if (!isNonEmptyString(p.name)) throw new Error(`works[${i}].repositories[${j}].name ("${work}") must be a non-empty string.`);
+        if (!isNonEmptyString(p.tasks_path)) throw new Error(`Repository "${p.name}" of "${work}" needs a "tasks_path" folder.`);
         const name = p.name.trim();
-        if (name.includes('/')) throw new Error(`Project name "${name}" of "${work}" must not contain "/".`);
-        if (seenProjects.has(name)) throw new Error(`Duplicate project name "${name}" in "${work}".`);
-        seenProjects.add(name);
-        return { name, root: path.resolve(expandHome(p.root.trim())) };
+        if (name.includes('/')) throw new Error(`Repository name "${name}" of "${work}" must not contain "/".`);
+        if (seenRepositories.has(name)) throw new Error(`Duplicate repository name "${name}" in "${work}".`);
+        seenRepositories.add(name);
+        return { name, root: path.resolve(expandHome(p.tasks_path.trim())) };
       })
     };
   });

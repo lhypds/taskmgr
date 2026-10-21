@@ -13,7 +13,7 @@ The application bacically read the folders in current directory, listing all tas
 Each task is a folder with a `task.txt` file inside it.  
 The folder name is the task ID, which is the creation time formatted as `YYYYMMDDHHmm`.  
 Start it with `tm <folder>` to list the tasks in that folder, or with a bare `tm` to pick a work  
-or a project from the `taskmgr.json` tree first (see `Command`); then move between the tasks.  
+or a repository from the `taskmgr.json` tree first (see `Command`); then move between the tasks.  
 
 
 `tasks` Folder
@@ -48,7 +48,7 @@ Refer `Shortcuts` section.
 Support a `vi` style keybindings, like `j`, `k`, `h`, `l` to navigate between tasks and subtasks.  
 
 Status bar  
-Shows the task counter, the work / project, the task folder path, and the default text editor.  
+Shows the task counter, the work / repository, the task folder path, and the default text editor.  
 
 
 Dependencies
@@ -88,10 +88,10 @@ If there is no task, it will show a message: "No tasks found."
 
 `tm` (or `taskmgr`) without arguments  
 Shows the works listed in `taskmgr.json` (the same file as the web UI, see `Web UI` below) as a tree,  
-each work followed by its projects:  
+each work followed by its repositories:  
 
 ```
-  work / project
+  work / repository
   acme         todo:3 done:1 pending:0   ~/acme/tasks
   ├─ alpha     todo:1 done:0 pending:0   ~/acme/alpha/tasks
   └─ beta      folder not found          ~/acme/beta/tasks
@@ -99,7 +99,7 @@ each work followed by its projects:
 ```
 
 Select a row with `enter` to open its task list: a work row opens the common tasks of the work,  
-a project row opens that project. `h` at the top of a task list goes back to the tree.  
+a repository row opens that repository. `h` at the top of a task list goes back to the tree.  
 
 `tm config`  
 Opens `taskmgr.json` in the editor (`EDITOR` in `.env`, see above). If the file does not exist yet,  
@@ -170,7 +170,7 @@ Move from tasks.
 h and l  
 → or ← (arrow keys)
 Move from main task and subtasks.  
-`h` at the top of the list goes back to the work / project tree (when started with a bare `tm`).  
+`h` at the top of the list goes back to the work / repository tree (when started with a bare `tm`).  
 
 x  
 Mark a task as done.  
@@ -196,7 +196,7 @@ Pending a task.
 :  
 Enter command mode (like Vim). Supported commands:  
 `:h` or `:help` shows a help popup with all shortcuts.  
-`:q` or `:quit` quits the application; in a task list opened from the work / project tree it goes back to the tree instead.
+`:q` or `:quit` quits the application; in a task list opened from the work / repository tree it goes back to the tree instead.
 
 
 Gestures
@@ -211,16 +211,16 @@ Web UI
 ------
 
 A React app (Vite + Express) over the same task folders, in a plain black-and-white style.  
-It manages several *works*, each with common tasks and any number of *projects*:  
+It manages several *works*, each with common tasks and any number of *repositories*:  
 
 ```
 work
-  project
+  repository
     task
 ```
 
 It is one page: that tree on the left (a drawer that folds away), the tasks of the chosen work  
-(its common tasks) or project on the right, to list, filter, add, edit, mark done or pending,  
+(its common tasks) or repository on the right, to list, filter, add, edit, mark done or pending,  
 delete, and open subtasks and attachments. `tab` (or `h` at the top of a task list) moves the  
 keyboard to the tree, `l` / `enter` back to the tasks.  
 
@@ -233,15 +233,16 @@ The bare `tm` command reads the same file:
   "works": [
     {
       "work": "gcc3.com",
-      "root": "~/gcc3/tasks",
-      "projects": [
-        { "name": "project a", "root": "~/gcc3/project-a/tasks" }
+      "orgin": "gcc3",
+      "tasks_path": "~/gcc3/tasks",
+      "repositories": [
+        { "name": "repository a", "tasks_path": "~/gcc3/repository-a/tasks" }
       ]
     }
   ]
 }
 ```
-`root` is the folder holding the task folders (`~` is expanded). The file is re-read when it changes.  
+`tasks_path` is the folder holding the task folders (`~` is expanded). `orgin` (optional) is the organization the work is for, shown next to its name. The file is re-read when it changes.  
 `PORT` / `HOST` in `.env` override the values in the file; `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
 
 Login: the web UI asks for a username and password. Accounts are a list in `data/users.json`  

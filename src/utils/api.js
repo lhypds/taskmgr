@@ -23,8 +23,8 @@ const json = (method, body) => ({
 
 const q = (params) => new URLSearchParams(params).toString();
 
-// A space is one folder of tasks: { work, project } with project "" for the work's common tasks.
-const sp = (space) => ({ work: space.work, project: space.project || "" });
+// A space is one folder of tasks: { work, repository } with repository "" for the work's common tasks.
+const sp = (space) => ({ work: space.work, repository: space.repository || "" });
 
 // Resolves to { username }; rejects with status 401 on a wrong username or password.
 export const login = (username, password) => request("/api/login", json("POST", { username, password }));
@@ -85,5 +85,5 @@ export const fileUrl = (space, rel, download = false) =>
   `/api/file?${q({ ...sp(space), rel, ...(download ? { download: "1" } : {}) })}`;
 
 // Route to a space's task list.
-export const spacePath = (work, project) =>
-  `/w/${encodeURIComponent(work)}` + (project ? `/${encodeURIComponent(project)}` : "");
+export const spacePath = (work, repository) =>
+  `/w/${encodeURIComponent(work)}` + (repository ? `/${encodeURIComponent(repository)}` : "");

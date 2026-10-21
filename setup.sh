@@ -28,4 +28,4 @@ fi
 echo "Building the web UI..."
 pnpm run build
 
-echo "Done. Edit taskmgr.json (works, projects and their task folders), data/users.json (web UI login accounts) and .env (PORT), then run ./start.sh for the web UI or ./install.sh to install taskmgr as a global command."
+echo "Done. Edit taskmgr.json (works, repositories and their task folders), data/users.json (web UI login accounts) and .env (PORT), then run ./start.sh for the web UI or ./install.sh to install taskmgr as a global command."

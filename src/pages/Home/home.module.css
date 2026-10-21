@@ -43,7 +43,7 @@
   min-width: 0;
 }
 
-/* The middle area's section bar, as in fin: Work > Project > subtask folders. */
+/* The middle area's section bar, as in fin: Work > Repository > subtask folders. */
 .section {
   flex: none;
   display: flex;

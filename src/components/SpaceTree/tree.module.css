@@ -39,7 +39,7 @@
   color: var(--err);
 }
 
-/* A work and its projects, one block per work. Inside it the rows run on without separators so
+/* A work and its repositories, one block per work. Inside it the rows run on without separators so
    the tree lines join up. */
 .group {
   border-bottom: var(--line) solid var(--border);
@@ -56,7 +56,7 @@
   user-select: none;
 }
 
-.project {
+.repository {
   padding-left: 32px;
 }
 
@@ -89,7 +89,7 @@
   background: none;
 }
 
-/* Tree connector drawn with borders: ├ for a project, └ for the last one. */
+/* Tree connector drawn with borders: ├ for a repository, └ for the last one. */
 .tree {
   position: absolute;
   top: 0;

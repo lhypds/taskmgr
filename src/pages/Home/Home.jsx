@@ -29,15 +29,15 @@ function writeFlag(key, value) {
   }
 }
 
-// The one page: the works and projects as a tree on the left, the tasks of the chosen one on the
-// right. The space is in the path (/w/:work for a work's common tasks, /w/:work/:project for a
-// project) and the folder inside it in ?dir=, so back/forward and reload keep both.
+// The one page: the works and repositories as a tree on the left, the tasks of the chosen one on the
+// right. The space is in the path (/w/:work for a work's common tasks, /w/:work/:repository for a
+// repository) and the folder inside it in ?dir=, so back/forward and reload keep both.
 export default function Home() {
   const { t } = useTranslation();
   const { logout } = useAuth();
-  const { work = "", project = "" } = useParams();
-  const space = useMemo(() => (work ? { work, project } : null), [work, project]);
-  const spaceTo = work ? api.spacePath(work, project) : null;
+  const { work = "", repository = "" } = useParams();
+  const space = useMemo(() => (work ? { work, repository } : null), [work, repository]);
+  const spaceTo = work ? api.spacePath(work, repository) : null;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const dir = searchParams.get("dir") || "";
@@ -101,8 +101,8 @@ export default function Home() {
   }, [loadSpaces]);
 
   useEffect(() => {
-    document.title = work ? `taskmgr - ${work}${project ? ` / ${project}` : ""}` : "taskmgr";
-  }, [work, project]);
+    document.title = work ? `taskmgr - ${work}${repository ? ` / ${repository}` : ""}` : "taskmgr";
+  }, [work, repository]);
 
   useEffect(() => {
     setQuery("");
@@ -114,7 +114,7 @@ export default function Home() {
     () =>
       (works || []).flatMap((w) => [
         { to: api.spacePath(w.work), exists: w.exists },
-        ...w.projects.map((p) => ({ to: api.spacePath(w.work, p.name), exists: p.exists })),
+        ...w.repositories.map((p) => ({ to: api.spacePath(w.work, p.name), exists: p.exists })),
       ]).filter((s) => s.exists),
     [works],
   );
@@ -396,7 +396,7 @@ export default function Home() {
       <header className={styles.header}>
         <div className={styles.brand}>
           <h1 className={styles.title}>taskmgr</h1>
-          {work && <span className={styles.taskName}>{project ? `${work} / ${project}` : work}</span>}
+          {work && <span className={styles.taskName}>{repository ? `${work} / ${repository}` : work}</span>}
         </div>
 
         <div className={styles.search}>
@@ -466,14 +466,14 @@ export default function Home() {
         <main className={styles.main} onMouseDown={() => space && setPane("tasks")}>
           {space && (
             <nav className={styles.section} aria-label={t("header.location")}>
-              <button type="button" className={crumbClass(!project && data.isRoot)} onClick={() => selectSpace(api.spacePath(work))}>
+              <button type="button" className={crumbClass(!repository && data.isRoot)} onClick={() => selectSpace(api.spacePath(work))}>
                 {work}
               </button>
-              {project && (
+              {repository && (
                 <span className={styles.crumbItem}>
                   <span className={styles.crumbSep}>&gt;</span>
                   <button type="button" className={crumbClass(data.isRoot)} onClick={() => goTo("")}>
-                    {project}
+                    {repository}
                   </button>
                 </span>
               )}

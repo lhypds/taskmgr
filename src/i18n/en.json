@@ -38,7 +38,7 @@
     "location": "Location"
   },
   "home": {
-    "pickSpace": "Pick a work or project on the left.",
+    "pickSpace": "Pick a work or repository on the left.",
     "noTasks": "No tasks yet.",
     "noSubtasks": "No subtasks in this task.",
     "noMatch": "No tasks match “{{query}}”.",
@@ -99,7 +99,7 @@
     "hint": "press q, esc or enter to close",
     "move": {
       "keys": "j / k, up / down",
-      "desc": "move between tasks (or works and projects on the tree)"
+      "desc": "move between tasks (or works and repositories on the tree)"
     },
     "nav": {
       "keys": "h / l, left / right",
@@ -107,7 +107,7 @@
     },
     "toTree": {
       "keys": "h at the top",
-      "desc": "over to the work / project tree"
+      "desc": "over to the work / repository tree"
     },
     "fromTree": {
       "keys": "l / enter on the tree",

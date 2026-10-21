@@ -4,7 +4,7 @@
 //
 //   node server/index.js [tasks-root]
 //
-// The works and projects (each a folder of tasks) come from taskmgr.json, see server/config.js:
+// The works and repositories (each a folder of tasks) come from taskmgr.json, see server/config.js:
 //   node server/index.js [path/to/taskmgr.json]
 const fs = require('fs');
 const path = require('path');
@@ -52,23 +52,23 @@ class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
-// A space is one folder of tasks: the common tasks of a work, or one of its projects.
-// Looked up from the query string / body of every task request as ?work=&project=.
-function findSpace(work, project) {
+// A space is one folder of tasks: the common tasks of a work, or one of its repositories.
+// Looked up from the query string / body of every task request as ?work=&repository=.
+function findSpace(work, repository) {
   const w = config.getWorks().find(x => x.work === work);
   if (!w) return null;
-  if (!project) return { work: w.work, project: '', root: w.root };
-  const p = w.projects.find(x => x.name === project);
+  if (!repository) return { work: w.work, repository: '', root: w.root };
+  const p = w.repositories.find(x => x.name === repository);
   if (!p) return null;
-  return { work: w.work, project: p.name, root: p.root };
+  return { work: w.work, repository: p.name, root: p.root };
 }
 
 function spaceFrom(params) {
   const work = String(params.work || '');
-  const project = String(params.project || '');
+  const repository = String(params.repository || '');
   if (!work) throw new HttpError(400, 'Missing work.');
-  const space = findSpace(work, project);
-  if (!space) throw new HttpError(404, project ? `Unknown project "${project}" in "${work}".` : `Unknown work "${work}".`);
+  const space = findSpace(work, repository);
+  if (!space) throw new HttpError(404, repository ? `Unknown repository "${repository}" in "${work}".` : `Unknown work "${work}".`);
   if (!fs.existsSync(space.root) || !fs.statSync(space.root).isDirectory()) {
     throw new HttpError(404, `Folder not found: ${space.root}`);
   }
@@ -183,7 +183,7 @@ function listDir(space, rel) {
   const parent = isRoot ? null : toRel(root, path.dirname(abs));
   return {
     work: space.work,
-    project: space.project,
+    repository: space.repository,
     dir: toRel(root, abs),
     absDir: abs,
     isRoot,
@@ -194,7 +194,7 @@ function listDir(space, rel) {
   };
 }
 
-// The works/projects tree with, for each folder, whether it exists and its task counts.
+// The works/repositories tree with, for each folder, whether it exists and its task counts.
 function listSpaces() {
   const describe = (root) => {
     const exists = fs.existsSync(root) && fs.statSync(root).isDirectory();
@@ -206,8 +206,9 @@ function listSpaces() {
   };
   return config.getWorks().map(w => ({
     work: w.work,
+    orgin: w.orgin,
     ...describe(w.root),
-    projects: w.projects.map(p => ({ name: p.name, ...describe(p.root) }))
+    repositories: w.repositories.map(p => ({ name: p.name, ...describe(p.root) }))
   }));
 }
 
@@ -261,7 +262,7 @@ app.get('/api/settings', (req, res) => {
   res.json({ configPath: config.configPath, editor: getEditor() });
 });
 
-// The raw taskmgr.json, to edit the works and projects from the web UI.
+// The raw taskmgr.json, to edit the works and repositories from the web UI.
 app.get('/api/config', (req, res) => {
   res.json({ configPath: config.configPath, text: config.readText() });
 });
@@ -463,8 +464,8 @@ mountFrontend().then(() => {
     console.log(`  config     : ${config.configPath}  (from ${config.configSource})`);
     console.log(`  users      : ${config.usersPath}`);
     for (const w of config.getWorks()) {
-      console.log(`  work       : ${w.work}  ${w.root}`);
-      for (const p of w.projects) console.log(`    project  : ${p.name}  ${p.root}`);
+      console.log(`  work       : ${w.work}${w.orgin ? ` (${w.orgin})` : ''}  ${w.root}`);
+      for (const p of w.repositories) console.log(`    repository : ${p.name}  ${p.root}`);
     }
     console.log(`  url        : http://${config.host}:${config.port}/`);
     console.log('Press Ctrl+C to stop.');

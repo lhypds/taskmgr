@@ -4,22 +4,23 @@
   "works": [
     {
       "work": "gcc3.com",
-      "root": "~/gcc3/tasks",
-      "projects": [
+      "orgin": "gcc3",
+      "tasks_path": "~/gcc3/tasks",
+      "repositories": [
         {
-          "name": "project a",
-          "root": "~/gcc3/project-a/tasks"
+          "name": "repository a",
+          "tasks_path": "~/gcc3/repository-a/tasks"
         },
         {
-          "name": "project b",
-          "root": "~/gcc3/project-b/tasks"
+          "name": "repository b",
+          "tasks_path": "~/gcc3/repository-b/tasks"
         }
       ]
     },
     {
       "work": "personal",
-      "root": "~/tasks",
-      "projects": []
+      "tasks_path": "~/tasks",
+      "repositories": []
     }
   ]
 }

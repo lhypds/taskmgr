@@ -26,7 +26,7 @@ function Row({ to, exists, level, last, active, focused, label, root, counts, on
   return (
     <div
       ref={ref}
-      className={`${styles.row} ${level === "project" ? styles.project : styles.work}${last ? ` ${styles.last}` : ""}`}
+      className={`${styles.row} ${level === "repository" ? styles.repository : styles.work}${last ? ` ${styles.last}` : ""}`}
       data-active={active}
       data-focused={active && focused}
       data-disabled={!exists}
@@ -35,7 +35,7 @@ function Row({ to, exists, level, last, active, focused, label, root, counts, on
       aria-disabled={!exists}
       onClick={() => exists && onSelect(to)}
     >
-      {level === "project" && <span className={styles.tree} aria-hidden="true" />}
+      {level === "repository" && <span className={styles.tree} aria-hidden="true" />}
       <div className={styles.top}>
         <span className={styles.name}>{label}</span>
         <Counts counts={counts} />
@@ -47,7 +47,7 @@ function Row({ to, exists, level, last, active, focused, label, root, counts, on
   );
 }
 
-// The works and their projects as a tree. `activeTo` is the space shown on the right; `focused`
+// The works and their repositories as a tree. `activeTo` is the space shown on the right; `focused`
 // says the keyboard is on the tree rather than the task list.
 export default function SpaceTree({ works, error, activeTo, focused, onSelect, onEdit }) {
   const { t } = useTranslation();
@@ -76,18 +76,18 @@ export default function SpaceTree({ works, error, activeTo, focused, onSelect, o
                 level="work"
                 active={activeTo === api.spacePath(w.work)}
                 focused={focused}
-                label={w.work}
+                label={w.orgin ? `${w.work} (${w.orgin})` : w.work}
                 root={w.root}
                 counts={w.counts}
                 onSelect={onSelect}
               />
-              {w.projects.map((p, i) => (
+              {w.repositories.map((p, i) => (
                 <Row
                   key={p.name}
                   to={api.spacePath(w.work, p.name)}
                   exists={p.exists}
-                  level="project"
-                  last={i === w.projects.length - 1}
+                  level="repository"
+                  last={i === w.repositories.length - 1}
                   active={activeTo === api.spacePath(w.work, p.name)}
                   focused={focused}
                   label={p.name}
