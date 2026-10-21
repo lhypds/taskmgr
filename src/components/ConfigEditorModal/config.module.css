@@ -1,0 +1,36 @@
+.modal {
+  max-width: 720px;
+  width: 100%;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.path {
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text {
+  height: 60vh;
+  font-family: var(--font-mono);
+  tab-size: 2;
+  white-space: pre;
+}
+
+.error {
+  color: var(--err);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

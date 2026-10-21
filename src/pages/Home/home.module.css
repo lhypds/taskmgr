@@ -21,7 +21,7 @@
 
 .brand {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
   min-width: 0;
 }
@@ -32,19 +32,29 @@
   font-weight: 800;
   letter-spacing: -0.5px;
   flex: none;
-  text-decoration: none;
 }
 
-.title:hover {
-  text-decoration: underline;
+.taskName {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.crumbs {
+/* The middle area's section bar, as in fin: Work > Project > subtask folders. */
+.section {
+  flex: none;
   display: flex;
   align-items: center;
   min-width: 0;
+  padding: 6px 12px;
   overflow: hidden;
   white-space: nowrap;
+  background: var(--bg-alt);
+  border-bottom: var(--line) solid var(--border);
+  font-weight: 600;
 }
 
 .crumbItem {
@@ -54,15 +64,16 @@
 }
 
 .crumbSep {
-  color: var(--faint);
-  padding: 0 4px;
+  color: var(--muted);
+  padding: 0 6px;
 }
 
 .crumb {
   background: none;
   border: none;
-  padding: 2px 0;
-  color: var(--muted);
+  padding: 0;
+  color: var(--fg);
+  font-weight: 600;
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -77,8 +88,6 @@
 
 .crumbActive,
 .crumb:disabled {
-  color: var(--fg);
-  font-weight: 600;
   cursor: default;
 }
 
@@ -139,8 +148,74 @@
   gap: 6px;
 }
 
+/* The language switcher and the profile button, joined into one strip as in fin. */
+.account {
+  display: flex;
+  align-items: center;
+}
+
+/* The tree in a drawer that folds away to the left, a thin bar beside it to fold it, then the tasks. */
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.drawer {
+  flex: none;
+  width: 300px;
+  overflow: hidden;
+  transition: width 0.15s ease;
+}
+
+.drawer[data-open="false"] {
+  width: 0;
+}
+
+/* The selected task's details, folding away to the right. */
+.detail {
+  flex: none;
+  width: 340px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  transition: width 0.15s ease;
+}
+
+.detail[data-open="false"] {
+  width: 0;
+}
+
+.detail > * {
+  width: 340px;
+}
+
+.toggle {
+  flex: none;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-left: var(--line) solid var(--border);
+  border-right: var(--line) solid var(--border);
+  background: var(--bg-alt);
+  color: var(--muted);
+  padding: 0;
+}
+
+.toggle:hover {
+  background: var(--border);
+  color: var(--bg);
+}
+
+.toggle svg {
+  width: 10px;
+  height: 10px;
+}
+
 .main {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -170,13 +245,21 @@
   line-height: 1.6;
 }
 
-.stateActions {
+.command {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  flex: 1;
+  font-size: 12px;
 }
 
-.stateActions a {
-  text-decoration: none;
+.commandInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
 }
 
 .statusBar {
@@ -214,5 +297,14 @@
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
+  }
+
+  .drawer {
+    width: min(300px, 70vw);
+  }
+
+  .detail,
+  .detail > * {
+    width: min(340px, 80vw);
   }
 }

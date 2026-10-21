@@ -14,9 +14,11 @@ const {
   TASK_FILE,
   isTaskFolder,
   readTaskDir,
+  ensureTaskFile,
   createTask,
   saveTask,
   markTask,
+  updateLastEdit,
   deleteTask,
   renameTaskByFirstLine,
   openTask,
@@ -27,6 +29,7 @@ const {
 const { formatDate } = require('../utils/dateUtils');
 const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig } = require('./config');
+const { createAuthApp } = require('./auth');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
@@ -251,8 +254,27 @@ app.disable('x-powered-by');
 app.use(express.json({ limit: '10mb' }));
 app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
+// Login first: everything under /api below needs a session (see server/auth.js).
+app.use(createAuthApp({ usersPath: config.usersPath }));
+
 app.get('/api/settings', (req, res) => {
   res.json({ configPath: config.configPath, editor: getEditor() });
+});
+
+// The raw taskmgr.json, to edit the works and projects from the web UI.
+app.get('/api/config', (req, res) => {
+  res.json({ configPath: config.configPath, text: config.readText() });
+});
+
+app.put('/api/config', (req, res) => {
+  const text = (req.body || {}).text;
+  if (typeof text !== 'string') throw new HttpError(400, 'Missing text.');
+  try {
+    config.writeText(text);
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json({ works: listSpaces() });
 });
 
 app.get('/api/spaces', (req, res) => {
@@ -297,6 +319,40 @@ app.post('/api/task/status', (req, res) => {
   res.json({ task: serializeTask(root, taskFromDir(taskDir)) });
 });
 
+// The task file as text, for the web editor (the terminal opens the same file in $EDITOR).
+app.get('/api/task/text', (req, res) => {
+  const { root } = spaceFrom(req.query);
+  const taskDir = resolveTaskDir(root, String(req.query.rel || ''));
+  const taskPath = ensureTaskFile(path.join(taskDir, TASK_FILE));
+  res.json({ text: fs.readFileSync(taskPath, 'utf8') });
+});
+
+// Write the task file as typed, then do what the terminal does after the editor closes:
+// stamp last_edit and rename the folder after the first line of the details.
+function writeTaskText(root, taskDir, text) {
+  const taskPath = path.join(taskDir, TASK_FILE);
+  fs.writeFileSync(taskPath, String(text || '').replace(/\r\n/g, '\n'), 'utf8');
+  updateLastEdit(taskPath);
+  const newPath = renameTaskByFirstLine(taskPath);
+  return serializeTask(root, taskFromDir(path.dirname(newPath)));
+}
+
+app.put('/api/task/text', (req, res) => {
+  const body = req.body || {};
+  const { root } = spaceFrom(body);
+  const taskDir = resolveTaskDir(root, body.rel);
+  res.json({ task: writeTaskText(root, taskDir, body.text) });
+});
+
+// Create a task in `dir` from the typed task file text.
+app.post('/api/tasks/text', (req, res) => {
+  const body = req.body || {};
+  const { root } = spaceFrom(body);
+  const dirAbs = resolveDir(root, body.dir || '');
+  const taskDir = path.dirname(createTask(dirAbs));
+  res.status(201).json({ task: writeTaskText(root, taskDir, body.text) });
+});
+
 // Open the task folder with the OS file manager (only meaningful when the browser runs on the same machine).
 app.post('/api/task/open', (req, res) => {
   const body = req.body || {};
@@ -321,6 +377,45 @@ app.get('/api/file', (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (req.query.download === '1') return res.download(abs);
   res.sendFile(abs);
+});
+
+// A file name for an attachment: a plain name, never the task file or a hidden file.
+function attachmentName(raw) {
+  const name = path.basename(String(raw || '').replace(/\\/g, '/')).trim();
+  if (!name || name === '.' || name === '..' || name.startsWith('.') || name === TASK_FILE) {
+    throw new HttpError(400, 'Invalid file name.');
+  }
+  return name;
+}
+
+// "name.ext", or "name (1).ext", "name (2).ext", ... when that is taken.
+function freeFileName(dir, name) {
+  const ext = path.extname(name);
+  const base = name.slice(0, name.length - ext.length);
+  let candidate = name;
+  for (let i = 1; fs.existsSync(path.join(dir, candidate)); i++) candidate = `${base} (${i})${ext}`;
+  return candidate;
+}
+
+// Upload an attachment into a task folder. The body is the raw file; space, task and file name
+// are in the query, so no multipart parser is needed.
+app.post('/api/task/file', express.raw({ type: () => true, limit: '200mb' }), (req, res) => {
+  const { root } = spaceFrom(req.query);
+  const taskDir = resolveTaskDir(root, String(req.query.rel || ''));
+  const name = freeFileName(taskDir, attachmentName(req.query.name));
+  fs.writeFileSync(path.join(taskDir, name), Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0));
+  res.status(201).json({ files: listFiles(root, taskDir) });
+});
+
+// Delete one attachment (a file directly inside a task folder, not the task file).
+app.delete('/api/file', (req, res) => {
+  const { root } = spaceFrom(req.query);
+  const abs = resolveInsideRoot(root, String(req.query.rel || ''));
+  const taskDir = path.dirname(abs);
+  if (!isTaskFolder(taskDir) || path.basename(abs) === TASK_FILE) throw new HttpError(400, 'Not an attachment.');
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw new HttpError(404, 'File not found.');
+  fs.unlinkSync(abs);
+  res.json({ files: listFiles(root, taskDir) });
 });
 
 app.use('/api', (req, res) => { throw new HttpError(404, 'Unknown API route.'); });
@@ -366,6 +461,7 @@ mountFrontend().then(() => {
   const server = app.listen(config.port, config.host, () => {
     console.log('taskmgr web UI' + (DEV ? ' (dev)' : ''));
     console.log(`  config     : ${config.configPath}  (from ${config.configSource})`);
+    console.log(`  users      : ${config.usersPath}`);
     for (const w of config.getWorks()) {
       console.log(`  work       : ${w.work}  ${w.root}`);
       for (const p of w.projects) console.log(`    project  : ${p.name}  ${p.root}`);

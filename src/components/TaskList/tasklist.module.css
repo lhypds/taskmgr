@@ -1,7 +1,7 @@
 .table {
-  /* check | id | task | labels | origin | edited | subtasks */
-  --cols: 32px 104px minmax(160px, 1fr) minmax(80px, 220px) 96px 132px 28px;
-  min-width: 720px;
+  /* check | id | origin | edited | task | subtasks */
+  --cols: 32px 104px 96px 132px minmax(160px, 1fr) 28px;
+  min-width: 560px;
   padding-bottom: 12px;
 }
 
@@ -35,17 +35,29 @@
   background: var(--bg-hover);
 }
 
+.row.selected,
+.row.selected:hover {
+  background: var(--soft-line);
+}
+
 .row[role="button"]:focus-visible {
   box-shadow: inset 0 0 0 var(--line) var(--focus);
 }
 
+/* The column header as in fin: small muted labels on the page background. */
 .head {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--bg-alt);
+  background: var(--bg);
   border-bottom: var(--line) solid var(--border);
-  font-weight: 600;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.row.head > div {
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .row[data-status="done"] .titleText {
@@ -69,11 +81,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.labels {
-  display: flex;
-  gap: 4px;
 }
 
 .origin {

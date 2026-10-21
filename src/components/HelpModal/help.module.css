@@ -1,0 +1,24 @@
+.modal {
+  max-width: 420px;
+}
+
+.list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 12px;
+}
+
+.item dd {
+  margin: 0;
+}
+
+.hint {
+  margin-top: 14px;
+}

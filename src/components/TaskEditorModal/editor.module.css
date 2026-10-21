@@ -8,26 +8,13 @@
   gap: 12px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-}
-
-.label {
-  color: var(--muted);
-}
-
-.rowFields {
-  display: flex;
-  gap: 12px;
-}
-
-.details {
-  min-height: 140px;
+/* The whole task file: front matter and details, monospaced like the terminal editor. */
+.text {
+  min-height: 320px;
   font-family: var(--font-mono);
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
 }
 
 .actions {
@@ -45,4 +32,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 10px;
+}
+
+.spacer {
+  flex: 1;
 }

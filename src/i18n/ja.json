@@ -1,0 +1,163 @@
+{
+  "common": {
+    "loading": "読み込み中…",
+    "retry": "再試行",
+    "untitled": "（無題）",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "confirm": "確認",
+    "close": "閉じる",
+    "dialog": "ダイアログ",
+    "edit": "編集",
+    "subtasks": "サブタスク"
+  },
+  "status": {
+    "todo": "未着手",
+    "done": "完了",
+    "pending": "保留"
+  },
+  "field": {
+    "id": "ID",
+    "origin": "依頼元",
+    "edited": "更新日時",
+    "task": "タスク",
+    "status": "状態",
+    "labels": "ラベル"
+  },
+  "header": {
+    "filter": "タイトル・ラベル・依頼元・IDで絞り込み",
+    "filterLabel": "タスクを絞り込む",
+    "clearFilter": "絞り込みを解除",
+    "up": "上へ",
+    "refresh": "更新",
+    "newTask": "新規タスク",
+    "hideTree": "ツリーを隠す",
+    "showTree": "ツリーを表示",
+    "hideDetails": "詳細を隠す",
+    "showDetails": "詳細を表示",
+    "location": "場所"
+  },
+  "home": {
+    "pickSpace": "左側から作業またはプロジェクトを選んでください。",
+    "noTasks": "タスクはまだありません。",
+    "noSubtasks": "このタスクにサブタスクはありません。",
+    "noMatch": "「{{query}}」に一致するタスクはありません。",
+    "command": "コマンド"
+  },
+  "toast": {
+    "saved": "保存しました",
+    "created": "タスクを作成しました",
+    "createdUploadFailed": "タスクを作成しましたが、添付ファイルのアップロードに失敗しました：{{error}}",
+    "deleted": "タスクを削除しました",
+    "opened": "ファイルマネージャーで開きました",
+    "notCommand": "コマンドではありません：{{cmd}}"
+  },
+  "delete": {
+    "title": "タスクを削除",
+    "message": "「{{name}}」を削除しますか？添付ファイルとサブタスクを含むタスクフォルダ全体が削除されます。"
+  },
+  "tree": {
+    "works": "作業",
+    "notFound": "見つかりません",
+    "noWorks": "taskmgr.json に作業がありません。",
+    "counts": "未着手 {{todo}}、完了 {{done}}、保留 {{pending}}"
+  },
+  "list": {
+    "markTodo": "未着手にする",
+    "markDone": "完了にする",
+    "openSubtasks": "サブタスクを開く"
+  },
+  "panel": {
+    "none": "タスクが選択されていません。",
+    "details": "詳細",
+    "noDetails": "詳細はありません。"
+  },
+  "attach": {
+    "title": "添付ファイル",
+    "folder": "フォルダ",
+    "remove": "{{name}} を削除",
+    "deleteConfirm": "{{name}} を削除しますか？",
+    "uploading": "アップロード中…",
+    "drop": "ここにファイルをドロップ、または",
+    "choose": "ファイルを選択"
+  },
+  "editor": {
+    "newTask": "新規タスク",
+    "saveHint": "⌘S / Ctrl+S で保存",
+    "save": "保存",
+    "saving": "保存中…"
+  },
+  "config": {
+    "title": "taskmgr.json を編集",
+    "saved": "taskmgr.json を保存しました"
+  },
+  "preview": {
+    "download": "ダウンロード"
+  },
+  "help": {
+    "title": "taskmgr ショートカット",
+    "hint": "q・esc・enter で閉じる",
+    "move": {
+      "keys": "j / k、上 / 下",
+      "desc": "タスク間を移動（ツリー上では作業・プロジェクト間）"
+    },
+    "nav": {
+      "keys": "h / l、左 / 右",
+      "desc": "親へ / サブタスクへ"
+    },
+    "toTree": {
+      "keys": "最上位で h",
+      "desc": "作業 / プロジェクトのツリーへ"
+    },
+    "fromTree": {
+      "keys": "ツリー上で l / enter",
+      "desc": "タスク一覧へ戻る"
+    },
+    "tab": {
+      "keys": "tab",
+      "desc": "ツリーとタスク一覧を切り替え"
+    },
+    "add": {
+      "keys": "a",
+      "desc": "タスクを追加"
+    },
+    "edit": {
+      "keys": "e / i、space",
+      "desc": "選択中のタスクを編集"
+    },
+    "open": {
+      "keys": "enter",
+      "desc": "タスクフォルダを開く"
+    },
+    "done": {
+      "keys": "x",
+      "desc": "完了 / 未完了を切り替え"
+    },
+    "pending": {
+      "keys": "p",
+      "desc": "保留 / 未着手を切り替え"
+    },
+    "delete": {
+      "keys": "d",
+      "desc": "選択中のタスクを削除"
+    },
+    "refresh": {
+      "keys": "r",
+      "desc": "タスク一覧を更新"
+    },
+    "command": {
+      "keys": ":",
+      "desc": "コマンドモード（:h または :help でこの画面）"
+    }
+  },
+  "login": {
+    "username": "ユーザー名",
+    "password": "パスワード",
+    "next": "次へ",
+    "go": "はじめる",
+    "back": "戻る",
+    "passwordEmpty": "パスワードを入力してください",
+    "invalid": "ユーザー名またはパスワードが違います",
+    "logout": "ログアウト"
+  }
+}

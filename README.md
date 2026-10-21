@@ -220,8 +220,10 @@ work
     task
 ```
 
-Opening the web root shows that tree; pick a work (its common tasks) or one of its projects  
-to list, filter, add, edit, mark done or pending, delete, and open subtasks and attachments.  
+It is one page: that tree on the left (a drawer that folds away), the tasks of the chosen work  
+(its common tasks) or project on the right, to list, filter, add, edit, mark done or pending,  
+delete, and open subtasks and attachments. `tab` (or `h` at the top of a task list) moves the  
+keyboard to the tree, `l` / `enter` back to the tasks.  
 
 Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-ignored).  
 The bare `tm` command reads the same file:  
@@ -243,7 +245,19 @@ The bare `tm` command reads the same file:
 `root` is the folder holding the task folders (`~` is expanded). The file is re-read when it changes.  
 `PORT` / `HOST` in `.env` override the values in the file; `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
 
-Setup (installs dependencies, creates `.env` and `taskmgr.json` from the examples, builds the frontend):  
+Login: the web UI asks for a username and password. Accounts are a list in `data/users.json`  
+(copy `data/users.example.json`; the file is git-ignored; `TASKMGR_USERS` in `.env` points at one elsewhere),  
+all seeing the same works. The file is read on every login, so edits apply without a restart:  
+```
+[
+  { "username": "admin", "password": "change-me" },
+  { "username": "liu", "password": "..." }
+]
+```
+Without the file nobody can log in. Sessions are kept in memory, so a restart signs everyone out  
+(the browser remembers the password and logs back in by itself until "Log out").  
+
+Setup (installs dependencies, creates `.env`, `taskmgr.json` and `data/users.json` from the examples, builds the frontend):  
 `./setup.sh`  
 
 Run as a background service with pm2 (`pnpm add -g pm2`):  

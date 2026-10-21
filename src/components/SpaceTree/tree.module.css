@@ -1,0 +1,182 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 300px;
+}
+
+.head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: var(--line) solid var(--border);
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.empty,
+.error {
+  padding: 16px 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.error {
+  color: var(--err);
+}
+
+/* A work and its projects, one block per work. Inside it the rows run on without separators so
+   the tree lines join up. */
+.group {
+  border-bottom: var(--line) solid var(--border);
+}
+
+.row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+
+.project {
+  padding-left: 32px;
+}
+
+.row:hover {
+  background: var(--bg-hover);
+}
+
+/* The space on the right sits on the hover grey; while the keyboard is on the tree it takes the
+   task list's selected look instead. */
+.row[data-active="true"] {
+  background: var(--bg-hover);
+}
+
+.row[data-focused="true"],
+.row[data-focused="true"]:hover {
+  background: var(--soft-line);
+}
+
+.row:focus-visible {
+  outline: var(--line) solid var(--focus);
+  outline-offset: -2px;
+}
+
+.row[data-disabled="true"] {
+  color: var(--muted);
+  cursor: default;
+}
+
+.row[data-disabled="true"]:hover {
+  background: none;
+}
+
+/* Tree connector drawn with borders: ├ for a project, └ for the last one. */
+.tree {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 16px;
+  width: 10px;
+}
+
+.tree::before,
+.tree::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  border: 0 solid var(--faint);
+}
+
+.tree::before {
+  top: 0;
+  bottom: 0;
+  border-left-width: var(--line);
+}
+
+.last .tree::before {
+  bottom: 50%;
+}
+
+.tree::after {
+  top: 50%;
+  right: 0;
+  border-top-width: var(--line);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work .name {
+  font-weight: 600;
+}
+
+.root {
+  color: var(--muted);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl; /* keep the end of a long path visible */
+  text-align: left;
+}
+
+.counts {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+}
+
+.todo {
+  color: var(--err);
+}
+
+.done {
+  color: var(--ok);
+}
+
+.pending {
+  color: var(--warn);
+}
+
+.missing {
+  flex: none;
+  font-size: 10px;
+  color: var(--err);
+}
+
+@media (max-width: 860px) {
+  .panel {
+    width: min(300px, 70vw);
+  }
+}

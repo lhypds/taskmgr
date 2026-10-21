@@ -19,6 +19,8 @@
 //
 // Config file precedence: command-line argument, then TASKMGR_CONFIG in .env / environment,
 // then <project>/taskmgr.json. The file is re-read when it changes, so edits apply without a restart.
+//
+// The web UI's login accounts are in <project>/data/users.json, or TASKMGR_USERS in .env (see server/auth.js).
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -26,6 +28,7 @@ const path = require('path');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_CONFIG_PATH = path.join(PROJECT_ROOT, 'taskmgr.json');
 const EXAMPLE_CONFIG_PATH = path.join(PROJECT_ROOT, 'taskmgr.json.example');
+const DEFAULT_USERS_PATH = path.join(PROJECT_ROOT, 'data', 'users.json');
 
 function loadDotenv() {
   let dotenv = null;
@@ -89,19 +92,30 @@ function normalizeWorks(raw) {
   });
 }
 
-function readConfigFile(configPath) {
+// Parse and validate the text of a config file.
+function parseConfig(text, configPath) {
   let raw;
   try {
-    raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    raw = JSON.parse(text);
   } catch (e) {
-    throw new Error(`Could not read ${configPath}: ${e.message}`);
+    throw new Error(`Invalid JSON in ${configPath}: ${e.message}`);
   }
-  if (!raw || typeof raw !== 'object') throw new Error(`${configPath} must contain a JSON object.`);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`${configPath} must contain a JSON object.`);
   try {
     return { works: normalizeWorks(raw.works), port: raw.port, host: raw.host };
   } catch (e) {
     throw new Error(`${configPath}: ${e.message}`);
   }
+}
+
+function readConfigFile(configPath) {
+  let text;
+  try {
+    text = fs.readFileSync(configPath, 'utf8');
+  } catch (e) {
+    throw new Error(`Could not read ${configPath}: ${e.message}`);
+  }
+  return parseConfig(text, configPath);
 }
 
 // Where the config file is, without reading it: { configPath, source }.
@@ -132,6 +146,7 @@ function resolveConfig(argv) {
   const first = readConfigFile(configPath);
   const port = parseInt(process.env.PORT || first.port || 3456, 10);
   const host = process.env.HOST || first.host || '127.0.0.1';
+  const usersPath = path.resolve(expandHome((process.env.TASKMGR_USERS || '').trim() || DEFAULT_USERS_PATH));
 
   // Works are re-read when the file's mtime changes; a broken edit keeps the last good list.
   let cached = { mtimeMs: fs.statSync(configPath).mtimeMs, works: first.works };
@@ -147,7 +162,21 @@ function resolveConfig(argv) {
     return cached.works;
   }
 
-  return { configPath, configSource: source, port, host, getWorks };
+  // The config file as written, for editing in the web UI.
+  function readText() {
+    return fs.readFileSync(configPath, 'utf8');
+  }
+
+  // Replace the config file; an invalid one is refused and the file left as it was.
+  // port and host only apply on the next start.
+  function writeText(text) {
+    const parsed = parseConfig(text, configPath);
+    fs.writeFileSync(configPath, text);
+    cached = { mtimeMs: fs.statSync(configPath).mtimeMs, works: parsed.works };
+    return parsed.works;
+  }
+
+  return { configPath, configSource: source, port, host, usersPath, getWorks, readText, writeText };
 }
 
 module.exports = { resolveConfig, resolveConfigPath, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH };

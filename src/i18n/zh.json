@@ -1,0 +1,163 @@
+{
+  "common": {
+    "loading": "加载中…",
+    "retry": "重试",
+    "untitled": "（无标题）",
+    "cancel": "取消",
+    "delete": "删除",
+    "confirm": "确认",
+    "close": "关闭",
+    "dialog": "对话框",
+    "edit": "编辑",
+    "subtasks": "子任务"
+  },
+  "status": {
+    "todo": "待办",
+    "done": "完成",
+    "pending": "搁置"
+  },
+  "field": {
+    "id": "编号",
+    "origin": "来源",
+    "edited": "编辑于",
+    "task": "任务",
+    "status": "状态",
+    "labels": "标签"
+  },
+  "header": {
+    "filter": "按标题、标签、来源或编号筛选",
+    "filterLabel": "筛选任务",
+    "clearFilter": "清除筛选",
+    "up": "上级",
+    "refresh": "刷新",
+    "newTask": "新建任务",
+    "hideTree": "隐藏目录树",
+    "showTree": "显示目录树",
+    "hideDetails": "隐藏详情",
+    "showDetails": "显示详情",
+    "location": "位置"
+  },
+  "home": {
+    "pickSpace": "请在左侧选择一个工作或项目。",
+    "noTasks": "还没有任务。",
+    "noSubtasks": "此任务没有子任务。",
+    "noMatch": "没有与“{{query}}”匹配的任务。",
+    "command": "命令"
+  },
+  "toast": {
+    "saved": "已保存",
+    "created": "任务已创建",
+    "createdUploadFailed": "任务已创建，但附件上传失败：{{error}}",
+    "deleted": "任务已删除",
+    "opened": "已在文件管理器中打开",
+    "notCommand": "无效命令：{{cmd}}"
+  },
+  "delete": {
+    "title": "删除任务",
+    "message": "删除“{{name}}”？整个任务文件夹（包括附件和子任务）都将被移除。"
+  },
+  "tree": {
+    "works": "工作",
+    "notFound": "未找到",
+    "noWorks": "taskmgr.json 中没有工作。",
+    "counts": "待办 {{todo}}，完成 {{done}}，搁置 {{pending}}"
+  },
+  "list": {
+    "markTodo": "标为待办",
+    "markDone": "标为完成",
+    "openSubtasks": "打开子任务"
+  },
+  "panel": {
+    "none": "未选择任务。",
+    "details": "详情",
+    "noDetails": "没有详情。"
+  },
+  "attach": {
+    "title": "附件",
+    "folder": "文件夹",
+    "remove": "移除 {{name}}",
+    "deleteConfirm": "删除 {{name}}？",
+    "uploading": "上传中…",
+    "drop": "将文件拖放到此处，或",
+    "choose": "选择文件"
+  },
+  "editor": {
+    "newTask": "新建任务",
+    "saveHint": "⌘S / Ctrl+S 保存",
+    "save": "保存",
+    "saving": "保存中…"
+  },
+  "config": {
+    "title": "编辑 taskmgr.json",
+    "saved": "已保存 taskmgr.json"
+  },
+  "preview": {
+    "download": "下载"
+  },
+  "help": {
+    "title": "taskmgr 快捷键",
+    "hint": "按 q、esc 或 enter 关闭",
+    "move": {
+      "keys": "j / k，上 / 下",
+      "desc": "在任务间移动（在目录树上则在工作和项目间移动）"
+    },
+    "nav": {
+      "keys": "h / l，左 / 右",
+      "desc": "返回上级 / 进入子任务"
+    },
+    "toTree": {
+      "keys": "顶层按 h",
+      "desc": "切换到工作 / 项目目录树"
+    },
+    "fromTree": {
+      "keys": "目录树上按 l / enter",
+      "desc": "回到任务列表"
+    },
+    "tab": {
+      "keys": "tab",
+      "desc": "在目录树和任务列表间切换"
+    },
+    "add": {
+      "keys": "a",
+      "desc": "添加任务"
+    },
+    "edit": {
+      "keys": "e / i，space",
+      "desc": "编辑选中的任务"
+    },
+    "open": {
+      "keys": "enter",
+      "desc": "打开任务文件夹"
+    },
+    "done": {
+      "keys": "x",
+      "desc": "标为完成 / 未完成"
+    },
+    "pending": {
+      "keys": "p",
+      "desc": "标为搁置 / 待办"
+    },
+    "delete": {
+      "keys": "d",
+      "desc": "删除选中的任务"
+    },
+    "refresh": {
+      "keys": "r",
+      "desc": "刷新任务列表"
+    },
+    "command": {
+      "keys": ":",
+      "desc": "命令模式（:h 或 :help 显示此帮助）"
+    }
+  },
+  "login": {
+    "username": "你的用户名",
+    "password": "密码",
+    "next": "下一步",
+    "go": "进入",
+    "back": "返回",
+    "passwordEmpty": "请输入密码",
+    "invalid": "用户名或密码错误",
+    "logout": "退出登录"
+  }
+}

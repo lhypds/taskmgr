@@ -1,0 +1,85 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.title {
+  color: var(--muted);
+}
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: var(--line) dashed var(--faint);
+}
+
+.drop[data-over="true"] {
+  border-color: var(--border);
+  background: var(--bg-alt);
+}
+
+.dropHint {
+  text-align: center;
+}
+
+.pick {
+  padding: 0;
+  border: none;
+  background: none;
+  text-decoration: underline;
+}
+
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.files li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fileName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.fileName {
+  text-decoration: underline;
+}
+
+.fileMeta {
+  flex: none;
+  font-size: 10px;
+}
+
+.fileRemove {
+  flex: none;
+  display: inline-flex;
+  margin-left: auto;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--muted);
+}
+
+.fileRemove:hover:not(:disabled) {
+  color: var(--err);
+}
+
+.fileRemove svg {
+  width: 10px;
+  height: 10px;
+}

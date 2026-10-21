@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
 import styles from "./modal.module.css";
 
@@ -6,6 +7,7 @@ import styles from "./modal.module.css";
 const openStack = [];
 
 const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, className, headerActions }) => {
+  const { t } = useTranslation();
   // A click only counts as "outside" when it both starts and ends on the overlay. A drag that
   // begins inside the dialog (selecting text in a field) and is released over the backdrop
   // must not close it.
@@ -51,13 +53,13 @@ const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, classN
         className={[styles.modal, className].filter(Boolean).join(" ")}
         role="dialog"
         aria-modal="true"
-        aria-label={typeof title === "string" ? title : "Dialog"}
+        aria-label={typeof title === "string" ? title : t("common.dialog")}
       >
         <div className={styles.header}>
           {title && <span className={styles.title}>{title}</span>}
           <div className={styles.headerRight}>
             {headerActions}
-            <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close">
+            <button type="button" className={styles.closeButton} onClick={onClose} aria-label={t("common.close")}>
               ✕
             </button>
           </div>

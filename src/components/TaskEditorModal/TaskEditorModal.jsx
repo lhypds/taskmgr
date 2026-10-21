@@ -1,41 +1,58 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "@ui";
-import { splitDetails, joinDetails } from "@utils/task";
+import { TrashIcon, ChevronRightIcon } from "@components/icons";
+import Attachments, { useTaskFiles } from "@components/Attachments";
+import * as api from "@utils/api";
 import styles from "./editor.module.css";
 
-const EMPTY = { title: "", body: "", status: "todo", labels: "", origin: "" };
+// A new task file as the terminal writes one: the front matter, then the details, whose first
+// line becomes the title. last_edit is stamped on save.
+const TEMPLATE = "---\nstatus: todo\nlabels: \norigin: \nlast_edit: \n---\n\n";
 
-function fromTask(task) {
-  if (!task) return EMPTY;
-  const { title, body } = splitDetails(task.details);
-  return { title, body, status: task.status || "todo", labels: task.labels || "", origin: task.origin || "" };
-}
-
-// Edits one task's fields, or collects them for a new one. `task` is null for a new task;
-// `isOpen` is separate so a closed editor keeps its last values until it reopens.
-export default function TaskEditorModal({ isOpen, task, saving, onCancel, onSave }) {
-  const [form, setForm] = useState(EMPTY);
-  const titleRef = useRef(null);
+// The task file in one text area, the way the terminal opens it in $EDITOR. `task` is null for a
+// new task; `isOpen` is separate so a closed editor keeps its last text until it reopens.
+// An existing task uploads attachments right away and gets buttons to go into its subtasks and
+// delete it; a new task keeps its attachments until it is saved (onSave(text, files)).
+export default function TaskEditorModal({ isOpen, space, task, saving, onCancel, onSave, onEnter, onDelete, onPreview }) {
+  const { t } = useTranslation();
+  const [text, setText] = useState(null); // null while the file loads
+  const [pending, setPending] = useState([]); // File objects for a new task
+  const { files, uploading, add, remove } = useTaskFiles(space, isOpen ? task?.rel : null);
+  const textRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    setForm(fromTask(task));
-    // Focus after the modal has mounted its fields.
-    const id = setTimeout(() => titleRef.current?.focus(), 0);
-    return () => clearTimeout(id);
-  }, [isOpen, task]);
+    setPending([]);
+    if (!task) {
+      setText(TEMPLATE);
+      return;
+    }
+    setText(null);
+    let stale = false;
+    api
+      .getTaskText(space, task.rel)
+      .then((d) => !stale && setText(d.text))
+      .catch((e) => !stale && setText(`${e.message}`));
+    return () => {
+      stale = true;
+    };
+  }, [isOpen, task, space]);
 
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  // Once the text is in, focus it with the caret at the end, where the details go.
+  const loaded = text !== null;
+  useEffect(() => {
+    if (!isOpen || !loaded) return;
+    const el = textRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [isOpen, loaded]);
 
   function submit(e) {
     e?.preventDefault();
-    if (saving) return;
-    onSave({
-      status: form.status,
-      labels: form.labels.trim(),
-      origin: form.origin.trim(),
-      details: joinDetails(form.title, form.body),
-    });
+    if (saving || uploading || text === null) return;
+    onSave(text, pending);
   }
 
   function onKeyDown(e) {
@@ -46,45 +63,53 @@ export default function TaskEditorModal({ isOpen, task, saving, onCancel, onSave
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onCancel} title={task ? "Edit task" : "New task"} closeOnOverlay={false} className={styles.modal}>
+    <Modal isOpen={isOpen} onClose={onCancel} title={task ? task.title || t("common.untitled") : t("editor.newTask")} closeOnOverlay={false} className={styles.modal}>
       <form className={styles.form} onSubmit={submit} onKeyDown={onKeyDown}>
-        <label className={styles.field}>
-          <span className={styles.label}>Title</span>
-          <input ref={titleRef} className="input" value={form.title} onChange={set("title")} placeholder="What needs doing?" />
-        </label>
+        <textarea
+          ref={textRef}
+          className={`textarea ${styles.text}`}
+          value={text ?? ""}
+          placeholder={text === null ? t("common.loading") : ""}
+          disabled={text === null}
+          onChange={(e) => setText(e.target.value)}
+          spellCheck={false}
+          aria-label={task ? task.title || t("common.untitled") : t("editor.newTask")}
+        />
 
-        <div className={styles.rowFields}>
-          <label className={styles.field}>
-            <span className={styles.label}>Status</span>
-            <select className="select" value={form.status} onChange={set("status")}>
-              <option value="todo">todo</option>
-              <option value="done">done</option>
-              <option value="pending">pending</option>
-            </select>
-          </label>
-          <label className={styles.field}>
-            <span className={styles.label}>Origin</span>
-            <input className="input" value={form.origin} onChange={set("origin")} placeholder="who asked" />
-          </label>
-        </div>
-
-        <label className={styles.field}>
-          <span className={styles.label}>Labels</span>
-          <input className="input" value={form.labels} onChange={set("labels")} placeholder="comma, separated" />
-        </label>
-
-        <label className={styles.field}>
-          <span className={styles.label}>Details</span>
-          <textarea className={`textarea ${styles.details}`} value={form.body} onChange={set("body")} rows={8} />
-        </label>
+        <Attachments
+          space={space}
+          onPreview={onPreview}
+          files={files}
+          pending={pending}
+          busy={uploading}
+          onAdd={(list) => (task ? add(list) : setPending((p) => [...p, ...list]))}
+          onRemove={remove}
+          onRemovePending={(i) => setPending((p) => p.filter((_, j) => j !== i))}
+        />
 
         <div className={styles.actions}>
-          <span className={`muted ${styles.hint}`}>{task ? `${task.rel}/task.txt` : "⌘S / Ctrl+S saves"}</span>
+          {task ? (
+            <>
+              {task.hasSubtask && (
+                <button type="button" className="btn" onClick={() => onEnter(task)}>
+                  <ChevronRightIcon />
+                  {t("common.subtasks")}
+                </button>
+              )}
+              <button type="button" className="btn danger" onClick={() => onDelete(task)}>
+                <TrashIcon />
+                {t("common.delete")}
+              </button>
+              <span className={styles.spacer} />
+            </>
+          ) : (
+            <span className={`muted ${styles.hint}`}>{t("editor.saveHint")}</span>
+          )}
           <button type="button" className="btn lg" onClick={onCancel} disabled={saving}>
-            Cancel
+            {t("common.cancel")}
           </button>
-          <button type="submit" className="btn lg primary" disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+          <button type="submit" className="btn lg primary" disabled={saving || uploading || text === null}>
+            {saving ? t("editor.saving") : t("editor.save")}
           </button>
         </div>
       </form>

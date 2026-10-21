@@ -12,3 +12,6 @@ taskmgr.json
 
 # built web UI
 dist/
+
+# web UI login accounts
+/data/users.json

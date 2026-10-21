@@ -35,3 +35,14 @@ export function formatSize(n) {
 }
 
 export const STATUS_LABEL = { todo: "todo", done: "done", pending: "pending" };
+
+// What the preview modal can show in the page: a PDF, an image or a text file.
+const TEXT_EXT = /\.(txt|md|markdown|log|csv|tsv|json|ya?ml|xml|ini|conf|cfg|toml|sql|sh|bat|ps1|js|jsx|ts|tsx|py|rb|go|java|c|h|cpp|cs|rs|php|css|html?)$/i;
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
+
+export function previewKind(name) {
+  if (/\.pdf$/i.test(name)) return "pdf";
+  if (IMAGE_EXT.test(name)) return "image";
+  if (TEXT_EXT.test(name)) return "text";
+  return null;
+}

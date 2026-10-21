@@ -1,0 +1,163 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "untitled": "(untitled)",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "close": "Close",
+    "dialog": "Dialog",
+    "edit": "Edit",
+    "subtasks": "Subtasks"
+  },
+  "status": {
+    "todo": "todo",
+    "done": "done",
+    "pending": "pending"
+  },
+  "field": {
+    "id": "id",
+    "origin": "origin",
+    "edited": "edited",
+    "task": "task",
+    "status": "status",
+    "labels": "labels"
+  },
+  "header": {
+    "filter": "Filter by title, label, origin or id",
+    "filterLabel": "Filter tasks",
+    "clearFilter": "Clear filter",
+    "up": "Up",
+    "refresh": "Refresh",
+    "newTask": "New task",
+    "hideTree": "Hide the tree",
+    "showTree": "Show the tree",
+    "hideDetails": "Hide the details",
+    "showDetails": "Show the details",
+    "location": "Location"
+  },
+  "home": {
+    "pickSpace": "Pick a work or project on the left.",
+    "noTasks": "No tasks yet.",
+    "noSubtasks": "No subtasks in this task.",
+    "noMatch": "No tasks match “{{query}}”.",
+    "command": "Command"
+  },
+  "toast": {
+    "saved": "Saved",
+    "created": "Task created",
+    "createdUploadFailed": "Task created, but an attachment failed: {{error}}",
+    "deleted": "Task deleted",
+    "opened": "Opened in file manager",
+    "notCommand": "Not a command: {{cmd}}"
+  },
+  "delete": {
+    "title": "Delete task",
+    "message": "Delete “{{name}}”? The whole task folder, including attachments and subtasks, is removed."
+  },
+  "tree": {
+    "works": "Works",
+    "notFound": "not found",
+    "noWorks": "No works in taskmgr.json.",
+    "counts": "todo {{todo}}, done {{done}}, pending {{pending}}"
+  },
+  "list": {
+    "markTodo": "Mark as todo",
+    "markDone": "Mark as done",
+    "openSubtasks": "Open subtasks"
+  },
+  "panel": {
+    "none": "No task selected.",
+    "details": "Details",
+    "noDetails": "No details."
+  },
+  "attach": {
+    "title": "Attachments",
+    "folder": "folder",
+    "remove": "Remove {{name}}",
+    "deleteConfirm": "Delete {{name}}?",
+    "uploading": "Uploading…",
+    "drop": "Drop files here or",
+    "choose": "choose files"
+  },
+  "editor": {
+    "newTask": "New task",
+    "saveHint": "⌘S / Ctrl+S saves",
+    "save": "Save",
+    "saving": "Saving…"
+  },
+  "config": {
+    "title": "Edit taskmgr.json",
+    "saved": "Saved taskmgr.json"
+  },
+  "preview": {
+    "download": "Download"
+  },
+  "help": {
+    "title": "taskmgr shortcuts",
+    "hint": "press q, esc or enter to close",
+    "move": {
+      "keys": "j / k, up / down",
+      "desc": "move between tasks (or works and projects on the tree)"
+    },
+    "nav": {
+      "keys": "h / l, left / right",
+      "desc": "go to parent / into subtasks"
+    },
+    "toTree": {
+      "keys": "h at the top",
+      "desc": "over to the work / project tree"
+    },
+    "fromTree": {
+      "keys": "l / enter on the tree",
+      "desc": "back to the tasks"
+    },
+    "tab": {
+      "keys": "tab",
+      "desc": "switch between the tree and the tasks"
+    },
+    "add": {
+      "keys": "a",
+      "desc": "add a task"
+    },
+    "edit": {
+      "keys": "e / i, space",
+      "desc": "edit the selected task"
+    },
+    "open": {
+      "keys": "enter",
+      "desc": "open the task folder"
+    },
+    "done": {
+      "keys": "x",
+      "desc": "mark done / undone"
+    },
+    "pending": {
+      "keys": "p",
+      "desc": "mark pending / todo"
+    },
+    "delete": {
+      "keys": "d",
+      "desc": "delete the selected task"
+    },
+    "refresh": {
+      "keys": "r",
+      "desc": "refresh the task list"
+    },
+    "command": {
+      "keys": ":",
+      "desc": "command mode  (:h or :help shows this)"
+    }
+  },
+  "login": {
+    "username": "Your username",
+    "password": "password",
+    "next": "Next",
+    "go": "Go",
+    "back": "Back",
+    "passwordEmpty": "Please enter a password",
+    "invalid": "Wrong username or password",
+    "logout": "Log out"
+  }
+}

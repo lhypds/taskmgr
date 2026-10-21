@@ -12,6 +12,11 @@ if [ ! -f taskmgr.json ]; then
   echo "Copied taskmgr.json.example to taskmgr.json"
 fi
 
+if [ ! -f data/users.json ]; then
+  cp data/users.example.json data/users.json
+  echo "Copied data/users.example.json to data/users.json"
+fi
+
 echo "Installing dependencies..."
 pnpm install
 
@@ -23,4 +28,4 @@ fi
 echo "Building the web UI..."
 pnpm run build
 
-echo "Done. Edit taskmgr.json (works, projects and their task folders) and .env (PORT), then run ./start.sh for the web UI or ./install.sh to install taskmgr as a global command."
+echo "Done. Edit taskmgr.json (works, projects and their task folders), data/users.json (web UI login accounts) and .env (PORT), then run ./start.sh for the web UI or ./install.sh to install taskmgr as a global command."
