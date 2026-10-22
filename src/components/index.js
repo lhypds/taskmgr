@@ -9,4 +9,6 @@ export { default as TaskPanel } from "./TaskPanel";
 export { default as ConfigEditorModal } from "./ConfigEditorModal";
 export { default as LanguageSwitcher } from "./LanguageSwitcher";
 export { default as UserMenu } from "./UserMenu";
-export { default as WorkRewardModal } from "./WorkRewardModal";
+export { default as WorkEditModal } from "./WorkEditModal";
+export { default as AddSpaceModal } from "./AddSpaceModal";
+export { default as RepositoryNameModal } from "./RepositoryNameModal";

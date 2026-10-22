@@ -22,6 +22,7 @@ const {
   deleteTask,
   renameTaskByFirstLine,
   openTask,
+  openFolder,
   readTasks,
   hasSubtask,
   compareIdsDesc
@@ -194,23 +195,43 @@ function listDir(space, rel) {
   };
 }
 
-// The works/repositories tree with, for each folder, whether it exists and its task counts.
+// The top-level tasks of several spaces in one list, each task saying which space it lives in
+// (its rel is relative to that space's root). Spaces whose folder is missing are skipped.
+function listSpacesTasks(spaces, absDir) {
+  const tasks = [];
+  for (const s of spaces) {
+    if (!fs.existsSync(s.root) || !fs.statSync(s.root).isDirectory()) continue;
+    for (const t of readTasks(s.root)) tasks.push({ ...serializeTask(s.root, t), work: s.work, repository: s.repository });
+  }
+  sortTasks(tasks);
+  return { dir: '', absDir, isRoot: true, parent: null, crumbs: [], tasks, counts: countTasks(tasks) };
+}
+
+// A work's common tasks and those of all its repositories.
+function workSpaces(w) {
+  return [
+    { work: w.work, repository: '', root: w.root },
+    ...w.repositories.map(p => ({ work: w.work, repository: p.name, root: p.root }))
+  ];
+}
+
+// The works/repositories list with, for each folder, whether it exists.
 function listSpaces() {
-  const describe = (root) => {
-    const exists = fs.existsSync(root) && fs.statSync(root).isDirectory();
-    let counts = null;
-    if (exists) {
-      try { counts = countTasks(readTasks(root)); } catch (e) { counts = null; }
-    }
-    return { root, exists, counts };
-  };
+  const describe = (root) => ({ root, exists: fs.existsSync(root) && fs.statSync(root).isDirectory() });
   return config.getWorks().map(w => ({
     work: w.work,
-    orgin: w.orgin,
-    reward: w.reward,
+    origin: w.origin,
+    income: w.income,
+    shownPath: w.shownPath,
     ...describe(w.root),
-    repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, ...describe(p.root) }))
+    repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, shownPath: p.shownPath, ...describe(p.root) }))
   }));
+}
+
+// What every change to taskmgr.json answers with: the works and the named origins ({ origin,
+// income }, an origin possibly without works yet).
+function spacesBody() {
+  return { works: listSpaces(), origins: config.getOrigins() };
 }
 
 function listFiles(root, taskDirAbs) {
@@ -276,27 +297,118 @@ app.put('/api/config', (req, res) => {
   } catch (e) {
     throw new HttpError(400, e.message);
   }
-  res.json({ works: listSpaces() });
+  res.json(spacesBody());
 });
 
-// Set or clear the reward of one work in taskmgr.json.
-app.put('/api/work/reward', (req, res) => {
-  const { work, reward } = req.body || {};
-  if (typeof work !== 'string' || typeof reward !== 'string') throw new HttpError(400, 'Missing work or reward.');
+// Add a work to taskmgr.json.
+app.post('/api/work', (req, res) => {
+  const { name, origin = '', tasksPath, income = null } = req.body || {};
+  if (typeof name !== 'string' || typeof origin !== 'string' || typeof tasksPath !== 'string') throw new HttpError(400, 'Missing name or tasksPath.');
   try {
-    config.setWorkReward(work, reward);
+    config.addWork({ name, origin, tasksPath, income });
   } catch (e) {
     throw new HttpError(400, e.message);
   }
-  res.json({ works: listSpaces() });
+  res.status(201).json(spacesBody());
+});
+
+// Set the name and income (null clears it) of one work in taskmgr.json.
+app.put('/api/work', (req, res) => {
+  const { work, name, income } = req.body || {};
+  if (typeof work !== 'string' || typeof name !== 'string' || income === undefined) throw new HttpError(400, 'Missing work, name or income.');
+  try {
+    config.updateWork(work, { name, income });
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
+// Set the name and income (null clears it) of one origin in taskmgr.json.
+app.put('/api/origin', (req, res) => {
+  const { origin, name, income } = req.body || {};
+  if (typeof origin !== 'string' || typeof name !== 'string' || income === undefined) throw new HttpError(400, 'Missing origin, name or income.');
+  try {
+    config.updateOrigin(origin, { name, income });
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
+// Rename one repository of a work in taskmgr.json.
+app.put('/api/repository/name', (req, res) => {
+  const { work, name, newName } = req.body || {};
+  if (typeof work !== 'string' || typeof name !== 'string' || typeof newName !== 'string') throw new HttpError(400, 'Missing work, name or newName.');
+  try {
+    config.renameRepository(work, name, newName);
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
+// Add an origin (with no works yet) to taskmgr.json.
+app.post('/api/origin', (req, res) => {
+  const { name, income = null } = req.body || {};
+  if (typeof name !== 'string') throw new HttpError(400, 'Missing name.');
+  try {
+    config.addOrigin({ name, income });
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.status(201).json(spacesBody());
+});
+
+// Add a repository to a work in taskmgr.json.
+app.post('/api/repository', (req, res) => {
+  const { work, name, tasksPath, sourcePath = '' } = req.body || {};
+  if (typeof work !== 'string' || typeof name !== 'string' || typeof tasksPath !== 'string' || typeof sourcePath !== 'string') {
+    throw new HttpError(400, 'Missing work, name or tasksPath.');
+  }
+  try {
+    config.addRepository({ work, name, tasksPath, sourcePath });
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.status(201).json(spacesBody());
+});
+
+// Open the folder a tree row shows with the OS file manager: a work's tasks folder, or a
+// repository's source code folder (its tasks folder when it has none).
+app.post('/api/space/open', (req, res) => {
+  const work = String(req.body?.work || '');
+  const repository = String(req.body?.repository || '');
+  const w = config.getWorks().find(x => x.work === work);
+  const p = repository ? w?.repositories.find(x => x.name === repository) : null;
+  if (!w || (repository && !p)) throw new HttpError(404, repository ? `Unknown repository "${repository}" in "${work}".` : `Unknown work "${work}".`);
+  const dir = p ? p.sourcePath || p.root : w.root;
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) throw new HttpError(404, `Folder not found: ${dir}`);
+  openFolder(dir);
+  res.json({ ok: true });
 });
 
 app.get('/api/spaces', (req, res) => {
-  res.json({ works: listSpaces() });
+  res.json(spacesBody());
 });
 
 app.get('/api/tasks', (req, res) => {
   res.json(listDir(spaceFrom(req.query), String(req.query.dir || '')));
+});
+
+// Every task of an origin (?origin=: all its works and their repositories) or of one work
+// (?work=: its common tasks and its repositories'), in one list.
+app.get('/api/tasks/all', (req, res) => {
+  const origin = String(req.query.origin || '');
+  const work = String(req.query.work || '');
+  if (origin) {
+    if (!config.getOrigins().some(o => o.origin === origin)) throw new HttpError(404, `Unknown origin "${origin}".`);
+    const works = config.getWorks().filter(w => w.origin === origin);
+    return res.json(listSpacesTasks(works.flatMap(workSpaces), ''));
+  }
+  const w = config.getWorks().find(x => x.work === work);
+  if (!w) throw new HttpError(404, `Unknown work "${work}".`);
+  res.json(listSpacesTasks(workSpaces(w), w.root));
 });
 
 // Create a task in `dir` with the given fields. Ids are the creation minute; a second
@@ -477,7 +589,7 @@ mountFrontend().then(() => {
     console.log(`  config     : ${config.configPath}  (from ${config.configSource})`);
     console.log(`  users      : ${config.usersPath}`);
     for (const w of config.getWorks()) {
-      console.log(`  work       : ${w.work}${w.orgin ? ` (${w.orgin})` : ''}  ${w.root}`);
+      console.log(`  work       : ${w.work}${w.origin ? ` (${w.origin})` : ''}  ${w.root}`);
       for (const p of w.repositories) console.log(`    repository : ${p.name}  ${p.root}${p.sourcePath ? `  (source: ${p.sourcePath})` : ''}`);
     }
     console.log(`  url        : http://${config.host}:${config.port}/`);

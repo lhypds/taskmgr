@@ -1,0 +1,54 @@
+.modal {
+  max-width: 420px;
+  width: 100%;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.label {
+  color: var(--muted);
+}
+
+/* What to add: origin, work or repository. */
+.choices {
+  display: flex;
+  gap: 16px;
+  height: 26px;
+  align-items: center;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.choice input {
+  margin: 0;
+  accent-color: var(--fg);
+}
+
+.error {
+  color: var(--err);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

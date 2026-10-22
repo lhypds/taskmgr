@@ -1,24 +1,62 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
-import { EditIcon } from "@components/icons";
+import { EditIcon, FolderIcon, PlusIcon } from "@components/icons";
 import * as api from "@utils/api";
+import { formatIncome, formatIncomeShort } from "@utils/income";
+import { groupWorksByOrigin } from "@utils/works";
 import styles from "./tree.module.css";
 
-// todo / done / pending as three coloured numbers; the words are in the tooltip.
-function Counts({ counts }) {
-  const { t } = useTranslation();
-  if (!counts) return <span className={styles.missing}>{t("tree.notFound")}</span>;
+// Tree lines for a row at `depth`: a straight line for each ancestor level in `through` that still
+// has rows below, then an elbow (├, or └ when `last`) pointing at this row.
+function TreeLines({ depth, through, last }) {
+  if (depth === 0) return null;
   return (
-    <span className={`mono ${styles.counts}`} title={t("tree.counts", counts)}>
-      <b className={styles.todo}>{counts.todo}</b>
-      <b className={styles.done}>{counts.done}</b>
-      <b className={styles.pending}>{counts.pending}</b>
-    </span>
+    <>
+      {through.map((on, i) => on && <span key={i} className={styles.through} style={{ "--level": i }} aria-hidden="true" />)}
+      <span className={styles.elbow} data-last={last} style={{ "--level": depth - 1 }} aria-hidden="true" />
+    </>
   );
 }
 
-function Row({ to, exists, level, last, active, focused, label, root, counts, reward, onSelect, onEditReward }) {
+// A small button at the right of a row's name line, shown while the row is hovered.
+function RowButton({ label, onClick, children }) {
+  return (
+    <button
+      type="button"
+      className={styles.rowEdit}
+      title={label}
+      aria-label={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// The name line of a row: the name, its income in short (in 万) on the right, then the buttons.
+function Top({ label, income, actions }) {
   const { t } = useTranslation();
+  return (
+    <div className={styles.top}>
+      <span className={styles.name} title={label}>
+        {label}
+      </span>
+      {income && (
+        <span className={styles.income} title={formatIncome(income, t)}>
+          {formatIncomeShort(income)}
+        </span>
+      )}
+      {actions}
+    </div>
+  );
+}
+
+// One space in the tree. `depth` is 0 for a work without an origin, 1 for a work under its origin
+// or a repository of a depth-0 work, and 2 for a repository of a work under an origin.
+function Row({ to, exists, depth, through = [], last, active, focused, label, root, income, actions, onSelect }) {
   const ref = useRef(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -27,99 +65,159 @@ function Row({ to, exists, level, last, active, focused, label, root, counts, re
   return (
     <div
       ref={ref}
-      className={`${styles.row} ${level === "repository" ? styles.repository : styles.work}${last ? ` ${styles.last}` : ""}`}
+      className={styles.row}
+      style={{ "--depth": depth }}
+      data-depth={depth}
       data-active={active}
       data-focused={active && focused}
-      data-disabled={!exists}
+      data-missing={!exists}
       role="button"
-      tabIndex={exists ? 0 : -1}
-      aria-disabled={!exists}
-      onClick={() => exists && onSelect(to)}
+      tabIndex={0}
+      onClick={() => onSelect(to)}
     >
-      {level === "repository" && <span className={styles.tree} aria-hidden="true" />}
-      <div className={styles.top}>
-        <span className={styles.name}>{label}</span>
-        {onEditReward && (
-          <button
-            type="button"
-            className={styles.rewardEdit}
-            title={t("reward.edit")}
-            aria-label={t("reward.edit")}
-            onClick={(e) => {
-              e.stopPropagation();
-              onEditReward();
-            }}
-          >
-            <EditIcon />
-          </button>
-        )}
-        <Counts counts={counts} />
-      </div>
-      {reward && (
-        <div className={styles.reward} title={reward}>
-          {reward}
-        </div>
-      )}
+      <TreeLines depth={depth} through={through} last={last} />
+      <Top label={label} income={income} actions={actions} />
       <div className={`mono ${styles.root}`} title={root}>
-        {root}
+        {/* The line is right-to-left so a long path is cut at its start; this keeps the path itself
+            left-to-right, or its leading "/" would show at the end. */}
+        <bdi dir="ltr">{root}</bdi>
       </div>
     </div>
   );
 }
 
-// The works and their repositories as a tree. `activeTo` is the space shown on the right; `focused`
-// says the keyboard is on the tree rather than the task list.
-export default function SpaceTree({ works, error, activeTo, focused, onSelect, onEdit, onEditReward }) {
+// An origin's name (and income) at the top of its tree; choosing it shows every task of its works.
+function Origin({ name, active, focused, income, actions, onSelect }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (active) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+
+  return (
+    <div
+      ref={ref}
+      className={styles.origin}
+      data-active={active}
+      data-focused={active && focused}
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(api.originPath(name))}
+    >
+      <Top label={name} income={income} actions={actions} />
+    </div>
+  );
+}
+
+// The origins as trees, each with its works and their repositories; works without an origin come
+// last. `activeTo` is what is shown on the right; `focused` says the keyboard is on the tree rather
+// than the task list. `onAdd` opens the add modal with what to start with: { type: "origin" } from
+// the head, a work into an origin, a repository into a work.
+export default function SpaceTree({ works, origins, error, activeTo, focused, onSelect, onEdit, onAdd, onEditWork, onEditOrigin, onEditRepository, onOpenFolder }) {
   const { t } = useTranslation();
+  const groups = groupWorksByOrigin(works, origins);
   return (
     <div className={styles.panel}>
       <div className={styles.head}>
-        <span className={styles.title}>{t("tree.works")}</span>
-        <button type="button" className="btn" onClick={onEdit} title={t("config.title")}>
-          <EditIcon />
-          {t("common.edit")}
-        </button>
+        <span className={styles.title}>{t("tree.origins")}</span>
+        <div className={styles.headActions}>
+          <button type="button" className="btn" onClick={() => onAdd({ type: "origin" })} title={t("add.title")} aria-label={t("add.title")}>
+            <PlusIcon />
+          </button>
+          <button type="button" className="btn" onClick={onEdit} title={t("config.title")} aria-label={t("config.title")}>
+            <EditIcon />
+          </button>
+        </div>
       </div>
       <div className={styles.list}>
         {error ? (
           <p className={styles.error}>{error}</p>
         ) : works === null ? (
           <p className={styles.empty}>{t("common.loading")}</p>
-        ) : works.length === 0 ? (
-          <p className={styles.empty}>{t("tree.noWorks")}</p>
+        ) : groups.length === 0 ? (
+          <p className={styles.empty}>{t("tree.noOrigins")}</p>
         ) : (
-          works.map((w) => (
-            <div key={w.work} className={styles.group}>
-              <Row
-                to={api.spacePath(w.work)}
-                exists={w.exists}
-                level="work"
-                active={activeTo === api.spacePath(w.work)}
-                focused={focused}
-                label={w.orgin ? `${w.work} (${w.orgin})` : w.work}
-                root={w.root}
-                counts={w.counts}
-                reward={w.reward}
-                onSelect={onSelect}
-                onEditReward={() => onEditReward(w)}
-              />
-              {w.repositories.map((p, i) => (
-                <Row
-                  key={p.name}
-                  to={api.spacePath(w.work, p.name)}
-                  exists={p.exists}
-                  level="repository"
-                  last={i === w.repositories.length - 1}
-                  active={activeTo === api.spacePath(w.work, p.name)}
-                  focused={focused}
-                  label={p.name}
-                  root={p.root}
-                  counts={p.counts}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
-          ))
+          groups.map((g) => {
+            const base = g.origin ? 1 : 0;
+            return (
+              <div key={g.origin} className={styles.group}>
+                {g.origin && (
+                  <Origin
+                    name={g.origin}
+                    income={g.income}
+                    active={activeTo === api.originPath(g.origin)}
+                    focused={focused}
+                    onSelect={onSelect}
+                    actions={
+                      <>
+                        <RowButton label={t("add.workInto")} onClick={() => onAdd({ type: "work", origin: g.origin })}>
+                          <PlusIcon />
+                        </RowButton>
+                        <RowButton label={t("origin.edit")} onClick={() => onEditOrigin({ origin: g.origin, income: g.income })}>
+                          <EditIcon />
+                        </RowButton>
+                      </>
+                    }
+                  />
+                )}
+                {g.works.map((w, wi) => {
+                  const lastWork = wi === g.works.length - 1;
+                  return [
+                    <Row
+                      key={w.work}
+                      to={api.spacePath(w.work)}
+                      exists={w.exists}
+                      depth={base}
+                      last={lastWork}
+                      active={activeTo === api.spacePath(w.work)}
+                      focused={focused}
+                      label={w.work}
+                      root={w.shownPath}
+                      income={w.income}
+                      onSelect={onSelect}
+                      actions={
+                        <>
+                          <RowButton label={t("add.repositoryInto")} onClick={() => onAdd({ type: "repository", work: w.work })}>
+                            <PlusIcon />
+                          </RowButton>
+                          <RowButton label={t("work.edit")} onClick={() => onEditWork(w)}>
+                            <EditIcon />
+                          </RowButton>
+                          <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work })}>
+                            <FolderIcon />
+                          </RowButton>
+                        </>
+                      }
+                    />,
+                    ...w.repositories.map((p, i) => (
+                      <Row
+                        key={`${w.work}/${p.name}`}
+                        to={api.spacePath(w.work, p.name)}
+                        exists={p.exists}
+                        depth={base + 1}
+                        through={g.origin ? [!lastWork] : []}
+                        last={i === w.repositories.length - 1}
+                        active={activeTo === api.spacePath(w.work, p.name)}
+                        focused={focused}
+                        label={p.name}
+                        root={p.shownPath}
+                        onSelect={onSelect}
+                        actions={
+                          <>
+                            <RowButton label={t("repository.rename")} onClick={() => onEditRepository({ work: w.work, name: p.name })}>
+                              <EditIcon />
+                            </RowButton>
+                            <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work, repository: p.name })}>
+                              <FolderIcon />
+                            </RowButton>
+                          </>
+                        }
+                      />
+                    )),
+                  ];
+                })}
+              </div>
+            );
+          })
         )}
       </div>
     </div>

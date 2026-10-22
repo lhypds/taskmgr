@@ -1,0 +1,50 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.label {
+  color: var(--muted);
+}
+
+/* One income item: amount, currency, and a button to remove it. */
+.incomeRow {
+  display: flex;
+  gap: 8px;
+}
+
+.incomeRow .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.addRow {
+  align-self: flex-start;
+}
+
+.currency {
+  flex: none;
+  width: 96px;
+}
+
+.choices {
+  display: flex;
+  gap: 16px;
+  height: 26px;
+  align-items: center;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.choice input {
+  margin: 0;
+  accent-color: var(--fg);
+}

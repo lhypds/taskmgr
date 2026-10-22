@@ -13,13 +13,14 @@ function DoneBox({ checked, onChange, title }) {
   );
 }
 
-// `selectedRel` is the row the keyboard shortcuts act on; it is kept scrolled into view.
-export default function TaskList({ tasks, selectedRel, onSelect, onOpen, onToggleDone, onEnter }) {
+// `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into view. A task's
+// `from` (the work or repository it lives in, in a list of several) shows before its title.
+export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onToggleDone, onEnter }) {
   const { t: tr } = useTranslation();
   const selectedRef = useRef(null);
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: "nearest" });
-  }, [selectedRel]);
+  }, [selectedKey]);
 
   return (
     <div className={styles.table} role="table">
@@ -33,9 +34,9 @@ export default function TaskList({ tasks, selectedRel, onSelect, onOpen, onToggl
       </div>
       {tasks.map((t) => (
         <div
-          key={t.rel}
-          ref={t.rel === selectedRel ? selectedRef : null}
-          className={`${styles.row}${t.rel === selectedRel ? ` ${styles.selected}` : ""}`}
+          key={t.key}
+          ref={t.key === selectedKey ? selectedRef : null}
+          className={`${styles.row}${t.key === selectedKey ? ` ${styles.selected}` : ""}`}
           data-status={t.status}
           role="button"
           tabIndex={0}
@@ -56,6 +57,7 @@ export default function TaskList({ tasks, selectedRel, onSelect, onOpen, onToggl
           <div className={styles.origin}>{t.origin}</div>
           <div className="mono">{formatStamp(t.last_edit)}</div>
           <div className={styles.title}>
+            {t.from && <span className="tag">{t.from}</span>}
             <span className={styles.titleText}>{t.title || <span className="muted">{tr("common.untitled")}</span>}</span>
             {t.status === "pending" && <span className="tag pending">{tr("status.pending")}</span>}
           </div>

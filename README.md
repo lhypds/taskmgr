@@ -228,20 +228,25 @@ Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-igno
 The bare `tm` command reads the same file:  
 ```
 {
-  "works": [
+  "origins": [
     {
-      "work": "gcc3.com",
-      "orgin": "gcc3",
-      "reward": "500,000 JPY / month",
-      "tasks_path": "~/gcc3/tasks",
-      "repositories": [
-        { "name": "repository a", "tasks_path": "~/gcc3/repository-a/tasks", "source_path": "~/gcc3/repository-a" }
+      "origin": "gcc3",
+      "works": [
+        {
+          "work": "gcc3.com",
+          "income": { "monthly": [{ "amount": 500000, "currency": "JPY" }], "once": [{ "amount": 100000, "currency": "JPY" }] },
+          "tasks_path": "~/gcc3/tasks",
+          "repositories": [
+            { "repository": "repository a", "source_path": "~/gcc3/repository-a", "tasks_path": "~/gcc3/repository-a/tasks" }
+          ]
+        }
       ]
-    }
+    },
+    { "works": [{ "work": "personal", "tasks_path": "~/tasks", "repositories": [] }] }
   ]
 }
 ```
-`tasks_path` is the folder holding the task folders (`~` is expanded). `orgin` (optional) is the organization the work is for, shown next to its name. `reward` (optional) is what the work pays, shown under its name and editable from the pencil button on the work's row in the web UI. `source_path` (optional) is a repository's source code folder. The file is re-read when it changes.  
+`tasks_path` is the folder holding the task folders (`~` is expanded). Each entry of `origins` is an organization the works are for, with its works; in the web UI's tree, its works are grouped under its name. One entry may leave `origin` out (or `""`) for works without an origin, which come last. Work names are unique across all origins. The older form, a top-level `works` list whose works each have an optional `origin`, is still read, and is rewritten as `origins` when the file is saved from the web UI; so is a repository's older `name`, which becomes `repository`. `income` (optional) is what the work pays, as two lists of `{ amount, currency }` (a 3-letter code): `monthly` and `once` (one-time payments); An origin may have an `income` of the same form too (what it pays besides its works). An older single `reward` (`{ amount, currency, period }`) is still read, and becomes `income` when the work is saved from the web UI. In the web UI, the + button next to "Origins" opens the add dialog, which adds an origin (name and income), a work (into an origin, which is required; its tasks folder is created if missing) or a repository (into a work, with an optional source folder; its tasks folder is created if missing); the + on an origin's row starts it on adding a work there, the one on a work's row on adding a repository there. The income of an origin or a work is shown at the right of its name in units of 10,000 (万): the one-time total, then `m` and the monthly total, e.g. `44 + m7`. The pencil button at the right of an origin's or a work's row edits its name and income (add or remove monthly and one-time items), and the one on a repository's row edits its name. `source_path` (optional) is a repository's source code folder; the tree shows it under the repository's name, or its `tasks_path` when it has none. Paths in the tree are shown as written here, with `~` kept. The file is re-read when it changes.  
 `PORT` / `HOST` in `.env` set the port (default 3456) and host (default 127.0.0.1); `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
 
 Login: the web UI asks for a username and password. Accounts are a list in `data/users.json`  

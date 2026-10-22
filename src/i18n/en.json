@@ -42,6 +42,7 @@
     "noTasks": "No tasks yet.",
     "noSubtasks": "No subtasks in this task.",
     "noMatch": "No tasks match “{{query}}”.",
+    "folderNotFound": "The task folder was not found.",
     "command": "Command"
   },
   "toast": {
@@ -57,10 +58,9 @@
     "message": "Delete “{{name}}”? The whole task folder, including attachments and subtasks, is removed."
   },
   "tree": {
-    "works": "Works",
-    "notFound": "not found",
-    "noWorks": "No works in taskmgr.json.",
-    "counts": "todo {{todo}}, done {{done}}, pending {{pending}}"
+    "origins": "Origins",
+    "noOrigins": "No origins in taskmgr.json.",
+    "openFolder": "Open folder"
   },
   "list": {
     "markTodo": "Mark as todo",
@@ -164,10 +164,57 @@
     "invalid": "Wrong username or password",
     "logout": "Log out"
   },
-  "reward": {
-    "title": "Reward of {{work}}",
-    "placeholder": "e.g. 500,000 JPY / month (empty to remove)",
-    "edit": "Edit reward",
-    "saved": "Reward saved"
+  "income": {
+    "title": "Income",
+    "hasIncome": "Has income",
+    "noIncome": "No income",
+    "monthly": "Monthly",
+    "once": "One-time",
+    "amount": "Amount",
+    "amountPlaceholder": "e.g. 500000",
+    "currency": "Currency",
+    "add": "Add",
+    "remove": "Remove",
+    "perMonth": "{{value}} / month",
+    "perOnce": "{{value}} one-time",
+    "invalidAmount": "Each amount must be a positive number.",
+    "empty": "Add at least one income, or choose “No income”."
+  },
+  "repository": {
+    "rename": "Rename repository",
+    "name": "Name",
+    "nameEmpty": "The name must not be empty.",
+    "renamed": "Repository renamed",
+    "added": "Repository added"
+  },
+  "origin": {
+    "edit": "Edit origin",
+    "saved": "Origin saved",
+    "added": "Origin added"
+  },
+  "work": {
+    "name": "Name",
+    "nameEmpty": "The name must not be empty.",
+    "edit": "Edit work",
+    "saved": "Work saved",
+    "added": "Work added",
+    "origin": "Origin",
+    "originEmpty": "The origin must not be empty.",
+    "tasksPath": "Tasks folder",
+    "tasksPathPlaceholder": "e.g. ~/tasks",
+    "tasksPathEmpty": "The tasks folder must not be empty."
+  },
+  "add": {
+    "title": "Add",
+    "type": "What to add",
+    "origin": "Origin",
+    "work": "Work",
+    "repository": "Repository",
+    "workInto": "Add a work",
+    "repositoryInto": "Add a repository",
+    "sourcePath": "Source folder",
+    "optional": "Optional",
+    "submit": "Add",
+    "workEmpty": "Choose a work."
   }
 }

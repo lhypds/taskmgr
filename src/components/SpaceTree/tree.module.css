@@ -16,6 +16,11 @@
   border-bottom: var(--line) solid var(--border);
 }
 
+.headActions {
+  display: flex;
+  gap: 4px;
+}
+
 .title {
   font-size: 12px;
   font-weight: 600;
@@ -25,7 +30,12 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: none;
   padding-bottom: 12px;
+}
+
+.list::-webkit-scrollbar {
+  display: none;
 }
 
 .empty,
@@ -39,25 +49,53 @@
   color: var(--err);
 }
 
-/* A work and its repositories, one block per work. Inside it the rows run on without separators so
-   the tree lines join up. */
+/* One tree per origin: its name at the top, then its works and their repositories. Inside it the
+   rows run on without separators so the tree lines join up; only the trees are divided. */
 .group {
   border-bottom: var(--line) solid var(--border);
 }
 
-.row {
-  position: relative;
+.origin {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 12px;
+  padding: 8px 12px 0;
   cursor: pointer;
   outline: none;
   user-select: none;
 }
 
-.repository {
-  padding-left: 32px;
+/* Chosen like a row: the hover grey, or the selected look while the keyboard is on the tree. */
+.origin:hover,
+.origin[data-active="true"] {
+  background: var(--bg-hover);
+}
+
+.origin[data-focused="true"],
+.origin[data-focused="true"]:hover {
+  background: var(--soft-line);
+}
+
+.origin:focus-visible {
+  outline: var(--line) solid var(--focus);
+  outline-offset: -2px;
+}
+
+.origin .name {
+  font-weight: 600;
+}
+
+/* Every line of a row has a fixed line height so the rows keep the same rhythm whatever font
+   each line uses: a 16px name line, then a 14px line for the folder. */
+.row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 8px calc(12px + 20px * var(--depth, 0));
+  cursor: pointer;
+  outline: none;
+  user-select: none;
 }
 
 .row:hover {
@@ -80,82 +118,84 @@
   outline-offset: -2px;
 }
 
-.row[data-disabled="true"] {
+/* A space whose task folder does not exist: still selectable, the right side says so. */
+.row[data-missing="true"] {
   color: var(--muted);
-  cursor: default;
 }
 
-.row[data-disabled="true"]:hover {
-  background: none;
-}
-
-/* Tree connector drawn with borders: ├ for a repository, └ for the last one. */
-.tree {
+/* Tree lines, drawn with borders. Level i sits at 16px + 20px * i, under the start of the name of
+   the row one level up. The elbow (├, or └ for the last row) points at the middle of the name
+   line: the 8px row padding plus half its 16px. A through line carries an ancestor's line past
+   rows that are not its own. */
+.elbow,
+.through {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 16px;
+  left: calc(16px + 20px * var(--level));
   width: 10px;
+  border-left: var(--line) solid var(--faint);
+  pointer-events: none;
 }
 
-.tree::before,
-.tree::after {
+/* └: the line stops at the middle of the name line. */
+.elbow[data-last="true"] {
+  bottom: auto;
+  height: 16px;
+}
+
+.elbow::after {
   content: "";
   position: absolute;
+  top: 16px;
   left: 0;
-  border: 0 solid var(--faint);
-}
-
-.tree::before {
-  top: 0;
-  bottom: 0;
-  border-left-width: var(--line);
-}
-
-.last .tree::before {
-  bottom: 50%;
-}
-
-.tree::after {
-  top: 50%;
   right: 0;
-  border-top-width: var(--line);
+  border-top: var(--line) solid var(--faint);
 }
 
 .top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+  height: 16px;
 }
 
 .name {
+  flex: 1;
+  font-size: 12px;
+  line-height: 16px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.work .name {
+/* Works without an origin are the roots of their own trees, so they are bold like an origin. */
+.row[data-depth="0"] .name {
   font-weight: 600;
 }
 
-/* Edit button for a work's reward: shown while the row is hovered or on the right. */
-.rewardEdit {
+/* Buttons at the right end (add, edit, open folder): shown only while
+   the row is hovered (or the button has keyboard focus). Its fixed height keeps it from making the name line taller. */
+.rowEdit {
   flex: none;
-  display: none;
+  display: inline-flex;
   align-items: center;
-  margin-right: auto;
-  padding: 0 2px;
+  justify-content: center;
+  visibility: hidden;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  line-height: 0;
   border: 0;
   background: none;
   color: var(--muted);
   cursor: pointer;
 }
 
-.rewardEdit svg {
-  width: 11px;
-  height: 11px;
+.rowEdit svg {
+  width: 12px;
+  height: 12px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -163,57 +203,35 @@
   stroke-linejoin: round;
 }
 
-.rewardEdit:hover,
-.rewardEdit:focus-visible {
+.rowEdit:hover,
+.rowEdit:focus-visible {
   color: var(--fg);
 }
 
-.row:hover .rewardEdit,
-.row[data-active="true"] .rewardEdit,
-.rewardEdit:focus-visible {
-  display: inline-flex;
+.row:hover .rowEdit,
+.origin:hover .rowEdit,
+.rowEdit:focus-visible {
+  visibility: visible;
 }
 
-.reward {
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* The income in short (in 万) at the right of the name, before the buttons. */
+.income {
+  flex: none;
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .root {
   color: var(--muted);
   font-size: 10px;
+  line-height: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: rtl; /* keep the end of a long path visible */
   text-align: left;
-}
-
-.counts {
-  flex: none;
-  display: flex;
-  gap: 8px;
-  font-size: 10px;
-}
-
-.todo {
-  color: var(--err);
-}
-
-.done {
-  color: var(--ok);
-}
-
-.pending {
-  color: var(--warn);
-}
-
-.missing {
-  flex: none;
-  font-size: 10px;
-  color: var(--err);
 }
 
 @media (max-width: 860px) {

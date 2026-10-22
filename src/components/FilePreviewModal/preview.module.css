@@ -27,7 +27,7 @@
   overflow: auto;
   border: var(--line) solid var(--border);
   background: var(--bg-alt);
-  font-family: var(--font-mono);
+  font-family: var(--font);
   font-size: 11px;
   line-height: 16px;
   white-space: pre;

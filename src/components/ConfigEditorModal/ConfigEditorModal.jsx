@@ -29,8 +29,7 @@ export default function ConfigEditorModal({ isOpen, onClose, onSaved }) {
   async function save() {
     setSaving(true);
     try {
-      const { works } = await api.saveConfig(text);
-      onSaved(works);
+      onSaved(await api.saveConfig(text));
     } catch (e) {
       setError(e.message);
     } finally {

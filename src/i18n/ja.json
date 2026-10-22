@@ -42,6 +42,7 @@
     "noTasks": "タスクはまだありません。",
     "noSubtasks": "このタスクにサブタスクはありません。",
     "noMatch": "「{{query}}」に一致するタスクはありません。",
+    "folderNotFound": "タスクフォルダが見つかりません。",
     "command": "コマンド"
   },
   "toast": {
@@ -57,10 +58,9 @@
     "message": "「{{name}}」を削除しますか？添付ファイルとサブタスクを含むタスクフォルダ全体が削除されます。"
   },
   "tree": {
-    "works": "作業",
-    "notFound": "見つかりません",
-    "noWorks": "taskmgr.json に作業がありません。",
-    "counts": "未着手 {{todo}}、完了 {{done}}、保留 {{pending}}"
+    "origins": "Origins",
+    "noOrigins": "taskmgr.json に origin がありません。",
+    "openFolder": "フォルダを開く"
   },
   "list": {
     "markTodo": "未着手にする",
@@ -164,10 +164,57 @@
     "invalid": "ユーザー名またはパスワードが違います",
     "logout": "ログアウト"
   },
-  "reward": {
-    "title": "{{work}} の報酬",
-    "placeholder": "例：月 50 万円（空欄で削除）",
-    "edit": "報酬を編集",
-    "saved": "報酬を保存しました"
+  "income": {
+    "title": "収入",
+    "hasIncome": "あり",
+    "noIncome": "なし",
+    "monthly": "毎月",
+    "once": "単発",
+    "amount": "金額",
+    "amountPlaceholder": "例：500000",
+    "currency": "通貨",
+    "add": "追加",
+    "remove": "削除",
+    "perMonth": "{{value}} / 月",
+    "perOnce": "{{value}}（単発）",
+    "invalidAmount": "金額は正の数で入力してください。",
+    "empty": "収入を 1 件以上追加するか、「なし」を選んでください。"
+  },
+  "repository": {
+    "rename": "repository の名前を変更",
+    "name": "名前",
+    "nameEmpty": "名前を入力してください。",
+    "renamed": "repository の名前を変更しました",
+    "added": "repository を追加しました"
+  },
+  "origin": {
+    "edit": "origin を編集",
+    "saved": "origin を保存しました",
+    "added": "origin を追加しました"
+  },
+  "work": {
+    "name": "名前",
+    "nameEmpty": "名前を入力してください。",
+    "edit": "work を編集",
+    "saved": "work を保存しました",
+    "added": "work を追加しました",
+    "origin": "組織",
+    "originEmpty": "origin を入力してください。",
+    "tasksPath": "タスクフォルダ",
+    "tasksPathPlaceholder": "例：~/tasks",
+    "tasksPathEmpty": "タスクフォルダを入力してください。"
+  },
+  "add": {
+    "title": "追加",
+    "type": "追加するもの",
+    "origin": "Origin",
+    "work": "Work",
+    "repository": "Repository",
+    "workInto": "work を追加",
+    "repositoryInto": "repository を追加",
+    "sourcePath": "ソースフォルダ",
+    "optional": "任意",
+    "submit": "追加",
+    "workEmpty": "work を選んでください。"
   }
 }

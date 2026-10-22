@@ -18,7 +18,7 @@
 
 .text {
   height: 60vh;
-  font-family: var(--font-mono);
+  font-family: var(--font);
   tab-size: 2;
   white-space: pre;
 }

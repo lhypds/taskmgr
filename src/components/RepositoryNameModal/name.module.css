@@ -9,6 +9,16 @@
   gap: 12px;
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  color: var(--muted);
+}
+
 .error {
   color: var(--err);
   line-height: 1.5;

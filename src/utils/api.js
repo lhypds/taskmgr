@@ -44,15 +44,40 @@ export const getSettings = () => request("/api/settings");
 
 export const listSpaces = () => request("/api/spaces");
 
-// The raw taskmgr.json: { configPath, text }. Saving resolves to the new { works }.
+// Open the folder a tree row shows (a work's tasks folder, or a repository's source folder) in the OS file manager.
+export const openSpaceFolder = (space) => request("/api/space/open", json("POST", sp(space)));
+
+// The works and origins: { works, origins }, origins being the named ones ({ origin, income }),
+// some possibly without works yet. Every change to taskmgr.json below resolves to the new ones.
+
+// The raw taskmgr.json: { configPath, text }.
 export const getConfig = () => request("/api/config");
 
 export const saveConfig = (text) => request("/api/config", json("PUT", { text }));
 
-// Set one work's reward ("" clears it); resolves to the new { works }.
-export const saveWorkReward = (work, reward) => request("/api/work/reward", json("PUT", { work, reward }));
+// Add an origin, with no works yet.
+export const addOrigin = ({ name, income }) => request("/api/origin", json("POST", { name, income }));
+
+// Add a repository to a work; its tasks folder is created when missing.
+export const addRepository = ({ work, name, tasksPath, sourcePath }) => request("/api/repository", json("POST", { work, name, tasksPath, sourcePath }));
+
+// Add a work to an origin.
+export const addWork = ({ name, origin, tasksPath, income }) => request("/api/work", json("POST", { name, origin, tasksPath, income }));
+
+// Set one work's name and income ({ monthly, once }, lists of { amount, currency }; null clears it).
+export const saveWork = (work, { name, income }) => request("/api/work", json("PUT", { work, name, income }));
+
+// Set one origin's name and income, as saveWork does for a work.
+export const saveOrigin = (origin, { name, income }) => request("/api/origin", json("PUT", { origin, name, income }));
+
+// Rename one repository of a work.
+export const renameRepository = (work, name, newName) => request("/api/repository/name", json("PUT", { work, name, newName }));
 
 export const listTasks = (space, dir = "") => request(`/api/tasks?${q({ ...sp(space), dir })}`);
+
+// The tasks of a whole origin ({ origin }) or work ({ work }: its own and its repositories'), each
+// with the work and repository it lives in.
+export const listAllTasks = (scope) => request(`/api/tasks/all?${q(scope)}`);
 
 // fields: { status, labels, origin, details }
 export const createTask = (space, dir, fields) => request("/api/tasks", json("POST", { ...sp(space), dir, ...fields }));
@@ -86,6 +111,9 @@ export const deleteFile = (space, rel) => request(`/api/file?${q({ ...sp(space),
 
 export const fileUrl = (space, rel, download = false) =>
   `/api/file?${q({ ...sp(space), rel, ...(download ? { download: "1" } : {}) })}`;
+
+// Route to all the tasks of an origin.
+export const originPath = (origin) => `/o/${encodeURIComponent(origin)}`;
 
 // Route to a space's task list.
 export const spacePath = (work, repository) =>

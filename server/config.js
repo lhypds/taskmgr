@@ -1,25 +1,37 @@
 // Configuration for the web UI.
 //
-// taskmgr.json (next to package.json by default) lists the works and their repositories; each one
-// is a folder of tasks:
+// taskmgr.json (next to package.json by default) lists the origins (the organizations the works are
+// for), their works and the works' repositories; each work and repository is a folder of tasks:
 //
 //   {
-//     "works": [
+//     "origins": [
 //       {
-//         "work": "gcc3.com",
-//         "orgin": "gcc3",                      // optional, the organization the work is for
-//         "reward": "500,000 JPY / month",      // optional, what the work pays
-//         "tasks_path": "~/gcc3",               // common tasks of this work
-//         "repositories": [
+//         "origin": "gcc3",                       // "" or left out for works without an origin
+//         "income": { "monthly": [...] },         // optional, what the origin pays besides its works
+//         "works": [
 //           {
-//             "name": "repository a",
-//             "tasks_path": "~/gcc3/a/tasks",   // tasks of one repository
-//             "source_path": "~/gcc3/a"         // optional, its source code
+//             "work": "gcc3.com",
+//             "income": {                         // optional, what the work pays
+//               "monthly": [{ "amount": 500000, "currency": "JPY" }],
+//               "once": [{ "amount": 100000, "currency": "JPY" }]
+//             },
+//             "tasks_path": "~/gcc3",             // common tasks of this work
+//             "repositories": [
+//               {
+//                 "repository": "repository a",
+//                 "source_path": "~/gcc3/a",      // optional, its source code
+//                 "tasks_path": "~/gcc3/a/tasks"  // tasks of one repository
+//               }
+//             ]
 //           }
 //         ]
 //       }
 //     ]
 //   }
+//
+// The older form, a top-level "works" list whose works each have an optional "origin", is still
+// read, and is rewritten as "origins" when the file is saved from the web UI; so is a repository's
+// older "name", which becomes "repository".
 //
 // Config file precedence: command-line argument, then TASKMGR_CONFIG in .env / environment,
 // then <project>/taskmgr.json. The file is re-read when it changes, so edits apply without a restart.
@@ -60,50 +72,176 @@ function isNonEmptyString(v) {
   return typeof v === 'string' && v.trim() !== '';
 }
 
-// Validate and normalize the "works" array: names trimmed, roots expanded to absolute paths,
-// names unique (repositories unique within their work) so they can be used as URL segments.
-function normalizeWorks(raw) {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    throw new Error('"works" must be a non-empty array.');
-  }
-  const seenWorks = new Set();
-  return raw.map((w, i) => {
-    if (!w || typeof w !== 'object') throw new Error(`works[${i}] must be an object.`);
-    if (!isNonEmptyString(w.work)) throw new Error(`works[${i}].work must be a non-empty string.`);
-    if (!isNonEmptyString(w.tasks_path)) throw new Error(`works[${i}] ("${w.work}") needs a "tasks_path" folder.`);
-    const work = w.work.trim();
-    if (work.includes('/')) throw new Error(`works[${i}].work "${work}" must not contain "/".`);
-    if (seenWorks.has(work)) throw new Error(`Duplicate work name "${work}".`);
-    seenWorks.add(work);
-    if (w.orgin !== undefined && typeof w.orgin !== 'string') throw new Error(`works[${i}].orgin ("${work}") must be a string.`);
-    if (w.reward !== undefined && typeof w.reward !== 'string') throw new Error(`works[${i}].reward ("${work}") must be a string.`);
+const REWARD_PERIODS = ['monthly', 'once'];
 
-    const seenRepositories = new Set();
-    const repositories = (w.repositories === undefined ? [] : w.repositories);
-    if (!Array.isArray(repositories)) throw new Error(`works[${i}].repositories ("${work}") must be an array.`);
-    return {
-      work,
-      orgin: (w.orgin || '').trim(),
-      reward: (w.reward || '').trim(),
-      root: path.resolve(expandHome(w.tasks_path.trim())),
-      repositories: repositories.map((p, j) => {
-        if (!p || typeof p !== 'object') throw new Error(`works[${i}].repositories[${j}] ("${work}") must be an object.`);
-        if (!isNonEmptyString(p.name)) throw new Error(`works[${i}].repositories[${j}].name ("${work}") must be a non-empty string.`);
-        if (!isNonEmptyString(p.tasks_path)) throw new Error(`Repository "${p.name}" of "${work}" needs a "tasks_path" folder.`);
-        const name = p.name.trim();
-        if (name.includes('/')) throw new Error(`Repository name "${name}" of "${work}" must not contain "/".`);
-        if (seenRepositories.has(name)) throw new Error(`Duplicate repository name "${name}" in "${work}".`);
-        seenRepositories.add(name);
-        if (p.source_path !== undefined && typeof p.source_path !== 'string') throw new Error(`Repository "${name}" of "${work}": "source_path" must be a string.`);
-        const source = (p.source_path || '').trim();
-        return {
-          name,
-          root: path.resolve(expandHome(p.tasks_path.trim())),
-          sourcePath: source ? path.resolve(expandHome(source)) : ''
-        };
-      })
-    };
+// Validate the older single "reward" and return { amount, currency, period }, or null when there
+// is none. Its text form "500,000 JPY / month" (no "/ month" means one-time) is still accepted.
+function normalizeReward(r) {
+  if (r === undefined || r === null || r === '') return null;
+  if (typeof r === 'string') {
+    const m = r.trim().match(/^([\d,.]+)\s*([A-Za-z]{3})\s*(\/\s*(month|mo|monthly))?$/i);
+    if (!m) throw new Error(`"${r}" is not like "500,000 JPY / month".`);
+    r = { amount: Number(m[1].replace(/,/g, '')), currency: m[2], period: m[3] ? 'monthly' : 'once' };
+  }
+  if (typeof r !== 'object' || Array.isArray(r)) throw new Error('must be an object { amount, currency, period }.');
+  const amount = typeof r.amount === 'string' ? Number(r.amount.replace(/,/g, '')) : r.amount;
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) throw new Error('"amount" must be a positive number.');
+  const currency = typeof r.currency === 'string' ? r.currency.trim().toUpperCase() : '';
+  if (!/^[A-Z]{3}$/.test(currency)) throw new Error('"currency" must be a 3-letter code such as JPY.');
+  if (!REWARD_PERIODS.includes(r.period)) throw new Error(`"period" must be one of ${REWARD_PERIODS.join(', ')}.`);
+  return { amount, currency, period: r.period };
+}
+
+// Validate one income item and return { amount, currency }.
+function normalizeIncomeItem(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) throw new Error('each item must be an object { amount, currency }.');
+  const amount = typeof x.amount === 'string' ? Number(x.amount.replace(/,/g, '')) : x.amount;
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) throw new Error('"amount" must be a positive number.');
+  const currency = typeof x.currency === 'string' ? x.currency.trim().toUpperCase() : '';
+  if (!/^[A-Z]{3}$/.test(currency)) throw new Error('"currency" must be a 3-letter code such as JPY.');
+  return { amount, currency };
+}
+
+// Validate an income { monthly: [...], once: [...] } and return it with both lists, or null when
+// both are empty. An older single "reward" is read as a one-item income.
+function normalizeIncome(income, reward) {
+  if (income === undefined || income === null) {
+    const r = normalizeReward(reward);
+    if (!r) return null;
+    income = { [r.period]: [{ amount: r.amount, currency: r.currency }] };
+  }
+  if (typeof income !== 'object' || Array.isArray(income)) throw new Error('must be an object { monthly, once }.');
+  const value = {};
+  for (const period of REWARD_PERIODS) {
+    const items = income[period] === undefined ? [] : income[period];
+    if (!Array.isArray(items)) throw new Error(`"${period}" must be an array.`);
+    value[period] = items.map((x, i) => {
+      try {
+        return normalizeIncomeItem(x);
+      } catch (e) {
+        throw new Error(`${period}[${i}]: ${e.message}`);
+      }
+    });
+  }
+  return value.monthly.length || value.once.length ? value : null;
+}
+
+// The raw config in the "origins" form: an older top-level "works" list is grouped by each work's
+// "origin", in the order each origin first appears, with works without one in a last group.
+function toOrigins(raw) {
+  if (raw.origins !== undefined || !Array.isArray(raw.works)) return raw;
+  const groups = new Map();
+  for (const w of raw.works) {
+    const isObject = w && typeof w === 'object' && !Array.isArray(w);
+    const origin = isObject && typeof w.origin === 'string' ? w.origin.trim() : '';
+    if (!groups.has(origin)) groups.set(origin, []);
+    if (isObject) {
+      const { origin: _, ...rest } = w;
+      groups.get(origin).push(rest);
+    } else {
+      groups.get(origin).push(w);
+    }
+  }
+  const list = [...groups].map(([origin, works]) => (origin ? { origin, works } : { works }));
+  const { works: _, ...rest } = raw;
+  return { ...rest, origins: [...list.filter(g => g.origin), ...list.filter(g => !g.origin)] };
+}
+
+// The raw config in its current form: "origins" (see toOrigins), and each repository named by
+// "repository" (first) rather than the older "name".
+function upgradeRaw(raw) {
+  raw = toOrigins(raw);
+  for (const g of Array.isArray(raw.origins) ? raw.origins : []) {
+    for (const w of g && Array.isArray(g.works) ? g.works : []) {
+      if (!w || !Array.isArray(w.repositories)) continue;
+      w.repositories = w.repositories.map(p => {
+        if (!p || typeof p !== 'object' || p.repository !== undefined || p.name === undefined) return p;
+        const { name, ...rest } = p;
+        return { repository: name, ...rest };
+      });
+    }
+  }
+  return raw;
+}
+
+// Validate and normalize the "origins" array into { works, origins }: one list of works, each with
+// its origin, and the named origins with their income (an origin may have no works yet). Names are
+// trimmed, roots expanded to absolute paths, origin and work names unique (repositories unique
+// within their work) so they can be used as URL segments.
+function normalizeOrigins(raw) {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error('"origins" must be a non-empty array.');
+  }
+  const seenOrigins = new Set();
+  const seenWorks = new Set();
+  const works = [];
+  const origins = [];
+  raw.forEach((g, i) => {
+    if (!g || typeof g !== 'object' || Array.isArray(g)) throw new Error(`origins[${i}] must be an object.`);
+    if (g.origin !== undefined && typeof g.origin !== 'string') throw new Error(`origins[${i}].origin must be a string.`);
+    const origin = (g.origin || '').trim();
+    if (seenOrigins.has(origin)) throw new Error(origin ? `Duplicate origin "${origin}".` : 'Only one origin may have no name.');
+    seenOrigins.add(origin);
+    let originIncome = null;
+    try {
+      originIncome = normalizeIncome(g.income);
+    } catch (e) {
+      throw new Error(`origins[${i}].income${origin ? ` ("${origin}")` : ''}: ${e.message}`);
+    }
+    if (originIncome && !origin) throw new Error(`origins[${i}]: only an origin with a name can have an income.`);
+    if (origin) origins.push({ origin, income: originIncome });
+    const list = g.works === undefined ? [] : g.works;
+    if (!Array.isArray(list)) throw new Error(`origins[${i}].works${origin ? ` ("${origin}")` : ''} must be an array.`);
+    list.forEach((w, j) => works.push(normalizeWork(w, `origins[${i}].works[${j}]`, origin, seenWorks)));
   });
+  return { works, origins };
+}
+
+// Validate and normalize one work entry; `at` is where it is in the file, for error messages.
+function normalizeWork(w, at, origin, seenWorks) {
+  if (!w || typeof w !== 'object') throw new Error(`${at} must be an object.`);
+  if (!isNonEmptyString(w.work)) throw new Error(`${at}.work must be a non-empty string.`);
+  if (!isNonEmptyString(w.tasks_path)) throw new Error(`${at} ("${w.work}") needs a "tasks_path" folder.`);
+  const work = w.work.trim();
+  if (work.includes('/')) throw new Error(`${at}.work "${work}" must not contain "/".`);
+  if (seenWorks.has(work)) throw new Error(`Duplicate work name "${work}".`);
+  seenWorks.add(work);
+  let income;
+  try {
+    income = normalizeIncome(w.income, w.reward);
+  } catch (e) {
+    throw new Error(`${at}.${w.income === undefined ? 'reward' : 'income'} ("${work}"): ${e.message}`);
+  }
+
+  const seenRepositories = new Set();
+  const repositories = (w.repositories === undefined ? [] : w.repositories);
+  if (!Array.isArray(repositories)) throw new Error(`${at}.repositories ("${work}") must be an array.`);
+  return {
+    work,
+    origin,
+    income,
+    root: path.resolve(expandHome(w.tasks_path.trim())),
+    // The path as written in taskmgr.json (with "~" kept), for the UI to show.
+    shownPath: w.tasks_path.trim(),
+    repositories: repositories.map((p, j) => {
+      if (!p || typeof p !== 'object') throw new Error(`${at}.repositories[${j}] ("${work}") must be an object.`);
+      if (!isNonEmptyString(p.repository)) throw new Error(`${at}.repositories[${j}].repository ("${work}") must be a non-empty string.`);
+      if (!isNonEmptyString(p.tasks_path)) throw new Error(`Repository "${p.repository}" of "${work}" needs a "tasks_path" folder.`);
+      const name = p.repository.trim();
+      if (name.includes('/')) throw new Error(`Repository name "${name}" of "${work}" must not contain "/".`);
+      if (seenRepositories.has(name)) throw new Error(`Duplicate repository name "${name}" in "${work}".`);
+      seenRepositories.add(name);
+      if (p.source_path !== undefined && typeof p.source_path !== 'string') throw new Error(`Repository "${name}" of "${work}": "source_path" must be a string.`);
+      const source = (p.source_path || '').trim();
+      return {
+        name,
+        root: path.resolve(expandHome(p.tasks_path.trim())),
+        sourcePath: source ? path.resolve(expandHome(source)) : '',
+        // Its source code folder as written in taskmgr.json, or its tasks folder when it has none.
+        shownPath: source || p.tasks_path.trim()
+      };
+    })
+  };
 }
 
 // Parse and validate the text of a config file.
@@ -116,7 +254,7 @@ function parseConfig(text, configPath) {
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`${configPath} must contain a JSON object.`);
   try {
-    return { works: normalizeWorks(raw.works) };
+    return normalizeOrigins(upgradeRaw(raw).origins);
   } catch (e) {
     throw new Error(`${configPath}: ${e.message}`);
   }
@@ -162,19 +300,22 @@ function resolveConfig(argv) {
   const host = process.env.HOST || '127.0.0.1';
   const usersPath = path.resolve(expandHome((process.env.TASKMGR_USERS || '').trim() || DEFAULT_USERS_PATH));
 
-  // Works are re-read when the file's mtime changes; a broken edit keeps the last good list.
-  let cached = { mtimeMs: fs.statSync(configPath).mtimeMs, works: first.works };
-  function getWorks() {
+  // Works and origins are re-read when the file's mtime changes; a broken edit keeps the last good ones.
+  let cached = { mtimeMs: fs.statSync(configPath).mtimeMs, ...first };
+  function current() {
     try {
       const mtimeMs = fs.statSync(configPath).mtimeMs;
       if (mtimeMs !== cached.mtimeMs) {
-        cached = { mtimeMs, works: readConfigFile(configPath).works };
+        cached = { mtimeMs, ...readConfigFile(configPath) };
       }
     } catch (e) {
       console.error(`Warning: ${e.message} (keeping the previous configuration)`);
     }
-    return cached.works;
+    return cached;
   }
+  const getWorks = () => current().works;
+  // The named origins, { origin, income }, in file order.
+  const getOrigins = () => current().origins;
 
   // The config file as written, for editing in the web UI.
   function readText() {
@@ -185,22 +326,140 @@ function resolveConfig(argv) {
   function writeText(text) {
     const parsed = parseConfig(text, configPath);
     fs.writeFileSync(configPath, text);
-    cached = { mtimeMs: fs.statSync(configPath).mtimeMs, works: parsed.works };
-    return parsed.works;
+    cached = { mtimeMs: fs.statSync(configPath).mtimeMs, ...parsed };
   }
 
-  // Set one work's reward ("" removes it) and rewrite the file as 2-space indented JSON.
-  function setWorkReward(work, reward) {
-    const raw = JSON.parse(readText());
-    const w = (Array.isArray(raw.works) ? raw.works : []).find(x => x && typeof x.work === 'string' && x.work.trim() === work);
-    if (!w) throw new Error(`No work named "${work}".`);
-    const value = reward.trim();
-    if (value) w.reward = value;
-    else delete w.reward;
-    return writeText(JSON.stringify(raw, null, 2) + '\n');
+  const write = (raw) => writeText(JSON.stringify(raw, null, 2) + '\n');
+
+  // The raw origin entry named `origin`, added before the group of works without an origin when
+  // there is none yet and `create` is set.
+  function findRawOrigin(raw, origin, create) {
+    if (!Array.isArray(raw.origins)) raw.origins = [];
+    let g = raw.origins.find(x => named(x, 'origin', origin));
+    if (!g && create) {
+      g = { origin, works: [] };
+      const at = raw.origins.findIndex(x => !x || !(typeof x.origin === 'string' && x.origin.trim()));
+      raw.origins.splice(at === -1 ? raw.origins.length : at, 0, g);
+    }
+    return g;
   }
 
-  return { configPath, configSource: source, port, host, usersPath, getWorks, readText, writeText, setWorkReward };
+  const named = (x, key, name) => x && typeof x[key] === 'string' && x[key].trim() === name;
+
+  // The file text parsed, in the "origins" form, to change and write back.
+  function readRaw() {
+    return upgradeRaw(JSON.parse(readText()));
+  }
+
+  // The raw work entry named `work`, with the list holding it.
+  function findRawWork(raw, work) {
+    for (const g of Array.isArray(raw.origins) ? raw.origins : []) {
+      const list = g && Array.isArray(g.works) ? g.works : [];
+      const w = list.find(x => named(x, 'work', work));
+      if (w) return { w, list };
+    }
+    throw new Error(`No work named "${work}".`);
+  }
+
+  // The work (or origin, with `nameKey` "origin") entry with its income set (null removes it),
+  // placed after the name so the file keeps its usual key order. An older "reward" is dropped: the
+  // income replaces it.
+  function withIncome(w, income, nameKey = 'work') {
+    const value = normalizeIncome(income);
+    const out = {};
+    for (const [k, v] of Object.entries(w)) {
+      if (k === 'income' || k === 'reward') continue;
+      if (value && !out.income && k !== nameKey) out.income = value;
+      out[k] = v;
+    }
+    if (value && !out.income) out.income = value;
+    return out;
+  }
+
+  // Set one work's name and income ({ monthly, once }; null removes it) and rewrite the file as
+  // 2-space indented JSON. Uniqueness and the "/" rule are checked by writeText.
+  function updateWork(work, { name, income }) {
+    const raw = readRaw();
+    const { w, list } = findRawWork(raw, work);
+    const newName = name.trim();
+    if (!newName) throw new Error('The name must not be empty.');
+    w.work = newName;
+    list[list.indexOf(w)] = withIncome(w, income);
+    write(raw);
+  }
+
+  // Set one origin's name and income ({ monthly, once }; null removes it), like updateWork.
+  function updateOrigin(origin, { name, income }) {
+    const raw = readRaw();
+    const g = origin && findRawOrigin(raw, origin, false);
+    if (!g) throw new Error(`No origin named "${origin}".`);
+    const newName = name.trim();
+    if (!newName) throw new Error('The name must not be empty.');
+    g.origin = newName;
+    raw.origins[raw.origins.indexOf(g)] = withIncome(g, income, 'origin');
+    write(raw);
+  }
+
+  // Add an origin with no works yet, after the named ones.
+  function addOrigin({ name, income }) {
+    const raw = readRaw();
+    const origin = name.trim();
+    if (!origin) throw new Error('The name must not be empty.');
+    if (findRawOrigin(raw, origin, false)) throw new Error(`Duplicate origin "${origin}".`);
+    const g = findRawOrigin(raw, origin, true);
+    raw.origins[raw.origins.indexOf(g)] = withIncome(g, income, 'origin');
+    write(raw);
+  }
+
+  // Add a work at the end of its origin (which must be named; it is added when it does not exist),
+  // with no repositories. The tasks folder is created when it does not exist yet, so the work can
+  // be opened right away.
+  function addWork({ name, origin, tasksPath, income }) {
+    const raw = readRaw();
+    const work = name.trim();
+    if (!work) throw new Error('The name must not be empty.');
+    const originName = origin.trim();
+    if (!originName) throw new Error('The origin must not be empty.');
+    const tasks = tasksPath.trim();
+    if (!tasks) throw new Error('The tasks folder must not be empty.');
+    const g = findRawOrigin(raw, originName, true);
+    if (!Array.isArray(g.works)) g.works = [];
+    g.works.push(withIncome({ work, tasks_path: tasks, repositories: [] }, income));
+    write(raw);
+    fs.mkdirSync(path.resolve(expandHome(tasks)), { recursive: true });
+  }
+
+  // Add a repository at the end of a work; its tasks folder is created like a new work's.
+  function addRepository({ work, name, tasksPath, sourcePath }) {
+    const raw = readRaw();
+    const { w } = findRawWork(raw, work);
+    const repository = name.trim();
+    if (!repository) throw new Error('The name must not be empty.');
+    const tasks = tasksPath.trim();
+    if (!tasks) throw new Error('The tasks folder must not be empty.');
+    const source = (sourcePath || '').trim();
+    if (!Array.isArray(w.repositories)) w.repositories = [];
+    w.repositories.push({ repository, ...(source ? { source_path: source } : {}), tasks_path: tasks });
+    write(raw);
+    fs.mkdirSync(path.resolve(expandHome(tasks)), { recursive: true });
+  }
+
+  // Rename one repository of a work. Uniqueness and the "/" rule are checked by writeText.
+  function renameRepository(work, from, to) {
+    const raw = readRaw();
+    const { w } = findRawWork(raw, work);
+    const p = (Array.isArray(w.repositories) ? w.repositories : []).find(x => named(x, 'repository', from));
+    if (!p) throw new Error(`No repository named "${from}" in "${work}".`);
+    const name = to.trim();
+    if (!name) throw new Error('The name must not be empty.');
+    p.repository = name;
+    write(raw);
+  }
+
+  return {
+    configPath, configSource: source, port, host, usersPath, getWorks, getOrigins, readText, writeText,
+    addOrigin, addWork, addRepository, updateWork, updateOrigin, renameRepository
+  };
 }
 
 module.exports = { resolveConfig, resolveConfigPath, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH };

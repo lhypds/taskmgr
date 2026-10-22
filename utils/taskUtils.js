@@ -242,7 +242,11 @@ function renameTaskByFirstLine(taskPath) {
 
 function openTask(task) {
   if (!task) return;
-  const dir = path.dirname(task.path);
+  openFolder(path.dirname(task.path));
+}
+
+// Open a folder with the OS file manager.
+function openFolder(dir) {
   if (process.platform === 'win32') {
     const winPath = dir.replace(/\//g, '\\');
     spawnSync('explorer', [winPath], { stdio: 'ignore' });
@@ -264,6 +268,7 @@ module.exports = {
   deleteTask,
   renameTaskByFirstLine,
   openTask,
+  openFolder,
   parseTask,
   readTasks,
   hasSubtask,

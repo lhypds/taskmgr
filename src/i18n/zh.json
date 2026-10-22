@@ -42,6 +42,7 @@
     "noTasks": "还没有任务。",
     "noSubtasks": "此任务没有子任务。",
     "noMatch": "没有与“{{query}}”匹配的任务。",
+    "folderNotFound": "未找到当前 task folder。",
     "command": "命令"
   },
   "toast": {
@@ -57,10 +58,9 @@
     "message": "删除“{{name}}”？整个任务文件夹（包括附件和子任务）都将被移除。"
   },
   "tree": {
-    "works": "工作",
-    "notFound": "未找到",
-    "noWorks": "taskmgr.json 中没有工作。",
-    "counts": "待办 {{todo}}，完成 {{done}}，搁置 {{pending}}"
+    "origins": "Origins",
+    "noOrigins": "taskmgr.json 中没有 origin。",
+    "openFolder": "打开文件夹"
   },
   "list": {
     "markTodo": "标为待办",
@@ -164,10 +164,57 @@
     "invalid": "用户名或密码错误",
     "logout": "退出登录"
   },
-  "reward": {
-    "title": "{{work}} 的报酬",
-    "placeholder": "例如：每月 50 万日元（留空则删除）",
-    "edit": "编辑报酬",
-    "saved": "报酬已保存"
+  "income": {
+    "title": "收入",
+    "hasIncome": "有收入",
+    "noIncome": "没有收入",
+    "monthly": "每月",
+    "once": "单笔",
+    "amount": "数额",
+    "amountPlaceholder": "例如：500000",
+    "currency": "币种",
+    "add": "添加",
+    "remove": "删除",
+    "perMonth": "{{value}} / 月",
+    "perOnce": "{{value}}（单笔）",
+    "invalidAmount": "数额必须是正数。",
+    "empty": "请至少添加一笔收入，或选择“没有收入”。"
+  },
+  "repository": {
+    "rename": "重命名 repository",
+    "name": "名称",
+    "nameEmpty": "名称不能为空。",
+    "renamed": "repository 已重命名",
+    "added": "repository 已添加"
+  },
+  "origin": {
+    "edit": "编辑 origin",
+    "saved": "origin 已保存",
+    "added": "origin 已添加"
+  },
+  "work": {
+    "name": "名称",
+    "nameEmpty": "名称不能为空。",
+    "edit": "编辑 work",
+    "saved": "work 已保存",
+    "added": "work 已添加",
+    "origin": "所属组织",
+    "originEmpty": "origin 不能为空。",
+    "tasksPath": "任务文件夹",
+    "tasksPathPlaceholder": "例如：~/tasks",
+    "tasksPathEmpty": "任务文件夹不能为空。"
+  },
+  "add": {
+    "title": "添加",
+    "type": "添加什么",
+    "origin": "Origin",
+    "work": "Work",
+    "repository": "Repository",
+    "workInto": "添加 work",
+    "repositoryInto": "添加 repository",
+    "sourcePath": "源代码文件夹",
+    "optional": "可选",
+    "submit": "添加",
+    "workEmpty": "请选择一个 work。"
   }
 }

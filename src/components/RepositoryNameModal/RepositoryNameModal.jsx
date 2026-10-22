@@ -2,26 +2,35 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { Modal } from "@ui";
 import * as api from "@utils/api";
-import styles from "./reward.module.css";
+import styles from "./name.module.css";
 
-// Edit the reward of one work. It is written into taskmgr.json; an empty value removes it.
-export default function WorkRewardModal({ work, onClose, onSaved }) {
+// Rename one repository. `repository` is { work, name }; the new name is written into taskmgr.json
+// and passed to onSaved along with the new { works, origins }.
+export default function RepositoryNameModal({ repository, onClose, onSaved }) {
   const { t } = useTranslation();
-  const [reward, setReward] = useState("");
+  const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!work) return;
-    setReward(work.reward || "");
+    if (!repository) return;
+    setName(repository.name);
     setError("");
-  }, [work]);
+  }, [repository]);
 
   async function save() {
+    const newName = name.trim();
+    if (!newName) {
+      setError(t("repository.nameEmpty"));
+      return;
+    }
+    if (newName === repository.name) {
+      onClose();
+      return;
+    }
     setSaving(true);
     try {
-      const { works } = await api.saveWorkReward(work.work, reward);
-      onSaved(works);
+      onSaved(await api.renameRepository(repository.work, repository.name, newName), newName);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -30,7 +39,7 @@ export default function WorkRewardModal({ work, onClose, onSaved }) {
   }
 
   return (
-    <Modal isOpen={!!work} onClose={onClose} title={t("reward.title", { work: work?.work })} className={styles.modal}>
+    <Modal isOpen={!!repository} onClose={onClose} title={repository?.name || ""} className={styles.modal}>
       <form
         className={styles.body}
         onSubmit={(e) => {
@@ -38,13 +47,10 @@ export default function WorkRewardModal({ work, onClose, onSaved }) {
           if (!saving) save();
         }}
       >
-        <input
-          className="input"
-          value={reward}
-          placeholder={t("reward.placeholder")}
-          autoFocus
-          onChange={(e) => setReward(e.target.value)}
-        />
+        <label className={styles.field}>
+          <span className={styles.label}>{t("repository.name")}</span>
+          <input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+        </label>
         {error && <p className={styles.error}>{error}</p>}
         <div className={styles.actions}>
           <button type="button" className="btn lg" onClick={onClose} disabled={saving}>

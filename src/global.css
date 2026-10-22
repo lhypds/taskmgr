@@ -1,8 +1,8 @@
 @import url(https://cdn.jsdelivr.net/npm/firacode@6.2.0/distr/fira_code.css);
 
 :root {
-  --font-title: "Fira Code VF", monospace;
-  --font-mono: "SF Mono", Menlo, Consolas, monospace;
+  /* One font everywhere; CJK text falls back to the system fonts. */
+  --font: "Fira Code VF", "Fira Code", "Hiragino Sans", "PingFang SC", "Noto Sans CJK JP", monospace;
   --fg: #111111;
   --muted: #767676;
   --faint: #bbbbbb;
@@ -29,7 +29,7 @@ body {
 }
 
 body {
-  font-family: Helvetica, Arial, "Hiragino Sans", "PingFang SC", "Noto Sans CJK JP", sans-serif;
+  font-family: var(--font);
   font-size: 12px;
   color: var(--fg);
   background: var(--bg);
@@ -90,15 +90,6 @@ p {
   cursor: default;
 }
 
-.btn.primary {
-  background: var(--border);
-  color: var(--bg);
-}
-
-.btn.primary:hover:not(:disabled) {
-  background: #333333;
-}
-
 /* Large variant for the action row at the bottom of a modal. */
 .btn.lg {
   height: 28px;
@@ -131,7 +122,7 @@ p {
 
 
 .mono {
-  font-family: var(--font-mono);
+  font-family: var(--font);
   font-variant-numeric: tabular-nums;
 }
 

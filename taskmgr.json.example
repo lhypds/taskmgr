@@ -1,27 +1,35 @@
 {
-  "works": [
+  "origins": [
     {
-      "work": "gcc3.com",
-      "orgin": "gcc3",
-      "reward": "500,000 JPY / month",
-      "tasks_path": "~/gcc3/tasks",
-      "repositories": [
+      "origin": "gcc3",
+      "works": [
         {
-          "name": "repository a",
-          "tasks_path": "~/gcc3/repository-a/tasks",
-          "source_path": "~/gcc3/repository-a"
-        },
-        {
-          "name": "repository b",
-          "tasks_path": "~/gcc3/repository-b/tasks",
-          "source_path": "~/gcc3/repository-b"
+          "work": "gcc3.com",
+          "income": { "monthly": [{ "amount": 500000, "currency": "JPY" }], "once": [{ "amount": 100000, "currency": "JPY" }] },
+          "tasks_path": "~/gcc3/tasks",
+          "repositories": [
+            {
+              "repository": "repository a",
+              "source_path": "~/gcc3/repository-a",
+              "tasks_path": "~/gcc3/repository-a/tasks"
+            },
+            {
+              "repository": "repository b",
+              "source_path": "~/gcc3/repository-b",
+              "tasks_path": "~/gcc3/repository-b/tasks"
+            }
+          ]
         }
       ]
     },
     {
-      "work": "personal",
-      "tasks_path": "~/tasks",
-      "repositories": []
+      "works": [
+        {
+          "work": "personal",
+          "tasks_path": "~/tasks",
+          "repositories": []
+        }
+      ]
     }
   ]
 }

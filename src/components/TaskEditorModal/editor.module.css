@@ -11,7 +11,7 @@
 /* The whole task file: front matter and details, monospaced like the terminal editor. */
 .text {
   min-height: 320px;
-  font-family: var(--font-mono);
+  font-family: var(--font);
   line-height: 1.6;
   white-space: pre;
   overflow-x: auto;
