@@ -15,9 +15,9 @@
 // without a task.txt as a bare folder), whenever anything in it changes; the server replaces its
 // copy with the snapshot, so a renamed, moved or deleted task is mirrored too. Attachments are not
 // pushed. A tasks folder that does not exist is left as it is on the server and looked for until it
-// appears. At startup, and every few minutes after that, the daemon asks the server what it has and
-// pushes what differs; so a change missed by the file system, or a server that lost its data, is
-// put right. A push that fails is retried, with growing waits, until the server answers again.
+// appears. At startup taskmgr.json is pushed once; then, and every few minutes after that, the daemon
+// asks the server what it has and pushes what differs; so a change missed by the file system, or a
+// server that lost its data, is put right. A push that fails is retried, with growing waits, until the server answers again.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -313,10 +313,13 @@ function watchConfig() {
 }
 
 // Ask the server what it has, then compare everything with it. Run at startup and every RESCAN_MS.
+// The first time, taskmgr.json is pushed whatever the server has.
+let startup = true;
 async function rescan() {
   try {
     const state = await request('GET', '/api/sync');
-    onServer = { config: state.config || null, spaces: state.spaces || {} };
+    onServer = { config: startup ? null : state.config || null, spaces: state.spaces || {} };
+    startup = false;
     if (failures) log(`${SERVER} answers again`);
     failures = 0;
   } catch (e) {

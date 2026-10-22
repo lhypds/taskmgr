@@ -29,9 +29,10 @@ pushed. The server merges a pushed `taskmgr.json` into its own: origins, works a
 does not have are added, the ones it has take the pushed settings, and the ones it has that were not  
 pushed are kept, with their folders (so several machines can push to one server; a work or  
 repository renamed or removed on one machine stays on the server until removed there). A tasks  
-folder that does not exist is left as it is on the server and looked for every 30 seconds. Changes go out about 1.5 seconds after they happen; at startup and every 5 minutes the  
-daemon asks the server what it has and pushes what differs, and a push that fails (the server is  
-down) is retried, with growing waits, until it goes through.  
+folder that does not exist is left as it is on the server and looked for every 30 seconds. Changes  
+go out about 1.5 seconds after they happen; at startup the daemon pushes `taskmgr.json` once, and  
+at startup and every 5 minutes it asks the server what it has and pushes what differs, and a push  
+that fails (the server is down) is retried, with growing waits, until it goes through.  
 
 On the server: set `TASKMGRD_TOKEN` in `.env` to a secret of your choice and restart the web UI  
 (`./start.sh`); its startup lines then say `sync : receiving from taskmgrd`. Without the token the  
