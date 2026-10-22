@@ -58,7 +58,7 @@ Setup (installs dependencies, creates `.env`, `taskmgr.json` and `data/users.jso
 `./setup.sh`  
 
 Run as a background service with pm2 (`pnpm add -g pm2`):  
-`./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, rebuild and restart.  
+`./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, rebuild and restart (taskmgrd too, when `TASKMGRD_SERVER` is set in `.env`).  
 Then open the printed URL (default `http://127.0.0.1:3456/`).  
 The pm2 process name is `PM2_NAME` in `.env` (default `taskmgr`), configured in `ecosystem.config.cjs`.  
 

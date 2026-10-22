@@ -14,3 +14,8 @@ git pull --ff-only
 
 "$ROOT/stop.sh"
 "$ROOT/start.sh"
+
+# The sync daemon too, when this machine pushes to a server.
+if grep -q '^TASKMGRD_SERVER=[[:space:]]*[^[:space:]]' "$ROOT/.env" 2>/dev/null; then
+  "$ROOT/taskmgrd.sh" restart
+fi

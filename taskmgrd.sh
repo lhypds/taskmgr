@@ -2,7 +2,7 @@
 # taskmgrd: the daemon that pushes taskmgr.json and the task files of every work and repository to
 # the remote tm server named in .env (TASKMGRD_SERVER, with TASKMGRD_TOKEN), run under pm2.
 #
-#   ./taskmgrd.sh            start it (or restart it, picking up a changed .env)
+#   ./taskmgrd.sh            start it (or restart it, picking up a changed .env); ./restart.sh restarts it too
 #   ./taskmgrd.sh stop       stop it
 #   ./taskmgrd.sh status     is it running?
 #   ./taskmgrd.sh logs       follow its log (Ctrl+C to leave; the daemon keeps running)
