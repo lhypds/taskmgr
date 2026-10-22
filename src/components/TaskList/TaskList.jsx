@@ -81,51 +81,54 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpenFolder, o
         <div>{tr("field.created")}</div>
         <div>{tr("field.task")}</div>
       </div>
-      {tasks.map((t) => (
-        <div
-          key={t.key}
-          ref={t.key === selectedKey ? selectedRef : null}
-          className={`${styles.row}${t.key === selectedKey ? ` ${styles.selected}` : ""}`}
-          data-status={t.status}
-          role="button"
-          tabIndex={0}
-          onFocus={() => onSelect(t)}
-          onClick={() => onSelect(t)}
-          onDoubleClick={() => onOpenFolder(t)}
-        >
-          <div>
-            <DoneBox
-              checked={t.status === "done"}
-              onChange={() => onToggleDone(t)}
-              title={tr(t.status === "done" ? "list.markTodo" : "list.markDone")}
-            />
-          </div>
-          <div className="mono">{formatStamp(t.id)}</div>
-          <div className={styles.title}>
-            <FromTag task={t} />
-            <span className={styles.titleText}>
-              {t.title || <span className="muted">{tr("common.untitled")}</span>}{" "}
-              <span className={styles.detail}>{splitDetails(t.details).body.split("\n")[0]}</span>
-            </span>
-            {t.status === "pending" && <span className="tag pending">{tr("status.pending")}</span>}
-          </div>
-          {t.hasSubtask && (
-            <div className={styles.enter}>
-              <button
-                type="button"
-                className={styles.enterButton}
-                title={tr("list.openSubtasks")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEnter(t);
-                }}
-              >
-                <ChevronRightIcon />
-              </button>
+      {tasks.map((t) => {
+        const detail = splitDetails(t.details).body.split("\n")[0];
+        return (
+          <div
+            key={t.key}
+            ref={t.key === selectedKey ? selectedRef : null}
+            className={`${styles.row}${t.key === selectedKey ? ` ${styles.selected}` : ""}`}
+            data-status={t.status}
+            role="button"
+            tabIndex={0}
+            onFocus={() => onSelect(t)}
+            onClick={() => onSelect(t)}
+            onDoubleClick={() => onOpenFolder(t)}
+          >
+            <div>
+              <DoneBox
+                checked={t.status === "done"}
+                onChange={() => onToggleDone(t)}
+                title={tr(t.status === "done" ? "list.markTodo" : "list.markDone")}
+              />
             </div>
-          )}
-        </div>
-      ))}
+            <div className="mono">{formatStamp(t.id)}</div>
+            <div className={styles.title}>
+              <FromTag task={t} />
+              <span className={styles.titleText}>
+                {t.title || <span className="muted">{tr("common.untitled")}</span>}
+                {detail && <span className={styles.detail}>{detail}</span>}
+              </span>
+              {t.status === "pending" && <span className="tag pending">{tr("status.pending")}</span>}
+            </div>
+            {t.hasSubtask && (
+              <div className={styles.enter}>
+                <button
+                  type="button"
+                  className={styles.enterButton}
+                  title={tr("list.openSubtasks")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEnter(t);
+                  }}
+                >
+                  <ChevronRightIcon />
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

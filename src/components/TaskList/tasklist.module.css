@@ -59,10 +59,6 @@
   padding-bottom: 4px;
 }
 
-.row[data-status="done"] .titleText {
-  color: var(--muted);
-}
-
 .row[data-status="done"] > div,
 .row[data-status="pending"] > div {
   color: var(--muted);
@@ -86,10 +82,12 @@
   margin-right: 8px;
 }
 
-/* The name breaks at any character, so even a long run without spaces starts on the tag's line. */
+/* The name breaks at any character, so even a long run without spaces starts on the tag's line.
+   It stays black on a done or pending row, where the rest of the row is grey. */
 .titleText {
   display: inline;
   word-break: break-all;
+  color: var(--fg);
 }
 
 /* Each name in the from tag is cut short with an ellipsis past a limit, so a long work or
@@ -111,7 +109,7 @@
 }
 
 .titleText + :global(.tag) {
-  margin-left: 6px;
+  margin-left: 8px;
 }
 
 /* The edit, open folder and delete buttons, shown only while a progress card is hovered. */
@@ -151,10 +149,11 @@
   color: var(--fg);
 }
 
-/* The details after the title, on the same line in grey. They break at any character, so even a
-   long run without spaces starts right after the title instead of on the next line. */
+/* The details after the title, on the same line in grey, as far from it as the tags are. They
+   break at any character, so even a long run without spaces starts right after the title instead
+   of on the next line. */
 .detail {
-  margin-left: 4px;
+  margin-left: 8px;
   word-break: break-all;
   color: var(--muted);
 }

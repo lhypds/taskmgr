@@ -94,10 +94,6 @@
   word-break: break-all;
 }
 
-.column[data-status="done"] .cardName {
-  color: var(--muted);
-}
-
 /* The created time, on the last line beside the hover buttons. */
 .cardStamp {
   font-size: 10px;
@@ -105,10 +101,10 @@
   color: var(--fg);
 }
 
-/* The details after the name, on the same line in grey. Their line breaks are folded into spaces,
-   and they break at any character, as the name does. */
+/* The details after the name, on the same line in grey, as far from it as the tag is. Their line
+   breaks are folded into spaces, and they break at any character, as the name does. */
 .cardDetail {
-  margin-left: 4px;
+  margin-left: 8px;
   color: var(--muted);
   word-break: break-all;
 }

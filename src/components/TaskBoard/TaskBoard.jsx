@@ -90,12 +90,7 @@ export default function TaskBoard({
                           <span className="muted">{tr("common.untitled")}</span>
                         )}
                       </span>
-                      {detail && (
-                        <>
-                          {" "}
-                          <span className={styles.cardDetail}>{detail}</span>
-                        </>
-                      )}
+                      {detail && <span className={styles.cardDetail}>{detail}</span>}
                     </div>
                     {t.hasSubtask && (
                       <div className={styles.cardFoot}>
