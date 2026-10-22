@@ -65,15 +65,10 @@
   user-select: none;
 }
 
-/* Chosen like a row: the hover grey, or the selected look while the keyboard is on the tree. */
+/* Chosen like a row: the hover grey. */
 .origin:hover,
 .origin[data-active="true"] {
   background: var(--bg-hover);
-}
-
-.origin[data-focused="true"],
-.origin[data-focused="true"]:hover {
-  background: var(--soft-line);
 }
 
 .origin:focus-visible {
@@ -102,15 +97,9 @@
   background: var(--bg-hover);
 }
 
-/* The space on the right sits on the hover grey; while the keyboard is on the tree it takes the
-   task list's selected look instead. */
+/* The space on the right sits on the hover grey, whether or not the keyboard is on the tree. */
 .row[data-active="true"] {
   background: var(--bg-hover);
-}
-
-.row[data-focused="true"],
-.row[data-focused="true"]:hover {
-  background: var(--soft-line);
 }
 
 .row:focus-visible {
