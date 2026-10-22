@@ -61,7 +61,7 @@ export default function TaskBoard({
             </header>
             <div className={styles.cards}>
               {cards.map((t) => {
-                const detail = splitDetails(t.details).body;
+                const detail = splitDetails(t.details).body.replace(/\s+/g, " ").trim();
                 return (
                   <div
                     key={t.key}
@@ -85,13 +85,18 @@ export default function TaskBoard({
                   >
                     <div className={styles.cardTitle}>
                       <FromTag task={t} />
-                      <span>
+                      <span className={styles.cardName}>
                         {t.title || (
                           <span className="muted">{tr("common.untitled")}</span>
                         )}
                       </span>
+                      {detail && (
+                        <>
+                          {" "}
+                          <span className={styles.cardDetail}>{detail}</span>
+                        </>
+                      )}
                     </div>
-                    {detail && <div className={styles.cardDetail}>{detail}</div>}
                     {t.hasSubtask && (
                       <div className={styles.cardFoot}>
                         <button

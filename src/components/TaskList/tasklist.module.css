@@ -86,8 +86,10 @@
   margin-right: 8px;
 }
 
+/* The name breaks at any character, so even a long run without spaces starts on the tag's line. */
 .titleText {
   display: inline;
+  word-break: break-all;
 }
 
 /* Each name in the from tag is cut short with an ellipsis past a limit, so a long work or

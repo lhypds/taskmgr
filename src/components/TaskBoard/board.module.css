@@ -71,9 +71,14 @@
   opacity: 0.4;
 }
 
-/* The repository (in a list of several) and the task's name, one inline flow as in the list: the
-   tag starts the first line and the name follows it, wrapping under the tag. */
+/* The repository (in a list of several), the task's name and its details, one inline flow as in
+   the list: the tag starts the first line and the rest follows it, wrapping under the tag, up to
+   four lines. */
 .cardTitle {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
   font-size: 12px;
   line-height: 16px;
   word-break: break-word;
@@ -84,7 +89,12 @@
   margin-right: 8px;
 }
 
-.column[data-status="done"] .cardTitle > span:last-child {
+/* The name breaks at any character, so even a long run without spaces starts on the tag's line. */
+.cardName {
+  word-break: break-all;
+}
+
+.column[data-status="done"] .cardName {
   color: var(--muted);
 }
 
@@ -92,20 +102,15 @@
 .cardStamp {
   font-size: 10px;
   line-height: 14px;
-  color: var(--muted);
+  color: var(--fg);
 }
 
-/* The details after the name, cut to three lines. */
+/* The details after the name, on the same line in grey. Their line breaks are folded into spaces,
+   and they break at any character, as the name does. */
 .cardDetail {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  font-size: 10px;
-  line-height: 14px;
+  margin-left: 4px;
   color: var(--muted);
-  overflow: hidden;
-  white-space: pre-wrap;
-  word-break: break-word;
+  word-break: break-all;
 }
 
 .cardFoot {
