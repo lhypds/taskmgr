@@ -6,7 +6,8 @@ const {
   createTask,
   ensureTaskFile,
   markTask,
-  updateLastEdit,
+  listDirOf,
+  normalizeTaskFile,
   deleteTask,
   renameTaskByFirstLine,
   openTask,
@@ -44,7 +45,8 @@ const fs = require('fs');
   } catch (e) { /* dotenv optional or not installed; ignore */ }
 })();
 
-function formatOriginForDisplay(s, width) {
+// Cut or pad a string to exactly `width` terminal cells (CJK characters take two).
+function padToWidth(s, width) {
   s = (s || '').toString().trim();
   let out = '';
   let cur = 0;
@@ -91,11 +93,7 @@ function renderList(screen, list, tasks, selected) {
       title = '(empty)';
     }
 
-    // format origin to exact display width 5, counting CJK chars as width 2
-    const origin = formatOriginForDisplay(t.origin || '', 8);
-
-    const last = t.last_edit || '';
-    return `${check}  ${t.id}  ${origin}  ${last}  ${title}`;
+    return `${check}  ${t.id}  ${title}`;
   });
   list.setItems(lines);
   list.select(selected);
@@ -285,7 +283,7 @@ function createWorkPicker(screen, config, onPick) {
     const nameWidth = Math.max(4, ...entries.map(e => displayWidth(e.name)));
     const infoWidth = Math.max(4, ...infos.map(displayWidth));
     list.setItems(entries.map((e, i) =>
-      `  ${formatOriginForDisplay(e.name, nameWidth)}  ${formatOriginForDisplay(infos[i], infoWidth)}  ${e.root}`));
+      `  ${padToWidth(e.name, nameWidth)}  ${padToWidth(infos[i], infoWidth)}  ${e.root}`));
     list.select(Math.min(lastSelected, Math.max(0, entries.length - 1)));
     showStatus();
   }
@@ -546,7 +544,7 @@ function createTaskView(screen, onBack) {
       try { screen.render(); } catch (e) { }
       return false;
     }
-    updateLastEdit(taskPath);
+    normalizeTaskFile(taskPath);
     renameTaskByFirstLine(taskPath);
     return true;
   }
@@ -611,7 +609,7 @@ function createTaskView(screen, onBack) {
   }
 
   function createNamedTask(name) {
-    const taskPath = createTask(cwd, '', '', 'todo', name.trim());
+    const taskPath = createTask(cwd, name.trim());
     const ok = openInEditor(taskPath);
     // restore focus and refresh tasks after editor exits
     try { list.focus(); } catch (e) { }
@@ -656,7 +654,7 @@ function createTaskView(screen, onBack) {
     drawNameModal();
   }
 
-  taskKey('a', () => {
+  taskKey(['a', 'n'], () => {
     if (isPreviewing || isNaming || commandLine.isActive()) return;
     openNameModal();
   });
@@ -807,10 +805,11 @@ function createTaskView(screen, onBack) {
     if (!t) return;
     const id = t.id;
 
-    if ((t.status || '').toLowerCase() !== status) {
-      markTask(t, status);
-    } else {
-      markTask(t, 'todo');
+    // the status is the folder the task is in, so this moves it
+    try {
+      markTask(t, (t.status || '').toLowerCase() !== status ? status : 'todo');
+    } catch (e) {
+      statusBar.setContent(e.message);
     }
 
     // refresh list and re-select the same task by id in new ordering
@@ -890,7 +889,8 @@ function createTaskView(screen, onBack) {
         }
         return;
       }
-      const parent = path.dirname(cwd);
+      // up to the list the task is in, past its "done" / "pending" folder
+      const parent = listDirOf(cwd);
       if (!parent || parent === cwd) return;
       // prevent moving above the initial root directory where the program started
       const rel = path.relative(initialRoot, parent);

@@ -21,8 +21,8 @@
 //               {
 //                 "repository": "repository a",
 //                 "source_path": "~/gcc3/a",      // optional, its source code
-//                 "tasks_path": "~/gcc3/a/tasks"  // tasks of one repository
-//               }
+//                 "tasks_path": "~/gcc3/a/tasks"  // tasks of one repository; optional with a
+//               }                                 // source_path, defaulting to its "tasks" folder
 //             ]
 //           }
 //         ]
@@ -202,6 +202,12 @@ function normalizeOrigins(raw) {
   return { works, origins };
 }
 
+// A repository's tasks folder, absolute: its tasks_path, or the "tasks" folder in its source code
+// folder when it has none.
+function repositoryTasksRoot(tasks, source) {
+  return tasks ? path.resolve(expandHome(tasks)) : path.join(path.resolve(expandHome(source)), 'tasks');
+}
+
 // Validate and normalize one work entry; `at` is where it is in the file, for error messages.
 function normalizeWork(w, at, origin, seenWorks) {
   if (!w || typeof w !== 'object') throw new Error(`${at} must be an object.`);
@@ -234,19 +240,21 @@ function normalizeWork(w, at, origin, seenWorks) {
     repositories: repositories.map((p, j) => {
       if (!p || typeof p !== 'object') throw new Error(`${at}.repositories[${j}] ("${work}") must be an object.`);
       if (!isNonEmptyString(p.repository)) throw new Error(`${at}.repositories[${j}].repository ("${work}") must be a non-empty string.`);
-      if (!isNonEmptyString(p.tasks_path)) throw new Error(`Repository "${p.repository}" of "${work}" needs a "tasks_path" folder.`);
       const name = p.repository.trim();
       if (name.includes('/')) throw new Error(`Repository name "${name}" of "${work}" must not contain "/".`);
       if (seenRepositories.has(name)) throw new Error(`Duplicate repository name "${name}" in "${work}".`);
       seenRepositories.add(name);
       if (p.source_path !== undefined && typeof p.source_path !== 'string') throw new Error(`Repository "${name}" of "${work}": "source_path" must be a string.`);
+      if (p.tasks_path !== undefined && typeof p.tasks_path !== 'string') throw new Error(`Repository "${name}" of "${work}": "tasks_path" must be a string.`);
       const source = (p.source_path || '').trim();
+      const tasks = (p.tasks_path || '').trim();
+      if (!source && !tasks) throw new Error(`Repository "${name}" of "${work}" needs a "tasks_path" or a "source_path" folder.`);
       return {
         name,
-        root: path.resolve(expandHome(p.tasks_path.trim())),
+        root: repositoryTasksRoot(tasks, source),
         sourcePath: source ? path.resolve(expandHome(source)) : '',
         // Its source code folder as written in taskmgr.json, or its tasks folder when it has none.
-        shownPath: source || p.tasks_path.trim()
+        shownPath: source || tasks
       };
     })
   };
@@ -441,19 +449,20 @@ function resolveConfig(argv) {
     fs.mkdirSync(path.resolve(expandHome(tasks)), { recursive: true });
   }
 
-  // Add a repository at the end of a work; its tasks folder is created like a new work's.
+  // Add a repository at the end of a work; its tasks folder is created like a new work's. With no
+  // tasks folder, tasks_path is left out and the "tasks" folder in the source folder is used.
   function addRepository({ work, name, tasksPath, sourcePath }) {
     const raw = readRaw();
     const { w } = findRawWork(raw, work);
     const repository = name.trim();
     if (!repository) throw new Error('The name must not be empty.');
-    const tasks = tasksPath.trim();
-    if (!tasks) throw new Error('The tasks folder must not be empty.');
+    const tasks = (tasksPath || '').trim();
     const source = (sourcePath || '').trim();
+    if (!tasks && !source) throw new Error('Give a tasks folder or a source folder.');
     if (!Array.isArray(w.repositories)) w.repositories = [];
-    w.repositories.push({ repository, ...(source ? { source_path: source } : {}), tasks_path: tasks });
+    w.repositories.push({ repository, ...(source ? { source_path: source } : {}), ...(tasks ? { tasks_path: tasks } : {}) });
     write(raw);
-    fs.mkdirSync(path.resolve(expandHome(tasks)), { recursive: true });
+    fs.mkdirSync(repositoryTasksRoot(tasks, source), { recursive: true });
   }
 
   // Rename one repository of a work. Uniqueness and the "/" rule are checked by writeText.

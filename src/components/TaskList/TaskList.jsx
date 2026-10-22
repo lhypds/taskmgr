@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
-import { ChevronRightIcon } from "@components/icons";
-import { formatStamp } from "@utils/task";
+import { ChevronRightIcon, EditIcon, FolderIcon, TrashIcon } from "@components/icons";
+import { formatStamp, splitDetails } from "@utils/task";
 import styles from "./tasklist.module.css";
 
 function DoneBox({ checked, onChange, title }) {
@@ -13,9 +13,45 @@ function DoneBox({ checked, onChange, title }) {
   );
 }
 
+// A small button at the right end of a row's title, shown while the row is hovered (as in the tree).
+function RowButton({ label, onClick, children }) {
+  return (
+    <button
+      type="button"
+      className={styles.rowButton}
+      title={label}
+      aria-label={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// A task's edit, open folder and delete buttons, shown while its row (or card) is hovered.
+export function TaskActions({ task, className = "", onOpen, onOpenFolder, onDelete }) {
+  const { t: tr } = useTranslation();
+  return (
+    <div className={`${styles.rowActions} ${className}`}>
+      <RowButton label={tr("common.edit")} onClick={() => onOpen(task)}>
+        <EditIcon />
+      </RowButton>
+      <RowButton label={tr("tree.openFolder")} onClick={() => onOpenFolder(task)}>
+        <FolderIcon />
+      </RowButton>
+      <RowButton label={tr("delete.title")} onClick={() => onDelete(task)}>
+        <TrashIcon />
+      </RowButton>
+    </div>
+  );
+}
+
 // `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into view. A task's
 // `from` (the work or repository it lives in, in a list of several) shows before its title.
-export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onToggleDone, onEnter }) {
+export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onOpenFolder, onDelete, onToggleDone, onEnter }) {
   const { t: tr } = useTranslation();
   const selectedRef = useRef(null);
   useEffect(() => {
@@ -26,10 +62,9 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onToggl
     <div className={styles.table} role="table">
       <div className={`${styles.row} ${styles.head}`} role="row">
         <div />
-        <div>{tr("field.id")}</div>
-        <div>{tr("field.origin")}</div>
-        <div>{tr("field.edited")}</div>
+        <div>{tr("field.created")}</div>
         <div>{tr("field.task")}</div>
+        <div />
         <div />
       </div>
       {tasks.map((t) => (
@@ -41,10 +76,8 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onToggl
           role="button"
           tabIndex={0}
           onFocus={() => onSelect(t)}
-          onClick={() => {
-            onSelect(t);
-            onOpen(t);
-          }}
+          onClick={() => onSelect(t)}
+          onDoubleClick={() => onOpenFolder(t)}
         >
           <div>
             <DoneBox
@@ -53,12 +86,13 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onToggl
               title={tr(t.status === "done" ? "list.markTodo" : "list.markDone")}
             />
           </div>
-          <div className="mono">{t.id}</div>
-          <div className={styles.origin}>{t.origin}</div>
-          <div className="mono">{formatStamp(t.last_edit)}</div>
+          <div className="mono">{formatStamp(t.id)}</div>
           <div className={styles.title}>
             {t.from && <span className="tag">{t.from}</span>}
-            <span className={styles.titleText}>{t.title || <span className="muted">{tr("common.untitled")}</span>}</span>
+            <span className={styles.titleText}>
+              {t.title || <span className="muted">{tr("common.untitled")}</span>}
+              <span className={styles.detail}>{splitDetails(t.details).body.replace(/\s+/g, " ")}</span>
+            </span>
             {t.status === "pending" && <span className="tag pending">{tr("status.pending")}</span>}
           </div>
           <div className={styles.enter}>
@@ -76,6 +110,7 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onToggl
               </button>
             )}
           </div>
+          <TaskActions task={t} onOpen={onOpen} onOpenFolder={onOpenFolder} onDelete={onDelete} />
         </div>
       ))}
     </div>

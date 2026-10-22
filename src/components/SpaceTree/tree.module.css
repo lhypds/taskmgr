@@ -116,9 +116,10 @@
   outline-offset: -2px;
 }
 
-/* A space whose task folder does not exist: still selectable, the right side says so. */
-.row[data-missing="true"] {
-  color: var(--muted);
+/* A space whose task folder does not exist: still selectable, its path in red and the right side
+   says so. */
+.row[data-missing="true"] .root {
+  color: var(--err);
 }
 
 /* A hidden work (and its repositories), shown because hidden works are shown. */

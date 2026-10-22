@@ -17,15 +17,14 @@
     "pending": "保留"
   },
   "field": {
+    "detail": "詳細",
+    "created": "作成日時",
     "id": "ID",
-    "origin": "依頼元",
-    "edited": "更新日時",
     "task": "タスク",
-    "status": "状態",
-    "labels": "ラベル"
+    "status": "状態"
   },
   "header": {
-    "filter": "タイトル・ラベル・依頼元・IDで絞り込み",
+    "filter": "タイトル・IDで絞り込み",
     "filterLabel": "タスクを絞り込む",
     "clearFilter": "絞り込みを解除",
     "up": "上へ",
@@ -35,7 +34,9 @@
     "showTree": "ツリーを表示",
     "hideDetails": "詳細を隠す",
     "showDetails": "詳細を表示",
-    "location": "場所"
+    "location": "場所",
+    "listView": "リスト表示",
+    "boardView": "進捗表示"
   },
   "home": {
     "pickSpace": "左側から作業またはリポジトリを選んでください。",
@@ -43,9 +44,11 @@
     "noSubtasks": "このタスクにサブタスクはありません。",
     "noMatch": "「{{query}}」に一致するタスクはありません。",
     "folderNotFound": "タスクフォルダが見つかりません。",
+    "createFolder": "作成",
     "command": "コマンド"
   },
   "toast": {
+    "folderCreated": "フォルダを作成しました",
     "saved": "保存しました",
     "created": "タスクを作成しました",
     "createdUploadFailed": "タスクを作成しましたが、添付ファイルのアップロードに失敗しました：{{error}}",
@@ -69,6 +72,7 @@
     "openSubtasks": "サブタスクを開く"
   },
   "panel": {
+    "heading": "タスク",
     "none": "タスクが選択されていません。",
     "details": "詳細",
     "noDetails": "詳細はありません。"
@@ -83,6 +87,7 @@
     "choose": "ファイルを選択"
   },
   "editor": {
+    "editTask": "タスクを編集",
     "newTask": "新規タスク",
     "saveHint": "⌘S / Ctrl+S で保存",
     "save": "保存",
@@ -119,7 +124,7 @@
       "desc": "ツリーとタスク一覧を切り替え"
     },
     "add": {
-      "keys": "a",
+      "keys": "a / n",
       "desc": "タスクを追加"
     },
     "edit": {
@@ -220,6 +225,8 @@
     "repositoryInto": "repository を追加",
     "sourcePath": "ソースフォルダ",
     "optional": "任意",
+    "tasksPathDefault": "既定：ソースフォルダ内の \"tasks\"",
+    "pathEmpty": "タスクフォルダかソースフォルダを入力してください。",
     "submit": "追加",
     "workEmpty": "work を選んでください。"
   },

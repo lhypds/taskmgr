@@ -15,12 +15,6 @@ export function joinDetails(title, body) {
   return b ? `${t}\n${b}` : t;
 }
 
-export const labelList = (labels) =>
-  (labels || "")
-    .split(/[,，]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
 // "202508142100" -> "2025-08-14 21:00"; anything else is shown as-is.
 export function formatStamp(s) {
   const m = /^(\d{4})(\d{2})(\d{2})[_]?(\d{2})(\d{2})/.exec(s || "");

@@ -47,6 +47,9 @@ export const listSpaces = () => request("/api/spaces");
 // Open the folder a tree row shows (a work's tasks folder, or a repository's source folder) in the OS file manager.
 export const openSpaceFolder = (space) => request("/api/space/open", json("POST", sp(space)));
 
+// Make a space's missing tasks folder; resolves to { works, origins }.
+export const createSpaceFolder = (space) => request("/api/space/create", json("POST", sp(space)));
+
 // The works and origins: { works, origins }, origins being the named ones ({ origin, income }),
 // some possibly without works yet. Every change to taskmgr.json below resolves to the new ones.
 
@@ -80,7 +83,7 @@ export const listTasks = (space, dir = "") => request(`/api/tasks?${q({ ...sp(sp
 // with the work and repository it lives in.
 export const listAllTasks = (scope) => request(`/api/tasks/all?${q(scope)}`);
 
-// fields: { status, labels, origin, details }
+// fields: { status, details }
 export const createTask = (space, dir, fields) => request("/api/tasks", json("POST", { ...sp(space), dir, ...fields }));
 
 export const getTask = (space, rel) => request(`/api/task?${q({ ...sp(space), rel })}`);

@@ -261,8 +261,18 @@
   line-height: 1.6;
 }
 
+.createFolder {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .missingPath {
-  color: var(--muted);
+  color: var(--err);
   word-break: break-all;
 }
 

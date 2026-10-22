@@ -29,7 +29,6 @@
   gap: 8px;
   min-height: 40px;
   padding: 8px 12px 8px 16px;
-  border-bottom: var(--line) solid var(--soft-line);
 }
 
 .title {
@@ -63,7 +62,7 @@
 }
 
 .content {
-  padding: 16px;
+  padding: 2px 16px 16px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;

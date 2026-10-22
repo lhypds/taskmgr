@@ -120,6 +120,18 @@ p {
   outline: none;
 }
 
+/* the native arrow replaced by a small down triangle on the right, drawn from two half-squares */
+.select {
+  appearance: none;
+  padding-right: 24px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 12px center, right 8px center;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+
 
 .mono {
   font-family: var(--font);
@@ -135,7 +147,7 @@ p {
   align-items: center;
   height: 16px;
   padding: 0 5px;
-  border: var(--line) solid var(--soft-line);
+  border: var(--line) solid var(--border);
   font-size: 10px;
   line-height: 1;
   white-space: nowrap;

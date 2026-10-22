@@ -6,9 +6,8 @@ import Attachments, { useTaskFiles } from "@components/Attachments";
 import * as api from "@utils/api";
 import styles from "./editor.module.css";
 
-// A new task file as the terminal writes one: the front matter, then the details, whose first
-// line becomes the title. last_edit is stamped on save.
-const TEMPLATE = "---\nstatus: todo\nlabels: \norigin: \nlast_edit: \n---\n\n";
+// A new task file is just its details; the first line becomes the title.
+const TEMPLATE = "";
 
 // The task file in one text area, the way the terminal opens it in $EDITOR. `task` is null for a
 // new task; `isOpen` is separate so a closed editor keeps its last text until it reopens.
@@ -63,7 +62,7 @@ export default function TaskEditorModal({ isOpen, space, task, saving, onCancel,
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onCancel} title={task ? task.title || t("common.untitled") : t("editor.newTask")} closeOnOverlay={false} className={styles.modal}>
+    <Modal isOpen={isOpen} onClose={onCancel} title={task ? t("editor.editTask") : t("editor.newTask")} closeOnOverlay={false} className={styles.modal}>
       <form className={styles.form} onSubmit={submit} onKeyDown={onKeyDown}>
         <TextArea
           ref={textRef}
@@ -74,7 +73,7 @@ export default function TaskEditorModal({ isOpen, space, task, saving, onCancel,
           disabled={text === null}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
-          aria-label={task ? task.title || t("common.untitled") : t("editor.newTask")}
+          aria-label={task ? t("editor.editTask") : t("editor.newTask")}
         />
 
         <Attachments
@@ -92,12 +91,12 @@ export default function TaskEditorModal({ isOpen, space, task, saving, onCancel,
           {task ? (
             <>
               {task.hasSubtask && (
-                <button type="button" className="btn" onClick={() => onEnter(task)}>
+                <button type="button" className="btn lg" onClick={() => onEnter(task)}>
                   <ChevronRightIcon />
                   {t("common.subtasks")}
                 </button>
               )}
-              <button type="button" className="btn" onClick={() => onDelete(task)}>
+              <button type="button" className="btn lg" onClick={() => onDelete(task)}>
                 <TrashIcon />
                 {t("common.delete")}
               </button>

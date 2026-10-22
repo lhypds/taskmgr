@@ -132,6 +132,29 @@ export function UserIcon({ className }) {
   );
 }
 
+export function ListIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="4" y2="6" />
+      <line x1="3" y1="12" x2="4" y2="12" />
+      <line x1="3" y1="18" x2="4" y2="18" />
+    </Icon>
+  );
+}
+
+export function BoardIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <rect x="3" y="4" width="18" height="16" rx="1" />
+      <line x1="9" y1="4" x2="9" y2="20" />
+      <line x1="15" y1="4" x2="15" y2="20" />
+    </Icon>
+  );
+}
+
 export function PieIcon({ className }) {
   return (
     <Icon className={className}>

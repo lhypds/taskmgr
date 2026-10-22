@@ -10,7 +10,8 @@ const TYPES = ["origin", "work", "repository"];
 // Add an origin, a work or a repository to taskmgr.json, chosen at the top. `add` is what to start
 // with: { type, origin } (a work, into that origin) or { type, work } (a repository, into that
 // work). An origin has a name and income; a work an origin, name, tasks folder and income; a
-// repository a work, name, tasks folder and optional source folder. onSaved gets the new
+// repository a work, name, source folder and tasks folder (one of them at least; the tasks folder
+// defaults to the source folder's "tasks"). onSaved gets the new
 // { works, origins } and what was added ({ type, name, origin, work }).
 export default function AddSpaceModal({ add, origins, works, onClose, onSaved }) {
   const { t } = useTranslation();
@@ -44,7 +45,8 @@ export default function AddSpaceModal({ add, origins, works, onClose, onSaved })
     if (!newName) return setError(t("work.nameEmpty"));
     if (type === "work" && !origin) return setError(t("work.originEmpty"));
     if (type === "repository" && !work) return setError(t("add.workEmpty"));
-    if (type !== "origin" && !tasksPath.trim()) return setError(t("work.tasksPathEmpty"));
+    if (type === "work" && !tasksPath.trim()) return setError(t("work.tasksPathEmpty"));
+    if (type === "repository" && !tasksPath.trim() && !sourcePath.trim()) return setError(t("add.pathEmpty"));
     const read = type === "repository" ? { income: null } : readIncome(income);
     if (read.error) return setError(t(read.error));
     setSaving(true);
@@ -120,7 +122,7 @@ export default function AddSpaceModal({ add, origins, works, onClose, onSaved })
           <input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
         </label>
 
-        {type !== "origin" && (
+        {type === "work" && (
           <label className={styles.field}>
             <span className={styles.label}>{t("work.tasksPath")}</span>
             <input className="input mono" value={tasksPath} placeholder={t("work.tasksPathPlaceholder")} onChange={(e) => setTasksPath(e.target.value)} />
@@ -128,10 +130,16 @@ export default function AddSpaceModal({ add, origins, works, onClose, onSaved })
         )}
 
         {type === "repository" && (
-          <label className={styles.field}>
-            <span className={styles.label}>{t("add.sourcePath")}</span>
-            <input className="input mono" value={sourcePath} placeholder={t("add.optional")} onChange={(e) => setSourcePath(e.target.value)} />
-          </label>
+          <>
+            <label className={styles.field}>
+              <span className={styles.label}>{t("add.sourcePath")}</span>
+              <input className="input mono" value={sourcePath} placeholder={t("add.optional")} onChange={(e) => setSourcePath(e.target.value)} />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>{t("work.tasksPath")}</span>
+              <input className="input mono" value={tasksPath} placeholder={t("add.tasksPathDefault")} onChange={(e) => setTasksPath(e.target.value)} />
+            </label>
+          </>
         )}
 
         {type !== "repository" && <IncomeFields fields={income} />}

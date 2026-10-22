@@ -112,20 +112,32 @@ Prints the commands above. To open a folder named `config` or `help`, prefix it:
 Task files
 ----------
 
-`task.txt`
-Plain text file, with task details.
+Each task is a folder `<id> <title>`, the id being its creation minute (`YYYYMMDDHHmm`).
+
+`task.txt`  
+Plain text file, just the task details. The first line is the title.  
+A task folder without a `task.txt` is still a task, titled after the folder name.
 
 File example:
 ```
-Title: Buy apple.
-Status: done
-Labels: shopping, groceries
-Origin: Wife
-Created at: 20250814_2100
-Last edit at: 20250814_2100
-Details:
+Buy apple.
 Buy apple from the store.
 ```
+
+The status is where the folder is: a task right in a folder of tasks is todo, one in its
+`done` folder is done, one in its `pending` folder is pending. Marking a task done or pending
+moves its folder there (the `done` / `pending` folder is created when needed and removed when
+it is empty again):
+```
+tasks/
+  202508142100 Buy orange./
+  done/
+    202508142100 Buy apple./
+  pending/
+```
+Task files from older versions, which began with a `---` block (`status:`, `labels:`, ...), are
+converted the first time their folder is listed: the block is dropped, and a done or pending
+task is moved into its folder.
 
 
 Task List
@@ -133,9 +145,9 @@ Task List
 
 Example:  
 ```
-     id           edit_at        task
-[x]  202508142100  202508142100  Buy apple.   
-[ ]  202508142100  202508142100  Buy orange.  
+     id            task
+[x]  202508142100  Buy apple.   
+[ ]  202508142100  Buy orange.  
 ```
 
 Task status:
@@ -153,7 +165,7 @@ Shortcuts
 l  
 List tasks, or refresh task list.  
 
-a  
+a / n  
 Add a task: a small dialog asks for the task name (enter to create, esc to cancel).  
 It creates a folder `<id> <name>` inside current directory (the id is the creation  
 minute, `YYYYMMDDHHmm`; a second task in the same minute gets the next minute),  
@@ -237,7 +249,8 @@ The bare `tm` command reads the same file:
           "income": { "monthly": [{ "amount": 500000, "currency": "JPY", "from": "2026-01" }], "once": [{ "amount": 100000, "currency": "JPY" }] },
           "tasks_path": "~/gcc3/tasks",
           "repositories": [
-            { "repository": "repository a", "source_path": "~/gcc3/repository-a", "tasks_path": "~/gcc3/repository-a/tasks" }
+            { "repository": "repository a", "source_path": "~/gcc3/repository-a" },
+            { "repository": "repository b", "source_path": "~/gcc3/repository-b", "tasks_path": "~/gcc3/tasks/repository-b" }
           ]
         }
       ]
@@ -246,7 +259,7 @@ The bare `tm` command reads the same file:
   ]
 }
 ```
-`tasks_path` is the folder holding the task folders (`~` is expanded). Each entry of `origins` is an organization the works are for, with its works; in the web UI's tree, its works are grouped under its name. One entry may leave `origin` out (or `""`) for works without an origin, which come last. Work names are unique across all origins. The older form, a top-level `works` list whose works each have an optional `origin`, is still read, and is rewritten as `origins` when the file is saved from the web UI; so is a repository's older `name`, which becomes `repository`. `income` (optional) is what the work pays, as two lists of `{ amount, currency }` (a 3-letter code): `monthly` and `once` (one-time payments); a monthly item may also have `from`, the year and month it starts (`"2026-01"`, optional); An origin may have an `income` of the same form too (what it pays besides its works). An older single `reward` (`{ amount, currency, period }`) is still read, and becomes `income` when the work is saved from the web UI. In the web UI, the + button next to "Origins" opens the add dialog, which adds an origin (name and income), a work (into an origin, which is required; its tasks folder is created if missing) or a repository (into a work, with an optional source folder; its tasks folder is created if missing); the + on an origin's row starts it on adding a work there, the one on a work's row on adding a repository there. The income of an origin or a work is shown at the right of its name in units of 10,000 (万): the one-time total, then `m` and the monthly total, e.g. `44 + m7`. The pencil button at the right of an origin's or a work's row edits its name and income (add or remove monthly and one-time items), and the one on a repository's row edits its name. `hidden` (optional, `true`) hides a work and its repositories from the tree; it is set with the "Hide this work" box in the work's edit dialog, and the "Show hidden works" box under the tree's head shows them again (greyed out). The pie-chart button at the top right opens the income analysis: in one currency, the annual income (monthly × 12), what the monthly items actually pay in a chosen year (counted from each one's `from` month), the one-time total, and a pie of where the income comes from, by origin (hidden works count only when asked for). `source_path` (optional) is a repository's source code folder; the tree shows it under the repository's name, or its `tasks_path` when it has none. Paths in the tree are shown as written here, with `~` kept. The file is re-read when it changes.  
+`tasks_path` is the folder holding the task folders (`~` is expanded). Each entry of `origins` is an organization the works are for, with its works; in the web UI's tree, its works are grouped under its name. One entry may leave `origin` out (or `""`) for works without an origin, which come last. Work names are unique across all origins. The older form, a top-level `works` list whose works each have an optional `origin`, is still read, and is rewritten as `origins` when the file is saved from the web UI; so is a repository's older `name`, which becomes `repository`. `income` (optional) is what the work pays, as two lists of `{ amount, currency }` (a 3-letter code): `monthly` and `once` (one-time payments); a monthly item may also have `from`, the year and month it starts (`"2026-01"`, optional); An origin may have an `income` of the same form too (what it pays besides its works). An older single `reward` (`{ amount, currency, period }`) is still read, and becomes `income` when the work is saved from the web UI. In the web UI, the + button next to "Origins" opens the add dialog, which adds an origin (name and income), a work (into an origin, which is required; its tasks folder is created if missing) or a repository (into a work, with a source folder, a tasks folder or both; its tasks folder is created if missing); the + on an origin's row starts it on adding a work there, the one on a work's row on adding a repository there. The income of an origin or a work is shown at the right of its name in units of 10,000 (万): the one-time total, then `m` and the monthly total, e.g. `44 + m7`. The pencil button at the right of an origin's or a work's row edits its name and income (add or remove monthly and one-time items), and the one on a repository's row edits its name. `hidden` (optional, `true`) hides a work and its repositories from the tree; it is set with the "Hide this work" box in the work's edit dialog, and the "Show hidden works" box under the tree's head shows them again (greyed out). The pie-chart button at the top right opens the income analysis: in one currency, the annual income (monthly × 12), what the monthly items actually pay in a chosen year (counted from each one's `from` month), the one-time total, and a pie of where the income comes from, by origin (hidden works count only when asked for). `source_path` (optional) is a repository's source code folder; the tree shows it under the repository's name, or its `tasks_path` when it has none. A repository's `tasks_path` may be left out (or `""`) when it has a `source_path`: its tasks are then read from the `tasks` folder in the source folder. Paths in the tree are shown as written here, with `~` kept. The file is re-read when it changes.  
 `PORT` / `HOST` in `.env` set the port (default 3456) and host (default 127.0.0.1); `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
 
 Login: the web UI asks for a username and password. Accounts are a list in `data/users.json`  

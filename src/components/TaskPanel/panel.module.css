@@ -5,16 +5,34 @@
   padding: 12px;
 }
 
+/* The head, as the tree's "Origins": it stays at the top while the details scroll. */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--bg);
+  border-bottom: var(--line) solid var(--border);
+}
+
+.barActions {
+  display: flex;
+  gap: 4px;
+}
+
+.barTitle {
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .empty {
   padding: 24px 12px;
   text-align: center;
-}
-
-.head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
 }
 
 .title {
@@ -40,12 +58,6 @@
   margin: 0;
   min-width: 0;
   word-break: break-word;
-}
-
-.labels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
 }
 
 .section {

@@ -10,8 +10,7 @@
           "repositories": [
             {
               "repository": "repository a",
-              "source_path": "~/gcc3/repository-a",
-              "tasks_path": "~/gcc3/repository-a/tasks"
+              "source_path": "~/gcc3/repository-a"
             },
             {
               "repository": "repository b",

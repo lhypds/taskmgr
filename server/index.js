@@ -12,13 +12,15 @@ const express = require('express');
 
 const {
   TASK_FILE,
+  STATUS_DIRS,
+  listDirOf,
   isTaskFolder,
   readTaskDir,
   ensureTaskFile,
   createTask,
   saveTask,
   markTask,
-  updateLastEdit,
+  normalizeTaskFile,
   deleteTask,
   renameTaskByFirstLine,
   openTask,
@@ -27,7 +29,6 @@ const {
   hasSubtask,
   compareIdsDesc
 } = require('../utils/taskUtils');
-const { formatDate } = require('../utils/dateUtils');
 const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig } = require('./config');
 const { createAuthApp } = require('./auth');
@@ -146,16 +147,14 @@ function serializeTask(root, t) {
     rel: toRel(root, taskDir),
     folder: path.basename(taskDir),
     status: normalizeStatus(t.status),
-    labels: t.labels || '',
-    origin: t.origin || '',
-    last_edit: t.last_edit || '',
     title: firstDetailLine(t.details),
     details: t.details || '',
     hasSubtask: sub
   };
 }
 
-// Breadcrumb from the space's root down to `abs`: every ancestor that is itself a task folder.
+// Breadcrumb from the space's root down to `abs`: every task folder on the way (the "done" and
+// "pending" folders between them are skipped).
 function crumbsFor(root, abs) {
   const crumbs = [];
   let cur = abs;
@@ -165,7 +164,7 @@ function crumbsFor(root, abs) {
       try { title = firstDetailLine(readTaskDir(cur).details) || title; } catch (e) { /* keep folder name */ }
     }
     crumbs.unshift({ rel: toRel(root, cur), title });
-    cur = path.dirname(cur);
+    cur = isTaskFolder(cur) ? listDirOf(cur) : path.dirname(cur);
   }
   return crumbs;
 }
@@ -181,7 +180,7 @@ function listDir(space, rel) {
   const abs = resolveDir(root, rel);
   const tasks = sortTasks(readTasks(abs)).map(t => serializeTask(root, t));
   const isRoot = abs === root;
-  const parent = isRoot ? null : toRel(root, path.dirname(abs));
+  const parent = isRoot ? null : toRel(root, isTaskFolder(abs) ? listDirOf(abs) : path.dirname(abs));
   return {
     work: space.work,
     repository: space.repository,
@@ -241,6 +240,7 @@ function listFiles(root, taskDirAbs) {
   for (const e of entries) {
     if (e.name === TASK_FILE) continue;
     if (e.name.startsWith('.')) continue;
+    if (e.isDirectory() && STATUS_DIRS.includes(e.name)) continue;  // holds done / pending subtasks
     const abs = path.join(taskDirAbs, e.name);
     let size = 0;
     try { size = fs.statSync(abs).size; } catch (err) { /* ignore */ }
@@ -256,17 +256,14 @@ function listFiles(root, taskDirAbs) {
   return files;
 }
 
-// Write the editable fields of a task (everything but the id) and rename its folder after the title.
+// Write a task's details (and status, which moves its folder) and rename its folder after the title.
 function writeTaskFields(taskDirAbs, fields) {
   const task = taskFromDir(taskDirAbs);
-  if (fields.status !== undefined) task.status = normalizeStatus(fields.status);
-  if (fields.labels !== undefined) task.labels = String(fields.labels).trim();
-  if (fields.origin !== undefined) task.origin = String(fields.origin).trim();
   if (fields.details !== undefined) task.details = String(fields.details).replace(/\r\n/g, '\n');
-  task.last_edit = formatDate(new Date());
   saveTask(task);
-  const newPath = renameTaskByFirstLine(task.path);
-  return path.dirname(newPath);
+  task.path = renameTaskByFirstLine(task.path);
+  if (fields.status !== undefined) markTask(task, normalizeStatus(fields.status));
+  return path.dirname(task.path);
 }
 
 const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -364,9 +361,9 @@ app.post('/api/origin', (req, res) => {
 
 // Add a repository to a work in taskmgr.json.
 app.post('/api/repository', (req, res) => {
-  const { work, name, tasksPath, sourcePath = '' } = req.body || {};
+  const { work, name, tasksPath = '', sourcePath = '' } = req.body || {};
   if (typeof work !== 'string' || typeof name !== 'string' || typeof tasksPath !== 'string' || typeof sourcePath !== 'string') {
-    throw new HttpError(400, 'Missing work, name or tasksPath.');
+    throw new HttpError(400, 'Missing work or name.');
   }
   try {
     config.addRepository({ work, name, tasksPath, sourcePath });
@@ -388,6 +385,14 @@ app.post('/api/space/open', (req, res) => {
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) throw new HttpError(404, `Folder not found: ${dir}`);
   openFolder(dir);
   res.json({ ok: true });
+});
+
+// Create the missing tasks folder of a work or a repository.
+app.post('/api/space/create', (req, res) => {
+  const space = findSpace(String(req.body?.work || ''), String(req.body?.repository || ''));
+  if (!space) throw new HttpError(404, 'Unknown work or repository.');
+  fs.mkdirSync(space.root, { recursive: true });
+  res.status(201).json(spacesBody());
 });
 
 app.get('/api/spaces', (req, res) => {
@@ -443,8 +448,9 @@ app.post('/api/task/status', (req, res) => {
   const taskDir = resolveTaskDir(root, body.rel);
   const status = String(body.status || '').toLowerCase();
   if (!['todo', 'done', 'pending'].includes(status)) throw new HttpError(400, 'Invalid status.');
-  markTask(taskFromDir(taskDir), status);
-  res.json({ task: serializeTask(root, taskFromDir(taskDir)) });
+  const task = taskFromDir(taskDir);
+  markTask(task, status);
+  res.json({ task: serializeTask(root, taskFromDir(path.dirname(task.path))) });
 });
 
 // The task file as text, for the web editor (the terminal opens the same file in $EDITOR).
@@ -456,11 +462,11 @@ app.get('/api/task/text', (req, res) => {
 });
 
 // Write the task file as typed, then do what the terminal does after the editor closes:
-// stamp last_edit and rename the folder after the first line of the details.
+// tidy the file and rename the folder after the first line of the details.
 function writeTaskText(root, taskDir, text) {
   const taskPath = path.join(taskDir, TASK_FILE);
   fs.writeFileSync(taskPath, String(text || '').replace(/\r\n/g, '\n'), 'utf8');
-  updateLastEdit(taskPath);
+  normalizeTaskFile(taskPath);
   const newPath = renameTaskByFirstLine(taskPath);
   return serializeTask(root, taskFromDir(path.dirname(newPath)));
 }

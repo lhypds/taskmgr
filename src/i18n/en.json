@@ -17,15 +17,14 @@
     "pending": "pending"
   },
   "field": {
+    "detail": "detail",
+    "created": "created",
     "id": "id",
-    "origin": "origin",
-    "edited": "edited",
     "task": "task",
-    "status": "status",
-    "labels": "labels"
+    "status": "status"
   },
   "header": {
-    "filter": "Filter by title, label, origin or id",
+    "filter": "Filter by title or id",
     "filterLabel": "Filter tasks",
     "clearFilter": "Clear filter",
     "up": "Up",
@@ -35,7 +34,9 @@
     "showTree": "Show the tree",
     "hideDetails": "Hide the details",
     "showDetails": "Show the details",
-    "location": "Location"
+    "location": "Location",
+    "listView": "List view",
+    "boardView": "Progress view"
   },
   "home": {
     "pickSpace": "Pick a work or repository on the left.",
@@ -43,9 +44,11 @@
     "noSubtasks": "No subtasks in this task.",
     "noMatch": "No tasks match “{{query}}”.",
     "folderNotFound": "The task folder was not found.",
+    "createFolder": "Create",
     "command": "Command"
   },
   "toast": {
+    "folderCreated": "Folder created",
     "saved": "Saved",
     "created": "Task created",
     "createdUploadFailed": "Task created, but an attachment failed: {{error}}",
@@ -69,6 +72,7 @@
     "openSubtasks": "Open subtasks"
   },
   "panel": {
+    "heading": "Task",
     "none": "No task selected.",
     "details": "Details",
     "noDetails": "No details."
@@ -83,6 +87,7 @@
     "choose": "choose files"
   },
   "editor": {
+    "editTask": "Edit task",
     "newTask": "New task",
     "saveHint": "⌘S / Ctrl+S saves",
     "save": "Save",
@@ -119,7 +124,7 @@
       "desc": "switch between the tree and the tasks"
     },
     "add": {
-      "keys": "a",
+      "keys": "a / n",
       "desc": "add a task"
     },
     "edit": {
@@ -220,6 +225,8 @@
     "repositoryInto": "Add a repository",
     "sourcePath": "Source folder",
     "optional": "Optional",
+    "tasksPathDefault": "Default: the source folder's \"tasks\"",
+    "pathEmpty": "Give a tasks folder or a source folder.",
     "submit": "Add",
     "workEmpty": "Choose a work."
   },

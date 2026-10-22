@@ -1,38 +1,38 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { formatDate } = require('./dateUtils');
 
 const TASK_FILE = 'task.txt';
 
+// A task's status is where its folder is: right in a folder of tasks it is todo, in that
+// folder's "done" or "pending" folder it is done or pending.
+const STATUS_DIRS = ['done', 'pending'];
+
+// task.txt is just the task's details, the first line being its title. Older files start
+// with a front matter block (---, status:, labels:, ..., ---); its status is returned as
+// oldStatus so readTasks can move the task into its status folder.
 function parseTask(text) {
-  const out = { status: '', labels: '', origin: '', last_edit: '', details: '' };
-  const fmMatch = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-  if (fmMatch) {
-    const fmLines = fmMatch[1].split(/\r?\n/);
-    for (const l of fmLines) {
-      const m = l.match(/^([^:]+):\s*(.*)$/);
-      if (m) out[m[1].trim()] = m[2].trim();
-    }
-    out.details = fmMatch[2].replace(/^\n/, '');
-  } else {
-    // legacy format fallback
-    const lines = text.split(/\r?\n/);
-    let detailsMode = false;
-    const details = [];
-    for (const l of lines) {
-      if (detailsMode) { details.push(l); continue; }
-      if (/^Details:\s*$/.test(l)) { detailsMode = true; continue; }
-      const m = l.match(/^([^:]+):\s*(.*)$/);
-      if (m) {
-        const key = m[1].trim().toLowerCase().replace(/ /g, '_');
-        out[key] = m[2].trim();
-      }
-    }
-    out.details = details.join('\n');
-    if (out['last_edit_at']) { out.last_edit = out['last_edit_at']; }
-  }
-  return out;
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!fm) return { details: text };
+  const st = /^status:\s*(.*)$/m.exec(fm[1]);
+  return { details: fm[2].replace(/^(\r?\n)+/, ''), oldStatus: st ? st[1].trim().toLowerCase() : '' };
+}
+
+// The folder whose list shows the task in taskDir: its parent, or the one above when the
+// parent is a status folder.
+function listDirOf(taskDir) {
+  const parent = path.dirname(taskDir);
+  return STATUS_DIRS.includes(path.basename(parent)) ? path.dirname(parent) : parent;
+}
+
+function statusOf(taskDir) {
+  const parent = path.basename(path.dirname(taskDir));
+  return STATUS_DIRS.includes(parent) ? parent : 'todo';
+}
+
+// The folders holding the tasks listed in dir, with the status of the tasks in each.
+function statusFolders(dir) {
+  return [{ dir, status: 'todo' }, ...STATUS_DIRS.map(st => ({ dir: path.join(dir, st), status: st }))];
 }
 
 // Folder names that are tasks by name alone: a 12-digit creation minute,
@@ -51,43 +51,50 @@ function isTaskFolder(dirAbs) {
 }
 
 // Read the task of a task folder. A folder without a task file (one made by
-// hand, or just "<id> title") is still a task: todo, titled after the folder
-// name, with the folder's modification time as last_edit.
+// hand, or just "<id> title") is still a task, titled after the folder name.
 function readTaskDir(dirAbs) {
   const name = path.basename(dirAbs);
   const taskPath = path.join(dirAbs, TASK_FILE);
-  let parsed;
-  if (fs.existsSync(taskPath)) {
-    parsed = parseTask(fs.readFileSync(taskPath, 'utf8'));
-  } else {
-    let lastEdit = '';
-    try { lastEdit = formatDate(fs.statSync(dirAbs).mtime); } catch (e) { /* ignore */ }
-    parsed = { status: 'todo', labels: '', origin: '', last_edit: lastEdit, details: folderTitle(name) };
-  }
+  const parsed = fs.existsSync(taskPath) ? parseTask(fs.readFileSync(taskPath, 'utf8')) : { details: folderTitle(name) };
+  parsed.status = statusOf(dirAbs);
   parsed.id = folderId(name);  // only the id prefix
   parsed.path = taskPath;
   return parsed;
 }
 
+// An older task file: drop its front matter, and move a done or pending task (still
+// right in its folder of tasks) into its status folder. Returns the task as it is now.
+function migrateTask(task) {
+  if (task.oldStatus === undefined) return task;
+  const { oldStatus } = task;
+  delete task.oldStatus;
+  saveTask(task);
+  if (task.status === 'todo' && STATUS_DIRS.includes(oldStatus)) {
+    try { markTask(task, oldStatus); } catch (e) { /* leave it where it is */ }
+  }
+  return task;
+}
+
 // Make sure the task file of a task folder exists, so an editor or a write
 // finds a well-formed file. Returns the task file path.
 function ensureTaskFile(taskPath) {
-  if (!fs.existsSync(taskPath)) {
-    const task = readTaskDir(path.dirname(taskPath));
-    task.last_edit = formatDate(new Date());
-    saveTask(task);
-  }
+  if (!fs.existsSync(taskPath)) saveTask(readTaskDir(path.dirname(taskPath)));
   return taskPath;
 }
 
+// The tasks listed in dir: its task folders and those in its status folders.
 function readTasks(dir) {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  const tasks = [];
-  for (const e of entries) {
-    if (!e.isDirectory()) continue;
-    const dirAbs = path.join(dir, e.name);
-    if (isTaskFolder(dirAbs)) tasks.push(readTaskDir(dirAbs));
+  // every folder first: migrating an older task can move it into a status folder not read yet
+  const dirs = [];
+  for (const f of statusFolders(dir)) {
+    let entries;
+    try { entries = fs.readdirSync(f.dir, { withFileTypes: true }); } catch (e) { continue; }
+    for (const e of entries) {
+      const dirAbs = path.join(f.dir, e.name);
+      if (e.isDirectory() && isTaskFolder(dirAbs)) dirs.push(dirAbs);
+    }
   }
+  const tasks = dirs.map(d => migrateTask(readTaskDir(d)));
 
   // sort by id descending (newest first)
   tasks.sort(compareIdsDesc);
@@ -99,8 +106,13 @@ function hasSubtask(taskDir) {
   try {
     if (!taskDir) return false;
     if (!fs.existsSync(taskDir) || !fs.statSync(taskDir).isDirectory()) return false;
-    const entries = fs.readdirSync(taskDir, { withFileTypes: true });
-    return entries.some(e => e.isDirectory() && isTaskFolder(path.join(taskDir, e.name)));
+    return statusFolders(taskDir).some(f => {
+      try {
+        return fs.readdirSync(f.dir, { withFileTypes: true }).some(e => e.isDirectory() && isTaskFolder(path.join(f.dir, e.name)));
+      } catch (e) {
+        return false;
+      }
+    });
   } catch (e) {
     return false;
   }
@@ -136,15 +148,17 @@ function taskFolderName(id, title) {
   return suffix ? `${id} ${suffix}` : id;
 }
 
-// Whether any folder in dir already uses this id, bare or with a title suffix.
-// Folders without a task file count too: the id must stay unique in the folder.
+// Whether any folder in dir (or its status folders) already uses this id, bare
+// or with a title suffix. Folders without a task file count too: the id must
+// stay unique in the folder, whatever the status, so a task can always move.
 function isTaskIdTaken(dir, id) {
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    return entries.some(e => e.isDirectory() && folderId(e.name) === id);
-  } catch (e) {
-    return false;
-  }
+  return statusFolders(dir).some(f => {
+    try {
+      return fs.readdirSync(f.dir, { withFileTypes: true }).some(e => e.isDirectory() && folderId(e.name) === id);
+    } catch (e) {
+      return false;
+    }
+  });
 }
 
 // Compare two task ids (digit strings), newest first.
@@ -172,9 +186,9 @@ function firstDetailLine(details) {
   return (details || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
 }
 
-// Create a task folder in dir and return the path of its task file.
+// Create a (todo) task folder in dir and return the path of its task file.
 // The folder is "<id>" or, when details start with a title line, "<id> <title>".
-function createTask(dir, labels = '', origin = '', status = 'todo', details = '') {
+function createTask(dir, details = '') {
   const now = new Date();
   // task id is the creation time as YYYYMMDDHHmm (local time), bumped by a
   // minute per collision so a second task in the same minute never reuses
@@ -183,32 +197,48 @@ function createTask(dir, labels = '', origin = '', status = 'todo', details = ''
   const taskDir = path.join(dir, taskFolderName(id, firstDetailLine(details)));
   fs.mkdirSync(taskDir);
   const taskPath = path.join(taskDir, TASK_FILE);
-  const nowStr = formatDate(now);
-  const template = `---\nstatus: ${status}\nlabels: ${labels}\norigin: ${origin}\nlast_edit: ${nowStr}\n---\n\n\n${details}`;
-  fs.writeFileSync(taskPath, template, 'utf8');
+  fs.writeFileSync(taskPath, details, 'utf8');
 
   // return path to let caller open editor while screen is suspended
   return taskPath;
 }
 
 function saveTask(task) {
-  const fm = `---\nstatus: ${task.status || ''}\nlabels: ${task.labels || ''}\norigin: ${task.origin || ''}\nlast_edit: ${task.last_edit || ''}\n---\n\n${task.details || ''}`;
-  fs.writeFileSync(task.path, fm, 'utf8');
+  fs.writeFileSync(task.path, task.details || '', 'utf8');
 }
 
+// Remove a status folder once its last task has left it.
+function removeIfEmptyStatusDir(dir) {
+  if (!STATUS_DIRS.includes(path.basename(dir))) return;
+  try {
+    if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
+  } catch (e) { /* ignore */ }
+}
+
+// Set a task's status by moving its folder: into its list's "done" or "pending"
+// folder, or back into the list itself for todo. Updates task.path and task.status.
 function markTask(task, status) {
   if (!task) return;
+  const taskDir = path.dirname(task.path);
+  const from = path.dirname(taskDir);
+  const listDir = listDirOf(taskDir);
+  const to = status === 'todo' ? listDir : path.join(listDir, status);
+  if (to === from) return;
+  const dest = path.join(to, path.basename(taskDir));
+  if (fs.existsSync(dest)) throw new Error(`Already exists: ${dest}`);
+  fs.mkdirSync(to, { recursive: true });
+  fs.renameSync(taskDir, dest);
+  removeIfEmptyStatusDir(from);
   task.status = status;
-  task.last_edit = formatDate(new Date());
-  saveTask(task);
+  task.path = path.join(dest, path.basename(task.path));
 }
 
-function updateLastEdit(taskPath) {
+// Rewrite a task file as it was typed into its well-formed shape: just the
+// details, so a pasted front matter block goes away.
+function normalizeTaskFile(taskPath) {
   try {
-    const content = fs.readFileSync(taskPath, 'utf8');
-    const task = parseTask(content);
+    const task = parseTask(fs.readFileSync(taskPath, 'utf8'));
     task.path = taskPath;
-    task.last_edit = formatDate(new Date());
     saveTask(task);
   } catch (e) { /* ignore */ }
 }
@@ -216,6 +246,7 @@ function updateLastEdit(taskPath) {
 function deleteTask(task) {
   const taskDir = path.dirname(task.path);  // use actual path, folder may have suffix
   fs.rmSync(taskDir, { recursive: true, force: true });
+  removeIfEmptyStatusDir(path.dirname(taskDir));
 }
 
 // After creating/editing a task, rename its folder to "<id> <first detail line>".
@@ -258,13 +289,15 @@ function openFolder(dir) {
 
 module.exports = {
   TASK_FILE,
+  STATUS_DIRS,
+  listDirOf,
   isTaskFolder,
   readTaskDir,
   ensureTaskFile,
   createTask,
   saveTask,
   markTask,
-  updateLastEdit,
+  normalizeTaskFile,
   deleteTask,
   renameTaskByFirstLine,
   openTask,

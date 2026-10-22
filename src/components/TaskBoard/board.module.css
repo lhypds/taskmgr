@@ -1,0 +1,170 @@
+/* Three columns side by side, divided by a line, each scrolling its own cards. */
+.board {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  overflow-x: auto;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.column + .column {
+  border-left: var(--line) solid var(--border);
+}
+
+.columnHead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 0 12px;
+  border-bottom: var(--line) solid var(--border);
+}
+
+.columnTitle {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.column[data-status="done"] .columnTitle {
+  color: var(--ok);
+}
+
+.column[data-status="pending"] .columnTitle {
+  color: var(--warn);
+}
+
+.count {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cards {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: var(--line) solid var(--border);
+  background: var(--bg);
+  cursor: grab;
+  outline: none;
+  user-select: none;
+}
+
+.card:hover,
+.card[data-selected="true"] {
+  background: var(--bg-hover);
+}
+
+.card:focus-visible {
+  box-shadow: inset 0 0 0 var(--line) var(--focus);
+}
+
+.card[data-dragging="true"] {
+  opacity: 0.4;
+}
+
+/* The repository (in a list of several) and the task's name. */
+.cardTitle {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  word-break: break-word;
+}
+
+.cardTitle .tag {
+  flex: none;
+}
+
+.column[data-status="done"] .cardTitle > span:last-child {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.cardField {
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.cardLabel {
+  flex: none;
+  color: var(--muted);
+}
+
+/* The details after the first line, cut to three lines. */
+.cardDetail {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  height: 20px;
+}
+
+.actions {
+  margin-left: auto;
+}
+
+.card:hover .actions {
+  visibility: visible;
+}
+
+.enterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: var(--line) solid var(--border);
+  background: var(--bg);
+}
+
+.enterButton:hover {
+  background: var(--border);
+  color: var(--bg);
+}
+
+.enterButton svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 860px) {
+  .board {
+    grid-template-columns: repeat(3, minmax(180px, 80vw));
+  }
+}

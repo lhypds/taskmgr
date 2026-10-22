@@ -1,12 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SpaceTree, TaskList, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryNameModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
-import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon, PieIcon } from "@components/icons";
+import { SpaceTree, TaskList, TaskBoard, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryNameModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
+import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon, PieIcon, ListIcon, BoardIcon } from "@components/icons";
+import { BOARD_STATUSES, boardStatus } from "@components/TaskBoard";
 import { showToast } from "@ui";
 import { useAuth } from "@store";
 import * as api from "@utils/api";
-import { labelList } from "@utils/task";
 import { groupWorksByOrigin } from "@utils/works";
 import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
 import styles from "./home.module.css";
@@ -19,6 +19,15 @@ function readFlag(key, fallback) {
     return v == null ? fallback : v === "1";
   } catch {
     return fallback;
+  }
+}
+
+// The task view: "list", or "board" (the progress view).
+function readView() {
+  try {
+    return localStorage.getItem("tasks.view") === "board" ? "board" : "list";
+  } catch {
+    return "list";
   }
 }
 
@@ -75,10 +84,18 @@ export default function Home() {
   const [renaming, setRenaming] = useState(null); // { work, name } of the repository being renamed
   const [showHidden, setShowHidden] = useState(() => readFlag("tree.showHidden", false)); // the tree shows hidden works too
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [view, setView] = useState(readView);
 
   useEffect(() => writeFlag("panel.tree", treeOpen), [treeOpen]);
   useEffect(() => writeFlag("panel.detail", detailOpen), [detailOpen]);
   useEffect(() => writeFlag("tree.showHidden", showHidden), [showHidden]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("tasks.view", view);
+    } catch {
+      /* ignore */
+    }
+  }, [view]);
 
   // The works in the tree: the hidden ones only when they are shown.
   const treeWorks = useMemo(() => (works && !showHidden ? works.filter((w) => !w.hidden) : works), [works, showHidden]);
@@ -176,21 +193,22 @@ export default function Home() {
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return tasks;
-    return tasks.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.id.includes(q) ||
-        (t.origin || "").toLowerCase().includes(q) ||
-        t.from.toLowerCase().includes(q) ||
-        labelList(t.labels).some((l) => l.toLowerCase().includes(q)),
-    );
-  }, [tasks, query]);
+    const shown = !q
+      ? tasks
+      : tasks.filter(
+          (t) =>
+            t.title.toLowerCase().includes(q) ||
+            t.id.includes(q) ||
+            t.from.toLowerCase().includes(q),
+        );
+    // On the board, j / k go down a column and on into the next one.
+    if (view !== "board") return shown;
+    return BOARD_STATUSES.flatMap((s) => shown.filter((t) => boardStatus(t) === s));
+  }, [tasks, query, view]);
 
-  // Like the terminal, a selection always sits on a row: the first one when the selected task
-  // is not in this list (a new folder, a filter, a deleted task).
-  const found = visible.findIndex((t) => t.key === selectedKey);
-  const selectedIndex = found >= 0 ? found : visible.length ? 0 : -1;
+  // No row is selected until one is chosen, or when the selected task is not in this list (a new
+  // folder, a filter, a deleted task); j / k then start from the first row.
+  const selectedIndex = visible.findIndex((t) => t.key === selectedKey);
   const selected = visible[selectedIndex] || null;
 
   // The wheel over the task list moves the selection, which scrolls itself into view.
@@ -249,7 +267,8 @@ export default function Home() {
         }
       }
       setEditor({ open: false, task: null });
-      setSelectedKey(keyOf(target, rel));
+      // an edited task stays selected (its folder may have been renamed); a new one is not selected
+      if (editor.task) setSelectedKey(keyOf(target, rel));
       await reload();
       showToast(editor.task ? t("toast.saved") : t("toast.created"));
     } catch (e) {
@@ -291,6 +310,16 @@ export default function Home() {
     try {
       await api.openSpaceFolder(target);
       showToast(t("toast.opened"));
+    } catch (e) {
+      showToast(e.message, 4000);
+    }
+  }
+
+  async function createSpaceFolder() {
+    try {
+      setSpaces(await api.createSpaceFolder(space));
+      await load();
+      showToast(t("toast.folderCreated"));
     } catch (e) {
       showToast(e.message, 4000);
     }
@@ -371,6 +400,7 @@ export default function Home() {
         if (t) enterFolder(t);
         return true;
       case "a":
+      case "n":
         if (canAdd) setEditor({ open: true, task: null });
         return true;
       case "e":
@@ -408,7 +438,12 @@ export default function Home() {
   } else if (missing) {
     content = (
       <div className={styles.state}>
-        <p className="muted">{t("home.folderNotFound")}</p>
+        <p className="muted">
+          {t("home.folderNotFound")}{" "}
+          <button type="button" className={styles.createFolder} onClick={createSpaceFolder}>
+            ({t("home.createFolder")})
+          </button>
+        </p>
         <p className={`mono ${styles.missingPath}`}>{missing.root}</p>
       </div>
     );
@@ -445,6 +480,19 @@ export default function Home() {
         <p className="muted">{t("home.noMatch", { query })}</p>
       </div>
     );
+  } else if (view === "board") {
+    content = (
+      <TaskBoard
+        tasks={visible}
+        selectedKey={selected?.key}
+        onSelect={(t) => setSelectedKey(t.key)}
+        onOpen={openEditor}
+        onOpenFolder={openFolder}
+        onDelete={setConfirm}
+        onEnter={enterFolder}
+        onMove={setStatus}
+      />
+    );
   } else {
     content = (
       <div className={styles.scroll} ref={setScrollEl}>
@@ -453,6 +501,8 @@ export default function Home() {
           selectedKey={selected?.key}
           onSelect={(t) => setSelectedKey(t.key)}
           onOpen={openEditor}
+          onOpenFolder={openFolder}
+          onDelete={setConfirm}
           onToggleDone={toggleDone}
           onEnter={enterFolder}
         />
@@ -493,9 +543,14 @@ export default function Home() {
               {t("header.up")}
             </button>
           )}
-          <button type="button" className="btn primary" onClick={() => setEditor({ open: true, task: null })} disabled={!canAdd}>
-            <PlusIcon />
-            {t("header.newTask")}
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setView((v) => (v === "board" ? "list" : "board"))}
+            title={t(view === "board" ? "header.listView" : "header.boardView")}
+            aria-label={t(view === "board" ? "header.listView" : "header.boardView")}
+          >
+            {view === "board" ? <ListIcon /> : <BoardIcon />}
           </button>
           <button type="button" className="btn" onClick={reload} title={t("header.refresh")} aria-label={t("header.refresh")}>
             <RefreshIcon />
@@ -596,6 +651,7 @@ export default function Home() {
               task={selected}
               version={data}
               onEdit={openEditor}
+              onAdd={canAdd ? () => setEditor({ open: true, task: null }) : null}
               onEnter={enterFolder}
               onPreview={(file) => setPreview({ ...file, space: selected.space })}
             />
