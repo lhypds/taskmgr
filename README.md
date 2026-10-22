@@ -166,11 +166,11 @@ l
 List tasks, or refresh task list.  
 
 a / n  
-Add a task: a small dialog asks for the task name (enter to create, esc to cancel).  
-It creates a folder `<id> <name>` inside current directory (the id is the creation  
-minute, `YYYYMMDDHHmm`; a second task in the same minute gets the next minute),  
-puts the name on the first line of `task.txt` and opens it in the default text  
-editor (like Vim).  
+Add a task: a large "New task" box opens where you type the whole `task.txt`, the  
+first line being the name and the rest the details (enter for a new line; as in vim,  
+esc then `:wq` creates it and `:q` cancels). It creates a folder `<id> <name>` inside current directory  
+(the id is the creation minute, `YYYYMMDDHHmm`; a second task in the same minute gets  
+the next minute).  
 
 e  
 Edit a task with the default text editor.  

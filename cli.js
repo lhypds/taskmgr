@@ -228,6 +228,31 @@ function createHelpBox(screen, text, onClose) {
   return box;
 }
 
+// One wheel notch moves the selection one row (blessed's list moves two).
+function wheelOneRow(list) {
+  list.removeAllListeners('element wheeldown');
+  list.removeAllListeners('element wheelup');
+  const step = (delta) => {
+    const next = Math.max(0, Math.min(list.items.length - 1, list.selected + delta));
+    if (next === list.selected) return;
+    list.select(next);
+    list.screen.render();
+  };
+  list.on('element wheeldown', () => step(1));
+  list.on('element wheelup', () => step(-1));
+}
+
+// A left click on a row opens it, like enter, rather than only selecting it.
+function clickToOpen(list, onOpen) {
+  list.on('element click', (item, data) => {
+    if (data.button !== 'left') return;
+    const i = list.items.indexOf(item);
+    if (i < 0) return;
+    list.select(i);
+    onOpen();
+  });
+}
+
 // Work / repository tree shown by a bare `tm`: every work of taskmgr.json with its repositories
 // nested beneath it, each row being one folder of tasks. onPick({ label, root }) opens one.
 function createWorkPicker(screen, config, onPick) {
@@ -243,6 +268,7 @@ function createWorkPicker(screen, config, onPick) {
     style: { selected: SELECTED_STYLE },
     hidden: true
   });
+  wheelOneRow(list);
   const statusBar = blessed.box({
     parent: screen,
     bottom: 0, left: 0, height: 1, width: '100%',
@@ -255,41 +281,55 @@ function createWorkPicker(screen, config, onPick) {
   let lastSelected = 0;
 
   function describe(root) {
-    if (!isDirectory(root)) return 'folder not found';
+    if (!root || !isDirectory(root)) return '';
     try {
       const c = countTasks(root);
       return `todo:${c.todo} done:${c.done} pending:${c.pending}`;
     } catch (e) { return ''; }
   }
 
-  // Flatten the works into rows: the work itself (its common tasks), then its repositories
-  // indented with tree glyphs.
-  function buildEntries(works) {
-    const rows = [];
+  // Flatten the tree into rows, as in the web UI: each origin, its works beneath it, and each
+  // work's repositories beneath that, drawn with tree glyphs; works without an origin come last,
+  // at the top level. An origin row has no folder of its own (root is null).
+  function buildEntries(works, origins) {
+    const groups = new Map((origins || []).map(o => [o.origin, []]));
     for (const w of works) {
-      rows.push({ name: w.work + (w.origin ? ` (${w.origin})` : ''), label: w.work, root: w.root });
-      w.repositories.forEach((p, i) => {
-        const glyph = (i === w.repositories.length - 1) ? '└─ ' : '├─ ';
-        rows.push({ name: glyph + p.name, label: `${w.work} / ${p.name}`, root: p.root });
-      });
+      const origin = w.origin || '';
+      if (!groups.has(origin)) groups.set(origin, []);
+      groups.get(origin).push(w);
     }
+    const named = [...groups].filter(([origin]) => origin);
+    const rows = [];
+    const addWork = (w, prefix, glyph) => {
+      rows.push({ name: prefix + glyph + w.work, label: w.work, root: w.root, work: w.work });
+      const inner = prefix + (glyph === '├─ ' ? '│  ' : glyph ? '   ' : '');
+      w.repositories.forEach((p, i) => {
+        const g = (i === w.repositories.length - 1) ? '└─ ' : '├─ ';
+        rows.push({ name: inner + g + p.name, label: `${w.work} / ${p.name}`, root: p.root, work: w.work, repository: p.name });
+      });
+    };
+    for (const [origin, list] of named) {
+      rows.push({ name: origin, label: origin, root: null, origin, works: list.length });
+      list.forEach((w, i) => addWork(w, '', (i === list.length - 1) ? '└─ ' : '├─ '));
+    }
+    for (const w of groups.get('') || []) addWork(w, '', '');
     return rows;
   }
 
   function render() {
-    entries = buildEntries(config.getWorks());
-    header.setContent('  work / repository');
+    entries = buildEntries(config.getWorks(), config.getOrigins());
+    header.setContent('  Origins');
     const infos = entries.map(e => describe(e.root));
     const nameWidth = Math.max(4, ...entries.map(e => displayWidth(e.name)));
     const infoWidth = Math.max(4, ...infos.map(displayWidth));
     list.setItems(entries.map((e, i) =>
-      `  ${padToWidth(e.name, nameWidth)}  ${padToWidth(infos[i], infoWidth)}  ${e.root || '(no tasks folder)'}`));
+      `  ${padToWidth(e.name, nameWidth)}  ${padToWidth(infos[i], infoWidth)}  ${e.origin ? '' : e.root || '(no tasks folder)'}`));
     list.select(Math.min(lastSelected, Math.max(0, entries.length - 1)));
     showStatus();
   }
 
   function showStatus() {
-    statusBar.setContent(`enter: open  e: edit config  r: refresh  :h help  :q quit  \`${config.configPath}\``);
+    statusBar.setContent(`enter: open  d: remove  e: edit config  r: refresh  :h help  :q quit  \`${config.configPath}\``);
     screen.render();
   }
 
@@ -306,11 +346,13 @@ function createWorkPicker(screen, config, onPick) {
     screen.render();
   }
 
-  list.key(['enter', 'l', 'right'], () => {
+  function openSelected() {
     const e = entries[list.selected];
     if (!e) return;
     if (!e.root) {
-      statusBar.setContent(`${e.label} has no tasks folder of its own.`);
+      statusBar.setContent(e.origin
+        ? `${e.label} is an origin: pick one of its works or repositories.`
+        : `${e.label} has no tasks folder of its own.`);
       screen.render();
       return;
     }
@@ -321,6 +363,57 @@ function createWorkPicker(screen, config, onPick) {
     }
     hide();
     onPick({ label: e.label, root: e.root });
+  }
+
+  list.key(['enter', 'l', 'right'], openSelected);
+  clickToOpen(list, openSelected);
+
+  // d: remove the selected origin, work or repository from taskmgr.json once confirmed with y.
+  // Its folders are left as they are, as in the web UI.
+  let confirmBox = null;
+  function closeConfirm() {
+    if (!confirmBox) return;
+    try { confirmBox.destroy(); } catch (e) { }
+    confirmBox = null;
+    try { list.focus(); } catch (e) { }
+    screen.render();
+  }
+
+  list.key('d', () => {
+    const e = entries[list.selected];
+    if (!e || confirmBox) return;
+    const what = e.origin
+      ? `origin "${e.origin}"` + (e.works ? ` and its ${e.works} work${e.works > 1 ? 's' : ''}` : '')
+      : e.repository ? `repository "${e.repository}" of "${e.work}"` : `work "${e.work}" and its repositories`;
+    const text = ` Remove ${what} from taskmgr.json?\n The folders are kept.\n\n y: remove   n / esc: cancel`;
+    confirmBox = blessed.box({
+      parent: screen,
+      width: Math.min(screen.width - 2, Math.max(44, ...text.split('\n').map(displayWidth)) + 4),
+      height: 6,
+      content: text,
+      border: { type: 'line' },
+      style: { fg: 'white', bg: 'black', border: { fg: MODAL_BORDER_COLOR } }
+    });
+    confirmBox.top = Math.max(0, Math.floor((screen.height - 6) / 2));
+    confirmBox.left = Math.max(0, Math.floor((screen.width - confirmBox.width) / 2));
+    confirmBox.key(['n', 'escape', 'q'], closeConfirm);
+    confirmBox.key('y', () => {
+      closeConfirm();
+      try {
+        if (e.origin) config.removeOrigin(e.origin);
+        else if (e.repository) config.removeRepository(e.work, e.repository);
+        else config.removeWork(e.work);
+      } catch (err) {
+        statusBar.setContent(`Cannot remove: ${err.message}`);
+        screen.render();
+        return;
+      }
+      render();
+      statusBar.setContent(`Removed ${what} from taskmgr.json.`);
+      screen.render();
+    });
+    try { confirmBox.focus(); } catch (err) { }
+    screen.render();
   });
 
   list.key('r', () => render());
@@ -344,11 +437,12 @@ function createWorkPicker(screen, config, onPick) {
   });
 
   const HELP_TEXT = [
-    ' taskmgr work / repository tree',
+    ' taskmgr Origins tree',
     '',
-    '  j / k, up / down   move between works and repositories',
+    '  j / k, up / down   move between origins, works and repositories',
     '  enter / l / right  open its tasks',
     '  e                  edit taskmgr.json',
+    '  d                  remove the origin, work or repository from taskmgr.json (asks first)',
     '  r                  refresh the tree',
     '  :                  command mode  (:h or :help shows this)',
     '  :q / :quit         quit',
@@ -576,92 +670,169 @@ function createTaskView(screen, onBack) {
     try { refresh(sel); } catch (e) { try { screen.render(); } catch (err) { /* ignore */ } }
   });
 
-  // 4. Add a new task: a modal asks for the task name, then the folder is created
-  // as "<id> <name>" (id = current minute, bumped if that id is already taken),
-  // the name becomes the first line of the task and the editor opens on it.
-  // Enter with an empty name creates an unnamed task; esc cancels.
-  // Keys are read directly (no blessed textbox) so CJK input draws correctly.
-  let nameBox = null;
-  let nameBuffer = '';
+  // 4. Add a new task: a large centered "New task" box where the whole task.txt is typed, as in
+  // the web UI: the first line is the name, the rest are the details. As in vim, esc leaves
+  // typing, then :wq (or :w, :x, ctrl-s anywhere) creates the folder "<id> <name>" (id = current
+  // minute, bumped if that id is already taken) and :q cancels; i or a goes back to typing.
+  // Keys are read directly (no blessed textarea) so CJK input draws correctly.
+  let newBox = null;
+  let newHint = null;
+  let newText = '';
+  let newMode = 'insert'; // 'insert' (typing), 'normal' (after esc) or 'command' (after :)
+  let newCommand = '';
   let isNaming = false;
-  const NAME_PROMPT = 'New task name';
 
-  function drawNameModal() {
-    const width = Math.min(screen.width - 2, Math.max(40, displayWidth(nameBuffer) + 6));
-    nameBox.width = width;
-    nameBox.setContent(`${NAME_PROMPT}\n\n${nameBuffer}`);
+  const NEW_HINTS = {
+    insert: '-- INSERT --  first line: name, then details    esc then :wq save  :q cancel',
+    normal: 'i: back to typing  :wq save  :q cancel'
+  };
+
+  // The last `width` display cells of s, so the end of a long line stays in view.
+  function tailToWidth(s, width) {
+    let out = '';
+    let cur = 0;
+    for (const ch of [...s].reverse()) {
+      const w = isCJKChar(ch) ? 2 : 1;
+      if (cur + w > width) break;
+      out = ch + out;
+      cur += w;
+    }
+    return out;
+  }
+
+  function drawNewTask() {
+    // 80% x 70% of the whole window, centered (blessed's 'center' sits half a row low)
+    const width = Math.max(20, Math.floor(screen.width * 0.8));
+    const height = Math.max(8, Math.floor(screen.height * 0.7));
+    newBox.width = width;
+    newBox.height = height;
+    newBox.top = Math.max(0, Math.floor((screen.height - height) / 2));
+    newBox.left = Math.max(0, Math.floor((screen.width - width) / 2));
+
+    // border + padding take 2 cells a side; the bottom row holds the hint
+    const innerWidth = width - 4;
+    const rows = height - 3;
+    const lines = newText.split('\n');
+    const shown = lines.slice(-rows).map(l => tailToWidth(l, innerWidth - 1));
+    newBox.setContent(shown.join('\n'));
+    newHint.setContent(newMode === 'command' ? ':' + newCommand : NEW_HINTS[newMode]);
     try { screen.render(); } catch (e) { }
-    // put the terminal cursor right after the typed text (border + padding = 2 cells)
+    // put the terminal cursor after the typed text, or after the command being typed
     try {
-      const row = nameBox.atop + 1 + 2;
-      const col = nameBox.aleft + 2 + displayWidth(nameBuffer);
+      const onCommand = newMode === 'command';
+      const row = onCommand ? newBox.atop + height - 2 : newBox.atop + 1 + shown.length - 1;
+      const col = newBox.aleft + 2 + (onCommand ? 1 + displayWidth(newCommand) : displayWidth(shown[shown.length - 1]));
       screen.program.cup(row, col);
       screen.program.showCursor();
     } catch (e) { }
   }
 
-  function closeNameModal() {
+  function closeNewTask() {
     isNaming = false;
-    nameBuffer = '';
+    newText = '';
     screen.grabKeys = false;
-    if (nameBox) {
-      try { nameBox.destroy(); } catch (e) { }
-      nameBox = null;
+    if (newBox) {
+      try { newBox.destroy(); } catch (e) { }
+      newBox = null;
+      newHint = null;
     }
     try { screen.program.hideCursor(); } catch (e) { }
     try { list.focus(); } catch (e) { }
     try { screen.render(); } catch (e) { }
   }
 
-  function createNamedTask(name) {
-    const taskPath = createTask(cwd, name.trim());
-    const ok = openInEditor(taskPath);
-    // restore focus and refresh tasks after editor exits
-    try { list.focus(); } catch (e) { }
-    if (ok) refresh();
+  function saveNewTask() {
+    const text = newText.replace(/\s+$/, '');
+    closeNewTask();
+    if (!text.trim()) return;
+    createTask(cwd, text + '\n');
+    refresh();
   }
 
-  function openNameModal() {
+  function openNewTask() {
     isNaming = true;
-    nameBuffer = '';
+    newText = '';
+    newMode = 'insert';
+    newCommand = '';
     screen.grabKeys = true; // suppress all screen-level shortcuts while typing
-    nameBox = blessed.box({
+    newBox = blessed.box({
       parent: screen,
-      top: 'center', left: 'center', height: 5,
+      label: ' New task ',
       padding: { left: 1, right: 1 },
+      wrap: false,
       border: { type: 'line' },
       style: { fg: 'white', bg: 'black', border: { fg: MODAL_BORDER_COLOR } }
     });
-    nameBox.on('keypress', (ch, key) => {
+    // the bottom row: the mode's hint, or the : command being typed
+    newHint = blessed.box({
+      parent: newBox,
+      bottom: 0, left: 0, right: 0, height: 1,
+      style: { fg: 'gray', bg: 'black' }
+    });
+    newBox.on('keypress', (ch, key) => {
       if (!isNaming) return;
       const name = (key && key.name) || '';
       if (name === 'return') return; // blessed emits 'return' and 'enter' for the same key
-      if (name === 'escape' || (key && key.ctrl && name === 'c')) { closeNameModal(); return; }
+      if (key && key.ctrl && name === 'c') { closeNewTask(); return; }
+      if (key && key.ctrl && name === 's') { saveNewTask(); return; }
+
+      if (newMode === 'command') {
+        if (name === 'escape' || (name === 'backspace' && !newCommand)) {
+          newMode = 'normal';
+        } else if (name === 'enter') {
+          const cmd = newCommand.trim();
+          newCommand = '';
+          newMode = 'normal';
+          if (['w', 'wq', 'x', 'wq!', 'x!'].includes(cmd)) { saveNewTask(); return; }
+          if (['q', 'q!'].includes(cmd)) { closeNewTask(); return; }
+        } else if (name === 'backspace') {
+          newCommand = newCommand.slice(0, -1);
+        } else if (ch && !/^[\x00-\x1f\x7f]$/.test(ch)) {
+          newCommand += ch;
+        }
+        drawNewTask();
+        return;
+      }
+
+      if (newMode === 'normal') {
+        if (ch === ':') { newMode = 'command'; newCommand = ''; }
+        else if (ch === 'i' || ch === 'a' || ch === 'o' || name === 'enter') {
+          if (ch === 'o') newText += '\n';
+          newMode = 'insert';
+        }
+        drawNewTask();
+        return;
+      }
+
+      if (name === 'escape') {
+        newMode = 'normal';
+        drawNewTask();
+        return;
+      }
       if (name === 'enter') {
-        const taskName = nameBuffer;
-        closeNameModal();
-        createNamedTask(taskName);
+        newText += '\n';
+        drawNewTask();
         return;
       }
       if (name === 'backspace') {
-        nameBuffer = nameBuffer.slice(0, -1);
-        drawNameModal();
+        newText = [...newText].slice(0, -1).join('');
+        drawNewTask();
         return;
       }
       if (key && (key.ctrl || key.meta)) return;
       if (ch && !/^[\x00-\x1f\x7f]$/.test(ch)) {
-        nameBuffer += ch;
-        drawNameModal();
+        newText += ch;
+        drawNewTask();
       }
     });
     try { list.blur(); } catch (e) { }
-    try { nameBox.focus(); } catch (e) { }
-    drawNameModal();
+    try { newBox.focus(); } catch (e) { }
+    drawNewTask();
   }
 
   taskKey(['a', 'n'], () => {
     if (isPreviewing || isNaming || commandLine.isActive()) return;
-    openNameModal();
+    openNewTask();
   });
 
   // 5. Edit a task
@@ -704,8 +875,8 @@ function createTaskView(screen, onBack) {
     '',
     '  j / k, up / down   move between tasks',
     '  h / l, left/right  go to parent / into subtasks',
-    ...(onBack ? ['  h at the top       back to the work / repository tree'] : []),
-    '  a                  add a task (asks for a name, then opens editor)',
+    ...(onBack ? ['  h at the top       back to the Origins tree'] : []),
+    '  a / n              add a task (type task.txt: first line name; esc :wq saves, :q cancels)',
     '  e / i              edit the selected task',
     '  space              preview task details',
     '  enter              open the task folder',
@@ -714,7 +885,7 @@ function createTaskView(screen, onBack) {
     '  d                  delete the selected task',
     '  r                  refresh the task list',
     '  :                  command mode  (:h or :help shows this)',
-    onBack ? '  :q / :quit         back to the work / repository tree' : '  :q / :quit         quit',
+    onBack ? '  :q / :quit         back to the Origins tree' : '  :q / :quit         quit',
     '',
     ' press q, esc or enter to close'
   ].join('\n');
@@ -833,15 +1004,17 @@ function createTaskView(screen, onBack) {
     toggleStatus('pending');
   });
 
-  // 7. Open current task folder
-  taskKey('enter', () => {
+  // 7. Open current task folder (enter or a left click on the row)
+  function openSelected() {
     // do not open if preview is open
     if (isPreviewing) return;
 
     const tasks = list.tasksData || readTasks(cwd);
     const t = tasks[list.selected];
     if (t) { openTask(t); }
-  });
+  }
+  taskKey('enter', openSelected);
+  clickToOpen(list, openSelected);
 
   // 8. Delete a task
   taskKey('d', () => {
@@ -887,7 +1060,7 @@ function createTaskView(screen, onBack) {
 
     try {
       if (cwd === initialRoot) {
-        // top of this folder: never move above it; go back to the work / repository tree instead
+        // top of this folder: never move above it; go back to the Origins tree instead
         if (onBack) {
           close();
           onBack();
@@ -907,35 +1080,7 @@ function createTaskView(screen, onBack) {
     } catch (e) { /* ignore */ }
   });
 
-  // Gestures
-  // Support mouse wheel to move between tasks
-  function moveSelection(delta) {
-    const tasks = list.tasksData || readTasks(cwd);
-    if (!tasks || tasks.length === 0) return;
-    const max = tasks.length - 1;
-    const cur = (typeof list.selected === 'number') ? list.selected : 0;
-    const next = Math.max(0, Math.min(max, cur + delta));
-    if (next !== cur) {
-      list.select(next);
-      screen.render();
-    }
-  }
-
-  // Handle mouse wheel events on both screen and list (covers more terminals, incl. some Windows hosts)
-  function onMouseWheel(data) {
-    if (!active || !data) return;
-    const action = data.action || data.type || '';
-    const button = data.button || '';
-    // common names: 'wheelup' / 'wheeldown', also some terminals use button values
-    if (action === 'wheelup' || button === 'wheelup') {
-      moveSelection(-1);
-    } else if (action === 'wheeldown' || button === 'wheeldown') {
-      moveSelection(1);
-    }
-  }
-
-  screen.on('mouse', onMouseWheel);
-  list.on('mouse', onMouseWheel);
+  wheelOneRow(list);
 
   return { open, close };
 }
