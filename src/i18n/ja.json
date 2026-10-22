@@ -133,7 +133,7 @@
       "desc": "タスクを追加"
     },
     "edit": {
-      "keys": "e / i、一覧では enter、進捗では space",
+      "keys": "e / i、一覧では enter",
       "desc": "選択中のタスクを編集"
     },
     "open": {
@@ -141,8 +141,12 @@
       "desc": "タスクフォルダを開く"
     },
     "done": {
-      "keys": "x、一覧では space",
+      "keys": "x",
       "desc": "完了 / 未完了を切り替え"
+    },
+    "preview": {
+      "keys": "space",
+      "desc": "task.txt をプレビュー"
     },
     "pending": {
       "keys": "p",

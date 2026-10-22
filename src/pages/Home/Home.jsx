@@ -11,6 +11,7 @@ import {
   ConfirmModal,
   HelpModal,
   FilePreviewModal,
+  TaskPreviewModal,
   ConfigEditorModal,
   WorkEditModal,
   AddSpaceModal,
@@ -119,6 +120,7 @@ export default function Home({ all = false }) {
   const [help, setHelp] = useState(false);
   const [command, setCommand] = useState(null); // text after ":" while in command mode
   const [preview, setPreview] = useState(null); // attachment shown in the preview modal
+  const [peek, setPeek] = useState(null); // task whose task.txt is shown on space
   const [configOpen, setConfigOpen] = useState(false);
   const [editingWork, setEditingWork] = useState(null); // work whose name and income are being edited
   const [adding, setAdding] = useState(null); // what the add modal starts with: { type, origin, work }
@@ -591,6 +593,11 @@ export default function Home({ all = false }) {
       setPreview(null);
       return true;
     }
+    if (peek) {
+      if (!["q", "enter", "space"].includes(name)) return false;
+      setPeek(null);
+      return true;
+    }
     // the help closes with the keys that close it in the terminal
     if (help) {
       if (!["q", "enter", "space"].includes(name)) return false;
@@ -655,10 +662,7 @@ export default function Home({ all = false }) {
         if (t) openEditor(t);
         return true;
       case "space":
-        if (t) {
-          if (view === "list") toggleDone(t);
-          else openEditor(t);
-        }
+        if (t) setPeek(t);
         return true;
       case "enter":
         if (t) {
@@ -1092,6 +1096,8 @@ export default function Home({ all = false }) {
       />
 
       <FilePreviewModal space={preview?.space} file={preview} onClose={() => setPreview(null)} />
+
+      <TaskPreviewModal task={peek} onClose={() => setPeek(null)} />
 
       <ConfirmModal
         isOpen={!!confirm}

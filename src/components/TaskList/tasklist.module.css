@@ -250,7 +250,6 @@
   background: var(--bg-hover);
 }
 
-
 .checkInput:checked + .box::before {
   opacity: 1;
 }

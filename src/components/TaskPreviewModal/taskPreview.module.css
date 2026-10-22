@@ -1,0 +1,19 @@
+.modal.modal {
+  max-width: 900px;
+  width: 80vw;
+  height: 70vh;
+}
+
+.text {
+  height: 100%;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  border: var(--line) solid var(--border);
+  background: var(--bg-alt);
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

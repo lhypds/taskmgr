@@ -133,7 +133,7 @@
       "desc": "add a task"
     },
     "edit": {
-      "keys": "e / i; enter in list; space in progress",
+      "keys": "e / i; enter in list",
       "desc": "edit the selected task"
     },
     "open": {
@@ -141,8 +141,12 @@
       "desc": "open the task folder"
     },
     "done": {
-      "keys": "x; space in list",
+      "keys": "x",
       "desc": "mark done / undone"
+    },
+    "preview": {
+      "keys": "space",
+      "desc": "preview task.txt"
     },
     "pending": {
       "keys": "p",

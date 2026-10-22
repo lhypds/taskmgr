@@ -133,7 +133,7 @@
       "desc": "添加任务"
     },
     "edit": {
-      "keys": "e / i；列表中按 enter；Progress 中按 space",
+      "keys": "e / i；列表中按 enter",
       "desc": "编辑选中的任务"
     },
     "open": {
@@ -141,8 +141,12 @@
       "desc": "打开任务文件夹"
     },
     "done": {
-      "keys": "x；列表中按 space",
+      "keys": "x",
       "desc": "标为完成 / 未完成"
+    },
+    "preview": {
+      "keys": "space",
+      "desc": "预览 task.txt"
     },
     "pending": {
       "keys": "p",
