@@ -66,6 +66,7 @@
     "message": "「{{name}}」を削除しますか？添付ファイルとサブタスクを含むタスクフォルダ全体が削除されます。"
   },
   "tree": {
+    "remote": "remote",
     "origins": "Origins",
     "allOrigins": "すべての origin",
     "noOrigins": "taskmgr.json に origin がありません。",

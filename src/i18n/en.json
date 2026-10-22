@@ -66,6 +66,7 @@
     "message": "Delete “{{name}}”? The whole task folder, including attachments and subtasks, is removed."
   },
   "tree": {
+    "remote": "remote",
     "origins": "Origins",
     "allOrigins": "All origins",
     "noOrigins": "No origins in taskmgr.json.",

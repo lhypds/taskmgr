@@ -68,6 +68,9 @@ function segment(name, what) {
 // Does `abs` lie inside the folder `dir`?
 const inside = (dir, abs) => abs.startsWith(dir + path.sep);
 
+// Is the folder `abs` one of the copies kept here for taskmgrd, under data/origins/?
+const isMirrored = (dataDir, abs) => !!abs && inside(path.join(dataDir, ORIGINS_DIR), path.resolve(abs));
+
 // Where a space is kept: a work's common tasks, or one of its repositories. Always under
 // data/origins/, whatever the names are (a "\" is a separator on Windows).
 function spaceDir(dataDir, { origin, work, repository }) {
@@ -328,4 +331,4 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
   return app;
 }
 
-module.exports = { createSyncApp, spaceKey, sha1 };
+module.exports = { createSyncApp, isMirrored, spaceKey, sha1 };

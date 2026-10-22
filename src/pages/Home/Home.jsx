@@ -999,8 +999,8 @@ export default function Home({ all = false }) {
             <span>
               {t("status.pending")} {c.pending}
             </span>
-            <span className={`mono ${styles.path}`} title={data.absDir}>
-              {data.absDir}
+            <span className={`mono ${styles.path}`} title={data.remote ? t("tree.remote") : data.absDir}>
+              {data.remote ? t("tree.remote") : data.absDir}
             </span>
           </>
         )}

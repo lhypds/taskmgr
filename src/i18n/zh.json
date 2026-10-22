@@ -66,6 +66,7 @@
     "message": "删除“{{name}}”？整个任务文件夹（包括附件和子任务）都将被移除。"
   },
   "tree": {
+    "remote": "remote",
     "origins": "Origins",
     "allOrigins": "所有 origin",
     "noOrigins": "taskmgr.json 中没有 origin。",

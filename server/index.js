@@ -31,7 +31,7 @@ const {
 const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig } = require('./config');
 const { createAuthApp } = require('./auth');
-const { createSyncApp } = require('./sync');
+const { createSyncApp, isMirrored } = require('./sync');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
@@ -187,6 +187,7 @@ function listDir(space, rel) {
     repository: space.repository,
     dir: toRel(root, abs),
     absDir: abs,
+    remote: isMirrored(config.dataDir, root),
     isRoot,
     parent,
     crumbs: crumbsFor(root, abs),
@@ -205,7 +206,7 @@ function listSpacesTasks(spaces, absDir) {
     for (const t of readTasks(s.root)) tasks.push({ ...serializeTask(s.root, t), work: s.work, repository: s.repository });
   }
   sortTasks(tasks);
-  return { dir: '', absDir, isRoot: true, parent: null, crumbs: [], tasks, counts: countTasks(tasks) };
+  return { dir: '', absDir, remote: isMirrored(config.dataDir, absDir), isRoot: true, parent: null, crumbs: [], tasks, counts: countTasks(tasks) };
 }
 
 // A work's common tasks and those of all its repositories.
@@ -216,10 +217,14 @@ function workSpaces(w) {
   ];
 }
 
-// The works/repositories list with, for each folder, whether it exists. A work without a tasks
-// folder of its own (root "") is not missing one.
+// The works/repositories list with, for each folder, whether it exists and whether it is a copy
+// pushed by taskmgrd (remote). A work without a tasks folder of its own (root "") is not missing one.
 function listSpaces() {
-  const describe = (root) => ({ root, exists: !root || (fs.existsSync(root) && fs.statSync(root).isDirectory()) });
+  const describe = (root) => ({
+    root,
+    exists: !root || (fs.existsSync(root) && fs.statSync(root).isDirectory()),
+    remote: isMirrored(config.dataDir, root)
+  });
   return config.getWorks().map(w => ({
     work: w.work,
     origin: w.origin,
