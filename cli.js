@@ -264,24 +264,12 @@ function createWorkPicker(screen, config, onPick) {
     } catch (e) { return ''; }
   }
 
-  // "500000 JPY/month, 100000 JPY once": a work's income items, one per period and currency.
-  function formatIncome(income) {
-    if (!income) return '';
-    const parts = [];
-    for (const [period, suffix] of [['monthly', '/month'], ['once', ' once']]) {
-      const sums = new Map();
-      for (const x of income[period]) sums.set(x.currency, (sums.get(x.currency) || 0) + x.amount);
-      for (const [currency, amount] of sums) parts.push(`${amount.toLocaleString()} ${currency}${suffix}`);
-    }
-    return parts.join(', ');
-  }
-
   // Flatten the works into rows: the work itself (its common tasks), then its repositories
   // indented with tree glyphs.
   function buildEntries(works) {
     const rows = [];
     for (const w of works) {
-      rows.push({ name: w.work + (w.origin ? ` (${w.origin})` : '') + (w.income ? `  ${formatIncome(w.income)}` : ''), label: w.work, root: w.root });
+      rows.push({ name: w.work + (w.origin ? ` (${w.origin})` : ''), label: w.work, root: w.root });
       w.repositories.forEach((p, i) => {
         const glyph = (i === w.repositories.length - 1) ? '└─ ' : '├─ ';
         rows.push({ name: glyph + p.name, label: `${w.work} / ${p.name}`, root: p.root });
