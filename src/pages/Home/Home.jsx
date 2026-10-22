@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SpaceTree, TaskList, TaskBoard, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryNameModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
+import { SpaceTree, TaskList, TaskBoard, MonthPicker, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryNameModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
 import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon, PieIcon, ListIcon, BoardIcon } from "@components/icons";
 import { BOARD_STATUSES, boardStatus } from "@components/TaskBoard";
-import { showToast } from "@ui";
+import { showToast, Checkbox } from "@ui";
 import { useAuth } from "@store";
 import * as api from "@utils/api";
+import { ALL_MONTHS, taskMonth, taskMonths, monthLabel } from "@utils/task";
 import { groupWorksByOrigin } from "@utils/works";
 import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
 import styles from "./home.module.css";
@@ -85,10 +86,13 @@ export default function Home() {
   const [showHidden, setShowHidden] = useState(() => readFlag("tree.showHidden", false)); // the tree shows hidden works too
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [view, setView] = useState(readView);
+  const [month, setMonth] = useState(ALL_MONTHS); // the month the tasks were created in, or all
+  const [showDone, setShowDone] = useState(() => readFlag("tasks.showDone", true)); // the list shows done tasks too
 
   useEffect(() => writeFlag("panel.tree", treeOpen), [treeOpen]);
   useEffect(() => writeFlag("panel.detail", detailOpen), [detailOpen]);
   useEffect(() => writeFlag("tree.showHidden", showHidden), [showHidden]);
+  useEffect(() => writeFlag("tasks.showDone", showDone), [showDone]);
   useEffect(() => {
     try {
       localStorage.setItem("tasks.view", view);
@@ -191,20 +195,27 @@ export default function Home() {
     [data.tasks, space, scope, origin],
   );
 
+  // The month filter's entries; a month that this list has no task from shows every month.
+  const months = useMemo(() => taskMonths(tasks), [tasks]);
+  const monthIndex = Math.max(0, months.findIndex((m) => m.key === month));
+  const monthKey = months[monthIndex].key;
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const inMonth = monthKey === ALL_MONTHS ? tasks : tasks.filter((t) => taskMonth(t) === monthKey);
     const shown = !q
-      ? tasks
-      : tasks.filter(
+      ? inMonth
+      : inMonth.filter(
           (t) =>
             t.title.toLowerCase().includes(q) ||
             t.id.includes(q) ||
             t.from.toLowerCase().includes(q),
         );
-    // On the board, j / k go down a column and on into the next one.
-    if (view !== "board") return shown;
+    // On the board, j / k go down a column and on into the next one. The board always has its
+    // done column; the list leaves the done tasks out unless they are shown.
+    if (view !== "board") return showDone ? shown : shown.filter((t) => t.status !== "done");
     return BOARD_STATUSES.flatMap((s) => shown.filter((t) => boardStatus(t) === s));
-  }, [tasks, query, view]);
+  }, [tasks, query, view, showDone, monthKey]);
 
   // No row is selected until one is chosen, or when the selected task is not in this list (a new
   // folder, a filter, a deleted task); j / k then start from the first row.
@@ -456,6 +467,20 @@ export default function Home() {
         </button>
       </div>
     );
+  } else if (view === "board" && !(loading && data.tasks.length === 0)) {
+    // The board keeps its todo / done / pending columns even with no tasks (or none matching).
+    content = (
+      <TaskBoard
+        tasks={visible}
+        selectedKey={selected?.key}
+        onSelect={(t) => setSelectedKey(t.key)}
+        onOpen={openEditor}
+        onOpenFolder={openFolder}
+        onDelete={setConfirm}
+        onEnter={enterFolder}
+        onMove={setStatus}
+      />
+    );
   } else if (data.tasks.length === 0) {
     content = (
       <div className={styles.state}>
@@ -477,21 +502,8 @@ export default function Home() {
   } else if (visible.length === 0) {
     content = (
       <div className={styles.state}>
-        <p className="muted">{t("home.noMatch", { query })}</p>
+        <p className="muted">{query.trim() ? t("home.noMatch", { query }) : t("home.onlyDone")}</p>
       </div>
-    );
-  } else if (view === "board") {
-    content = (
-      <TaskBoard
-        tasks={visible}
-        selectedKey={selected?.key}
-        onSelect={(t) => setSelectedKey(t.key)}
-        onOpen={openEditor}
-        onOpenFolder={openFolder}
-        onDelete={setConfirm}
-        onEnter={enterFolder}
-        onMove={setStatus}
-      />
     );
   } else {
     content = (
@@ -598,7 +610,14 @@ export default function Home() {
           {treeOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
         </button>
 
-        <main className={styles.main} onMouseDown={() => spaceTo && setPane("tasks")}>
+        <main
+          className={styles.main}
+          onMouseDown={() => spaceTo && setPane("tasks")}
+          // a click on the blank area (not on a task or a button) clears the selection
+          onClick={(e) => {
+            if (!e.target.closest('[role="button"], button, a, input, label')) setSelectedKey(null);
+          }}
+        >
           {origin && (
             <nav className={styles.section} aria-label={t("header.location")}>
               <button type="button" className={crumbClass(true)} disabled>
@@ -632,6 +651,25 @@ export default function Home() {
               })}
             </nav>
           )}
+          {spaceTo && (
+            <div className={styles.listBar}>
+              <MonthPicker months={months} index={monthIndex} label={(m) => monthLabel(m.key, t)} onChange={setMonth} />
+              {view !== "board" && (
+                <Checkbox className={styles.showDone} checked={showDone} onChange={setShowDone}>
+                  {t("header.showDone")}
+                </Checkbox>
+              )}
+              <button
+                type="button"
+                className={`btn ${styles.addTask}`}
+                onClick={() => setEditor({ open: true, task: null })}
+                disabled={!canAdd}
+              >
+                <PlusIcon />
+                {t("header.newTask")}
+              </button>
+            </div>
+          )}
           {content}
         </main>
 
@@ -651,7 +689,6 @@ export default function Home() {
               task={selected}
               version={data}
               onEdit={openEditor}
-              onAdd={canAdd ? () => setEditor({ open: true, task: null }) : null}
               onEnter={enterFolder}
               onPreview={(file) => setPreview({ ...file, space: selected.space })}
             />

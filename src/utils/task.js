@@ -22,6 +22,19 @@ export function formatStamp(s) {
   return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
 }
 
+// The month a task was created in ("2026-10"), from its id; "" for an id that is not a date.
+export const ALL_MONTHS = "all";
+export const taskMonth = (task) => (/^\d{6}/.test(task.id) ? `${task.id.slice(0, 4)}-${task.id.slice(4, 6)}` : "");
+
+// The month filter's entries: all months, then the months the tasks were created in, newest first.
+export function taskMonths(tasks) {
+  const keys = [...new Set(tasks.map(taskMonth).filter(Boolean))].sort((a, b) => (a > b ? -1 : 1));
+  return [{ key: ALL_MONTHS }, ...keys.map((key) => ({ key }))];
+}
+
+// "2026-10" as "2026 - 10", as fin writes a month.
+export const monthLabel = (key, t) => (key === ALL_MONTHS ? t("month.all") : key.replace("-", " - "));
+
 export function formatSize(n) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;

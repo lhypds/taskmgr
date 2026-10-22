@@ -18,32 +18,20 @@
   border-left: var(--line) solid var(--border);
 }
 
+/* As the list's column header: small muted labels. */
 .columnHead {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 32px;
-  padding: 0 12px;
+  padding: 4px 12px;
   border-bottom: var(--line) solid var(--border);
-}
-
-.columnTitle {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.column[data-status="done"] .columnTitle {
-  color: var(--ok);
-}
-
-.column[data-status="pending"] .columnTitle {
-  color: var(--warn);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 16px;
 }
 
 .count {
-  color: var(--muted);
-  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -58,6 +46,7 @@
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -98,7 +87,6 @@
 
 .column[data-status="done"] .cardTitle > span:last-child {
   color: var(--muted);
-  text-decoration: line-through;
 }
 
 .cardField {
@@ -130,8 +118,12 @@
   height: 20px;
 }
 
+/* The edit / open folder / delete buttons float at the bottom right on hover, so they take no
+   row of their own: a card is only as tall as what it shows. */
 .actions {
-  margin-left: auto;
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
 }
 
 .card:hover .actions {

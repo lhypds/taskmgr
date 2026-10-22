@@ -24,6 +24,7 @@
     "status": "status"
   },
   "header": {
+    "showDone": "Show done tasks",
     "filter": "Filter by title or id",
     "filterLabel": "Filter tasks",
     "clearFilter": "Clear filter",
@@ -38,7 +39,14 @@
     "listView": "List view",
     "boardView": "Progress view"
   },
+  "month": {
+    "all": "All months",
+    "title": "Month",
+    "prev": "Previous month",
+    "next": "Next month"
+  },
   "home": {
+    "onlyDone": "Every task here is done.",
     "pickSpace": "Pick a work or repository on the left.",
     "noTasks": "No tasks yet.",
     "noSubtasks": "No subtasks in this task.",

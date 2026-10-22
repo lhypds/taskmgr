@@ -14,3 +14,4 @@ export { default as AddSpaceModal } from "./AddSpaceModal";
 export { default as RepositoryNameModal } from "./RepositoryNameModal";
 export { default as IncomeAnalysisModal } from "./IncomeAnalysisModal";
 export { default as TaskBoard } from "./TaskBoard";
+export { default as MonthPicker } from "./MonthPicker";

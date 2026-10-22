@@ -24,6 +24,7 @@
     "status": "状態"
   },
   "header": {
+    "showDone": "完了を表示",
     "filter": "タイトル・IDで絞り込み",
     "filterLabel": "タスクを絞り込む",
     "clearFilter": "絞り込みを解除",
@@ -38,7 +39,14 @@
     "listView": "リスト表示",
     "boardView": "進捗表示"
   },
+  "month": {
+    "all": "すべての月",
+    "title": "月",
+    "prev": "前の月",
+    "next": "次の月"
+  },
   "home": {
+    "onlyDone": "ここのタスクはすべて完了しています。",
     "pickSpace": "左側から作業またはリポジトリを選んでください。",
     "noTasks": "タスクはまだありません。",
     "noSubtasks": "このタスクにサブタスクはありません。",

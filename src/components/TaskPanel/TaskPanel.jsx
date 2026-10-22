@@ -1,24 +1,20 @@
 import { useTranslation } from "react-i18next";
 import Attachments, { useTaskFiles } from "@components/Attachments";
-import { EditIcon, ChevronRightIcon, PlusIcon } from "@components/icons";
+import { EditIcon, ChevronRightIcon } from "@components/icons";
 import { splitDetails, formatStamp } from "@utils/task";
 import styles from "./panel.module.css";
 
 // The selected task, read-only, beside the list: its fields, details and attachments (files can
 // be dropped in here too). `version` reloads the attachments when the list reloads.
-// Under a head like the tree's: "Task", with the new task (`onAdd`, null where none can be added)
-// and edit buttons at its right.
+// Under a head like the tree's: "Task", with the edit button at its right.
 export default function TaskPanel(props) {
   const { t } = useTranslation();
-  const { task, onEdit, onAdd } = props;
+  const { task, onEdit } = props;
   return (
     <div>
       <div className={styles.bar}>
         <span className={styles.barTitle}>{t("panel.heading")}</span>
         <div className={styles.barActions}>
-          <button type="button" className="btn" onClick={onAdd} disabled={!onAdd} title={t("header.newTask")} aria-label={t("header.newTask")}>
-            <PlusIcon />
-          </button>
           {task && (
             <button type="button" className="btn" onClick={() => onEdit(task)} title={t("common.edit")} aria-label={t("common.edit")}>
               <EditIcon />

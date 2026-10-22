@@ -8,11 +8,21 @@ import styles from "./board.module.css";
 export const BOARD_STATUSES = ["todo", "done", "pending"];
 
 // The column a task sits in: anything that is not done or pending is still to do.
-export const boardStatus = (task) => (BOARD_STATUSES.includes(task.status) ? task.status : "todo");
+export const boardStatus = (task) =>
+  BOARD_STATUSES.includes(task.status) ? task.status : "todo";
 
 // The progress view: a column per status with the tasks as cards. Dragging a card into another
 // column sets the task to that status (`onMove`). As in the list, a click only selects.
-export default function TaskBoard({ tasks, selectedKey, onSelect, onOpen, onOpenFolder, onDelete, onEnter, onMove }) {
+export default function TaskBoard({
+  tasks,
+  selectedKey,
+  onSelect,
+  onOpen,
+  onOpenFolder,
+  onDelete,
+  onEnter,
+  onMove,
+}) {
   const { t: tr } = useTranslation();
   const [dragKey, setDragKey] = useState(null);
   const selectedRef = useRef(null);
@@ -46,61 +56,80 @@ export default function TaskBoard({ tasks, selectedKey, onSelect, onOpen, onOpen
             }}
           >
             <header className={styles.columnHead}>
-              <span className={styles.columnTitle}>{tr(`status.${status}`)}</span>
+              <span>{tr(`status.${status}`)}</span>
               <span className={styles.count}>{cards.length}</span>
             </header>
             <div className={styles.cards}>
-              {cards.map((t) => (
-                <div
-                  key={t.key}
-                  ref={t.key === selectedKey ? selectedRef : null}
-                  className={styles.card}
-                  data-selected={t.key === selectedKey}
-                  data-dragging={t.key === dragKey}
-                  role="button"
-                  tabIndex={0}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData("text/plain", t.title || t.id);
-                    setDragKey(t.key);
-                    onSelect(t);
-                  }}
-                  onDragEnd={() => setDragKey(null)}
-                  onFocus={() => onSelect(t)}
-                  onClick={() => onSelect(t)}
-                  onDoubleClick={() => onOpenFolder(t)}
-                >
-                  <div className={styles.cardTitle}>
-                    {t.from && <span className="tag">{t.from}</span>}
-                    <span>{t.title || <span className="muted">{tr("common.untitled")}</span>}</span>
-                  </div>
-                  <div className={styles.cardField}>
-                    <span className={styles.cardLabel}>{tr("field.created")}:</span>
-                    <span className="mono">{formatStamp(t.id)}</span>
-                  </div>
-                  <div className={styles.cardField}>
-                    <span className={styles.cardLabel}>{tr("field.detail")}:</span>
-                    <span className={styles.cardDetail}>{splitDetails(t.details).body || "—"}</span>
-                  </div>
-                  <div className={styles.cardFoot}>
-                    {t.hasSubtask && (
-                      <button
-                        type="button"
-                        className={styles.enterButton}
-                        title={tr("list.openSubtasks")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEnter(t);
-                        }}
-                      >
-                        <ChevronRightIcon />
-                      </button>
+              {cards.map((t) => {
+                const { body } = splitDetails(t.details);
+                return (
+                  <div
+                    key={t.key}
+                    ref={t.key === selectedKey ? selectedRef : null}
+                    className={styles.card}
+                    data-selected={t.key === selectedKey}
+                    data-dragging={t.key === dragKey}
+                    role="button"
+                    tabIndex={0}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", t.title || t.id);
+                      setDragKey(t.key);
+                      onSelect(t);
+                    }}
+                    onDragEnd={() => setDragKey(null)}
+                    onFocus={() => onSelect(t)}
+                    onClick={() => onSelect(t)}
+                    onDoubleClick={() => onOpenFolder(t)}
+                  >
+                    <div className={styles.cardTitle}>
+                      {t.from && <span className="tag">{t.from}</span>}
+                      <span>
+                        {t.title || (
+                          <span className="muted">{tr("common.untitled")}</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className={styles.cardField}>
+                      <span className={styles.cardLabel}>
+                        {tr("field.created")}:
+                      </span>
+                      <span className="mono">{formatStamp(t.id)}</span>
+                    </div>
+                    {body && (
+                      <div className={styles.cardField}>
+                        <span className={styles.cardLabel}>
+                          {tr("field.detail")}:
+                        </span>
+                        <span className={styles.cardDetail}>{body}</span>
+                      </div>
                     )}
-                    <TaskActions task={t} className={styles.actions} onOpen={onOpen} onOpenFolder={onOpenFolder} onDelete={onDelete} />
+                    {t.hasSubtask && (
+                      <div className={styles.cardFoot}>
+                        <button
+                          type="button"
+                          className={styles.enterButton}
+                          title={tr("list.openSubtasks")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEnter(t);
+                          }}
+                        >
+                          <ChevronRightIcon />
+                        </button>
+                      </div>
+                    )}
+                    <TaskActions
+                      task={t}
+                      className={styles.actions}
+                      onOpen={onOpen}
+                      onOpenFolder={onOpenFolder}
+                      onDelete={onDelete}
+                    />
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         );

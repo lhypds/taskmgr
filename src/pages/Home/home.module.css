@@ -139,6 +139,26 @@
   gap: 6px;
 }
 
+/* Above the task list, as "Show hidden works" above the tree: whether done tasks are shown (the
+   list only), and the + for a new task at the right. */
+.listBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: var(--line) solid var(--border);
+}
+
+.showDone {
+  color: var(--muted);
+}
+
+.addTask {
+  margin-left: auto;
+}
+
 /* The language switcher and the profile button, joined into one strip as in fin. */
 .account {
   display: flex;

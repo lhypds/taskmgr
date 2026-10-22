@@ -24,6 +24,7 @@
     "status": "状态"
   },
   "header": {
+    "showDone": "显示已完成",
     "filter": "按标题或编号筛选",
     "filterLabel": "筛选任务",
     "clearFilter": "清除筛选",
@@ -38,7 +39,14 @@
     "listView": "列表视图",
     "boardView": "进度视图"
   },
+  "month": {
+    "all": "全部月份",
+    "title": "月份",
+    "prev": "上个月",
+    "next": "下个月"
+  },
   "home": {
+    "onlyDone": "这里的任务都已完成。",
     "pickSpace": "请在左侧选择一个工作或仓库。",
     "noTasks": "还没有任务。",
     "noSubtasks": "此任务没有子任务。",

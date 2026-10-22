@@ -61,7 +61,6 @@
 
 .row[data-status="done"] .titleText {
   color: var(--muted);
-  text-decoration: line-through;
 }
 
 .row[data-status="done"] > div,
@@ -198,7 +197,7 @@
   height: 12px;
   border: var(--line) solid var(--border);
   background: var(--bg);
-  color: var(--bg);
+  color: var(--fg); /* the tick is black on white, the box is never filled */
 }
 
 .box::before {
@@ -215,9 +214,6 @@
   background: var(--bg-hover);
 }
 
-.checkInput:checked + .box {
-  background: var(--border);
-}
 
 .checkInput:checked + .box::before {
   opacity: 1;
