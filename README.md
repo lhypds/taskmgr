@@ -219,21 +219,10 @@ Scroll through the task list.
 (Not working on Windows.)  
 
 
-Web UI
-------
+Documents
+---------
 
-A React app over the same task folders, managing works and repositories.  
-See [docs/Web UI.md](docs/Web%20UI.md).  
-
-
-Sync daemon (taskmgrd)
-----------------------
-
-Pushes the tasks to a remote tm server running the web UI.  
-See [docs/taskmgrd.md](docs/taskmgrd.md).  
-
-
-Development
------------
-
-See [docs/Develop.md](docs/Develop.md) and, for the APIs, [docs/Server.md](docs/Server.md).  
+* [Web UI](docs/Web%20UI.md) — A React app over the same task folders, managing works and repositories.  
+* [taskmgrd](docs/taskmgrd.md) — Sync daemon that pushes the tasks to a remote tm server running the web UI.  
+* [Develop](docs/Develop.md) — Development setup.  
+* [Server](docs/Server.md) — Server APIs.  
