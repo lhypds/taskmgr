@@ -68,26 +68,48 @@
   color: var(--muted);
 }
 
-.title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* The title and the details after it wrap, so a task with more details makes a taller row, up
-   to three lines. */
+/* The `from` tag, the title and the details after it are one inline flow, so the tag sits at the
+   start of the first line and the text wraps after it: a task with more details makes a taller
+   row, up to three lines. */
 .row > .title {
   padding-right: 12px;
   white-space: normal;
-}
-
-.titleText {
-  min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
   overflow: hidden;
   word-break: break-word;
+}
+
+.title > :global(.tag) {
+  vertical-align: top;
+  margin-right: 8px;
+}
+
+.titleText {
+  display: inline;
+}
+
+/* Each name in the from tag is cut short with an ellipsis past a limit, so a long work or
+   repository name cannot fill the row. */
+.fromPart {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.fromSep {
+  margin: 0 4px;
+}
+
+.fromName {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titleText + :global(.tag) {
+  margin-left: 6px;
 }
 
 /* The edit, open folder and delete buttons, shown only while a progress card is hovered. */
@@ -127,9 +149,11 @@
   color: var(--fg);
 }
 
-/* The details after the title, on the same line in grey. */
+/* The details after the title, on the same line in grey. They break at any character, so even a
+   long run without spaces starts right after the title instead of on the next line. */
 .detail {
-  margin-left: 12px;
+  margin-left: 4px;
+  word-break: break-all;
   color: var(--muted);
 }
 

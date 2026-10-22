@@ -211,8 +211,8 @@ export default function Home({ all = false }) {
       data.tasks.flatMap((t) => {
         const s = t.work !== undefined ? { work: t.work, repository: t.repository } : space;
         if (!s) return [];
-        const from = !scope ? "" : all || origin ? [s.work, s.repository].filter(Boolean).join(" / ") : s.repository;
-        return { ...t, space: s, key: keyOf(s, t.rel), from };
+        const fromParts = !scope ? [] : all || origin ? [s.work, s.repository].filter(Boolean) : [s.repository];
+        return { ...t, space: s, key: keyOf(s, t.rel), from: fromParts.join(" / "), fromParts };
       }),
     [data.tasks, space, scope, all, origin],
   );

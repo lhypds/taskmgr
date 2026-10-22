@@ -71,18 +71,17 @@
   opacity: 0.4;
 }
 
-/* The repository (in a list of several) and the task's name. */
+/* The repository (in a list of several) and the task's name, one inline flow as in the list: the
+   tag starts the first line and the name follows it, wrapping under the tag. */
 .cardTitle {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
   font-size: 12px;
   line-height: 16px;
   word-break: break-word;
 }
 
-.cardTitle .tag {
-  flex: none;
+.cardTitle > :global(.tag) {
+  vertical-align: top;
+  margin-right: 8px;
 }
 
 .column[data-status="done"] .cardTitle > span:last-child {

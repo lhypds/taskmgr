@@ -1,1 +1,1 @@
-export { default, TaskActions } from "./TaskList";
+export { default, TaskActions, FromTag } from "./TaskList";

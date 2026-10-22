@@ -31,6 +31,22 @@ function RowButton({ label, onClick, children }) {
   );
 }
 
+// Where a task is from: its work and repository names. A long name is cut short with an ellipsis,
+// and the whole path shows on hover.
+export function FromTag({ task }) {
+  if (!task.from) return null;
+  return (
+    <span className="tag" title={task.from}>
+      {task.fromParts.map((part, i) => (
+        <span key={i} className={styles.fromPart}>
+          {i > 0 && <span className={styles.fromSep}>/</span>}
+          <span className={styles.fromName}>{part}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 // A task's edit, open folder and delete buttons, shown while its row (or card) is hovered.
 export function TaskActions({ task, className = "", onOpen, onOpenFolder, onDelete }) {
   const { t: tr } = useTranslation();
@@ -86,9 +102,9 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpenFolder, o
           </div>
           <div className="mono">{formatStamp(t.id)}</div>
           <div className={styles.title}>
-            {t.from && <span className="tag">{t.from}</span>}
+            <FromTag task={t} />
             <span className={styles.titleText}>
-              {t.title || <span className="muted">{tr("common.untitled")}</span>}
+              {t.title || <span className="muted">{tr("common.untitled")}</span>}{" "}
               <span className={styles.detail}>{splitDetails(t.details).body.split("\n")[0]}</span>
             </span>
             {t.status === "pending" && <span className="tag pending">{tr("status.pending")}</span>}

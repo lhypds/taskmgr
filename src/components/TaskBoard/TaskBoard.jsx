@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { ChevronRightIcon } from "@components/icons";
-import { TaskActions } from "@components/TaskList";
+import { FromTag, TaskActions } from "@components/TaskList";
 import { formatStamp, splitDetails } from "@utils/task";
 import styles from "./board.module.css";
 
@@ -84,7 +84,7 @@ export default function TaskBoard({
                     onDoubleClick={() => onOpenFolder(t)}
                   >
                     <div className={styles.cardTitle}>
-                      {t.from && <span className="tag">{t.from}</span>}
+                      <FromTag task={t} />
                       <span>
                         {t.title || (
                           <span className="muted">{tr("common.untitled")}</span>
