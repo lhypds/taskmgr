@@ -1,14 +1,16 @@
 // Receiving end of taskmgrd (taskmgrd.js): the daemon on the machine that has the tasks pushes its
-// taskmgr.json and the task files of every work and repository here. The config is merged into this
-// server's own taskmgr.json, each pushed work and repository pointing at its copy of the tasks, which
-// is kept under data/, laid out like the origins tree of taskmgr.json:
+// taskmgr.json and the tasks folder of every work and repository here, whole: task files,
+// attachments and every other file in it. The config is merged into this server's own taskmgr.json,
+// each pushed work and repository pointing at its copy of the tasks, which is kept under data/, laid
+// out like the origins tree of taskmgr.json:
 //
 //   data/
 //     origins/
 //       <origin>/                     "_" for the works without an origin
 //         <work>/
-//           tasks/                    the work's common tasks (its tasks_path), the task folders as they are
+//           tasks/                    the work's common tasks (its tasks_path), the folder as it is
 //             202508142100 Buy apple/task.txt
+//             202508142100 Buy apple/receipt.pdf
 //             done/202508142000 Buy orange/task.txt
 //           repositories/
 //             <repository>/           the repository's tasks (its tasks_path, or the "tasks" folder of its source)
@@ -24,12 +26,25 @@
 //       merges the config into this server's taskmgr.json (an invalid one is refused; see
 //       mergeConfigs), with the pushed tasks_path set to the copies under data/origins/ (see
 //       toMirror), and removes, under data/origins/, the origins, works and repositories not in it.
+//   POST /api/sync/blobs  { blobs: [sha1] }                  -> { ok, missing }
+//       which of these files the server does not have yet (see the blob store below).
+//   PUT /api/sync/blob/<sha1>   (the raw file)               -> { ok }
+//       stores one file by the sha1 of its content; refused when the content does not hash to it.
 //   PUT /api/sync/space   { origin, work, repository, entries }  -> { ok, files, dirs }
-//       replaces one space's folder with the snapshot: entries are [{ path, content }] for task files
-//       and [{ path, dir: true }] for a task folder without one, paths relative to the space's folder.
+//       replaces one space's folder with the snapshot: entries are [{ path, content }] for task
+//       files (text), [{ path, blob: sha1 }] for every other file, taken from the blob store, and
+//       [{ path, dir: true }] for an empty folder, paths relative to the space's folder. When a blob
+//       is not in the store, nothing is written and the answer is 409 MISSING_BLOBS { missing }.
+//
+// Attachments go through the blob store, data/.sync-blobs/<sha1>, so that a file the server already
+// has (unchanged since the last push, or the same file under a renamed task) is never sent again:
+// the daemon asks which blobs are missing, uploads those, then pushes the snapshot, which hard-links
+// (or copies) each blob into place. A blob that no space's last snapshot refers to any more is
+// removed once it is an hour old (never sooner, so a blob uploaded for a snapshot still on its way
+// stays).
 //
 // Files are written into data/.sync-tmp/ first and swapped in, so a space is never half written.
-// data/.sync-state.json remembers the hashes GET answers with.
+// data/.sync-state.json remembers the hashes GET answers with, and the blobs each space refers to.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -41,11 +56,15 @@ const NO_ORIGIN_DIR = '_';
 const WORK_TASKS_DIR = 'tasks';
 const REPOSITORIES_DIR = 'repositories';
 const TMP_DIR = '.sync-tmp';
+const BLOBS_DIR = '.sync-blobs';
 const STATE_FILE = '.sync-state.json';
-const BODY_LIMIT = '50mb';
+const BODY_LIMIT = '50mb';           // a snapshot: task texts and the hashes of the other files
+const BLOB_LIMIT = '1gb';            // one attachment
+const BLOB_KEEP_MS = 60 * 60 * 1000; // how long an unreferenced blob is kept before it is removed
+const BLOB_RE = /^[0-9a-f]{40}$/;
 
 class SyncError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message, extra) { super(message); this.status = status; Object.assign(this, extra || {}); }
 }
 
 const sha1 = (text) => crypto.createHash('sha1').update(text).digest('hex');
@@ -83,18 +102,33 @@ function spaceDir(dataDir, { origin, work, repository }) {
   return target;
 }
 
-// One snapshot entry checked: a relative path of plain names, and content or dir: true.
+// One snapshot entry checked: a relative path of plain names, and content, blob or dir: true.
 function checkEntry(e, i) {
   if (!e || typeof e !== 'object' || typeof e.path !== 'string' || !e.path) throw new SyncError(400, `entries[${i}]: missing path.`);
   const parts = e.path.split('/');
   if (parts.some(s => !s || s === '.' || s === '..' || s.includes('\0'))) throw new SyncError(400, `entries[${i}]: invalid path "${e.path}".`);
   if (e.dir === true) return { rel: path.join(...parts), dir: true };
+  if (typeof e.blob === 'string') {
+    if (!BLOB_RE.test(e.blob)) throw new SyncError(400, `entries[${i}]: invalid blob "${e.blob}".`);
+    return { rel: path.join(...parts), blob: e.blob };
+  }
   if (typeof e.content !== 'string') throw new SyncError(400, `entries[${i}]: missing content.`);
   return { rel: path.join(...parts), content: e.content };
 }
 
+const blobPath = (dataDir, sha) => path.join(dataDir, BLOBS_DIR, sha);
+
+// A blob put in place: a hard link to the store when the file system allows, a copy otherwise.
+function placeBlob(from, to) {
+  try {
+    fs.linkSync(from, to);
+  } catch (e) {
+    fs.copyFileSync(from, to);
+  }
+}
+
 // Replace `target` with the entries: they are written in a fresh folder under data/.sync-tmp/, which
-// then takes the target's place.
+// then takes the target's place. Nothing is written when a blob is not in the store (409).
 function writeSnapshot(dataDir, target, entries) {
   const tmpRoot = path.join(dataDir, TMP_DIR);
   const id = crypto.randomBytes(6).toString('hex');
@@ -106,6 +140,8 @@ function writeSnapshot(dataDir, target, entries) {
     if (!inside(tmp, abs)) throw new SyncError(400, `Path "${e.rel}" leaves the folder.`);
     return { ...e, abs };
   });
+  const missing = [...new Set(list.filter(e => e.blob && !fs.existsSync(blobPath(dataDir, e.blob))).map(e => e.blob))];
+  if (missing.length) throw new SyncError(409, `${missing.length} file${missing.length === 1 ? ' is' : 's are'} not on the server yet.`, { code: 'MISSING_BLOBS', missing });
   let files = 0;
   let dirs = 0;
   try {
@@ -117,7 +153,8 @@ function writeSnapshot(dataDir, target, entries) {
         dirs++;
       } else {
         fs.mkdirSync(path.dirname(abs), { recursive: true });
-        fs.writeFileSync(abs, e.content, 'utf8');
+        if (e.blob) placeBlob(blobPath(dataDir, e.blob), abs);
+        else fs.writeFileSync(abs, e.content, 'utf8');
         files++;
       }
     }
@@ -246,15 +283,44 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
   const enabled = typeof token === 'string' && token.trim() !== '';
   const statePath = path.join(dataDir, STATE_FILE);
 
-  // Whatever a crash left half written.
+  // Whatever a crash left half written: the snapshot folders, and the uploads not yet renamed.
   fs.rmSync(path.join(dataDir, TMP_DIR), { recursive: true, force: true });
+  try {
+    for (const name of fs.readdirSync(path.join(dataDir, BLOBS_DIR))) {
+      if (!BLOB_RE.test(name)) fs.rmSync(path.join(dataDir, BLOBS_DIR, name), { force: true });
+    }
+  } catch (e) { /* no store yet */ }
 
   function readState() {
     try {
       const s = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-      return { config: typeof s.config === 'string' ? s.config : null, spaces: s.spaces && typeof s.spaces === 'object' ? s.spaces : {} };
+      return {
+        config: typeof s.config === 'string' ? s.config : null,
+        spaces: s.spaces && typeof s.spaces === 'object' ? s.spaces : {},
+        blobs: s.blobs && typeof s.blobs === 'object' ? s.blobs : {}  // space key -> the blobs of its snapshot
+      };
     } catch (e) {
-      return { config: null, spaces: {} };
+      return { config: null, spaces: {}, blobs: {} };
+    }
+  }
+
+  // Remove the blobs no space refers to any more, once they are old enough (see BLOB_KEEP_MS).
+  function pruneBlobs(state) {
+    const used = new Set(Object.values(state.blobs).flat());
+    const dir = path.join(dataDir, BLOBS_DIR);
+    let names;
+    try {
+      names = fs.readdirSync(dir);
+    } catch (e) {
+      return;
+    }
+    const now = Date.now();
+    for (const name of names) {
+      if (!BLOB_RE.test(name) || used.has(name)) continue;  // an upload on its way is left alone
+      const abs = path.join(dir, name);
+      try {
+        if (now - fs.statSync(abs).mtimeMs > BLOB_KEEP_MS) fs.rmSync(abs, { force: true });
+      } catch (e) { /* gone meanwhile */ }
     }
   }
 
@@ -310,9 +376,36 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
       if (w.root) keys.add(spaceKey({ origin: w.origin, work: w.work, repository: '' }));
       for (const p of w.repositories) keys.add(spaceKey({ origin: w.origin, work: w.work, repository: p.name }));
     }
-    for (const k of Object.keys(state.spaces)) if (!keys.has(k)) delete state.spaces[k];
+    for (const k of Object.keys(state.spaces)) if (!keys.has(k)) { delete state.spaces[k]; delete state.blobs[k]; }
     writeState(state);
+    pruneBlobs(state);
     res.json({ ok: true, pruned });
+  });
+
+  // Which of these blobs are not here yet.
+  app.post('/api/sync/blobs', json, (req, res) => {
+    const { blobs } = req.body || {};
+    if (!Array.isArray(blobs) || blobs.some(b => typeof b !== 'string' || !BLOB_RE.test(b))) throw new SyncError(400, '"blobs" must be an array of sha1 hashes.');
+    const missing = [...new Set(blobs)].filter(b => !fs.existsSync(blobPath(dataDir, b)));
+    res.json({ ok: true, missing });
+  });
+
+  // One file into the blob store, named by the sha1 of its content.
+  app.put('/api/sync/blob/:sha', express.raw({ type: () => true, limit: BLOB_LIMIT }), (req, res) => {
+    const sha = String(req.params.sha || '');
+    if (!BLOB_RE.test(sha)) throw new SyncError(400, `Invalid blob "${sha}".`);
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (crypto.createHash('sha1').update(body).digest('hex') !== sha) throw new SyncError(400, 'The content does not hash to the given sha1.');
+    const dir = path.join(dataDir, BLOBS_DIR);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = path.join(dir, `.${sha}.${crypto.randomBytes(4).toString('hex')}`);
+    try {
+      fs.writeFileSync(tmp, body);
+      fs.renameSync(tmp, blobPath(dataDir, sha));
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
+    res.json({ ok: true });
   });
 
   app.put('/api/sync/space', json, (req, res) => {
@@ -323,9 +416,18 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     const list = entries.map(checkEntry);
     const { files, dirs } = writeSnapshot(dataDir, target, list);
     const state = readState();
-    state.spaces[spaceKey({ origin: origin.trim(), work: work.trim(), repository: repository.trim() })] = sha1(JSON.stringify(entries));
+    const key = spaceKey({ origin: origin.trim(), work: work.trim(), repository: repository.trim() });
+    state.spaces[key] = sha1(JSON.stringify(entries));
+    state.blobs[key] = [...new Set(list.filter(e => e.blob).map(e => e.blob))];
     writeState(state);
+    pruneBlobs(state);
     res.json({ ok: true, files, dirs });
+  });
+
+  // A refused request answers with its code (and, for MISSING_BLOBS, the blobs to upload).
+  app.use('/api/sync', (err, req, res, next) => {
+    if (!(err instanceof SyncError)) return next(err);
+    res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}), ...(err.missing ? { missing: err.missing } : {}) });
   });
 
   return app;

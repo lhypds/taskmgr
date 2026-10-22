@@ -10,12 +10,13 @@
 //   TASKMGRD_TOKEN=...                        the same value as TASKMGRD_TOKEN in that server's .env
 //
 // taskmgr.json is pushed whole when it changes; an invalid one is not pushed, and the folders of
-// the last good one stay watched. A tasks folder is pushed as a snapshot of its task files, every
-// task.txt with the folder it is in (done / pending folders and subtasks included; a task folder
-// without a task.txt as a bare folder), whenever anything in it changes; the server replaces its
-// copy with the snapshot, so a renamed, moved or deleted task is mirrored too. Attachments are not
-// pushed. A tasks folder that does not exist is left as it is on the server and looked for until it
-// appears. At startup taskmgr.json is pushed once; then, and every few minutes after that, the daemon
+// the last good one stay watched. A tasks folder is pushed as a snapshot of everything in it: every
+// file (task.txt files as text, the others, attachments included, by the sha1 of their content, the
+// server asked first which of them it does not have yet and those uploaded) and every empty folder,
+// whenever anything in it changes; the server replaces its copy with the snapshot, so after a push
+// its copy is the folder as it is here, and a renamed, moved or deleted task or attachment is
+// mirrored too. Only .DS_Store files are left out. A tasks folder that does not exist is left as it
+// is on the server and looked for until it appears. At startup taskmgr.json is pushed once; then, and every few minutes after that, the daemon
 // asks the server what it has and pushes what differs; so a change missed by the file system, or a
 // server that lost its data, is put right. A push that fails is retried, with growing waits, until the server answers again.
 const fs = require('fs');
@@ -23,13 +24,15 @@ const path = require('path');
 const crypto = require('crypto');
 const { loadDotenv, parseConfig, DEFAULT_CONFIG_PATH } = require('./server/config');
 const { spaceKey } = require('./server/sync');
-const { TASK_FILE, STATUS_DIRS, isTaskFolder } = require('./utils/taskUtils');
+const { TASK_FILE } = require('./utils/taskUtils');
 
 const DEBOUNCE_MS = 1500;               // changes within this window go out together
 const RESCAN_MS = 5 * 60 * 1000;        // how often the server is asked what it has, and everything compared
 const MISSING_POLL_MS = 30 * 1000;      // how often a missing tasks folder is looked for
 const RETRY_MS = [5000, 15000, 60000];  // waits before retrying after a failed push, the last one repeating
 const REQUEST_TIMEOUT_MS = 30 * 1000;
+const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;  // one attachment
+const SKIPPED_FILES = new Set(['.DS_Store']);  // never pushed: Finder rewrites it all the time
 
 loadDotenv();
 const SERVER = String(process.env.TASKMGRD_SERVER || '').trim().replace(/\/+$/, '');
@@ -81,39 +84,83 @@ function spacesOf(works) {
 
 const label = (s) => `${s.origin ? `${s.origin} / ` : ''}${s.work}${s.repository ? ` / ${s.repository}` : ''}`;
 
-// The task files under a tasks folder, as the server mirrors them: every task.txt, with the folder
-// it is in (done / pending folders and subtasks on the way) relative to the tasks folder, and a
-// task folder without a task.txt as a bare folder. Other files, attachments included, are left out.
-// Sorted, so the same tasks always give the same hash.
+// The sha1 of a file's content, read in chunks; remembered by size and mtime, so the attachments
+// are not read again at every scan.
+const hashCache = new Map();  // abs -> { size, mtimeMs, sha1 }
+function fileHash(abs, stat) {
+  const c = hashCache.get(abs);
+  if (c && c.size === stat.size && c.mtimeMs === stat.mtimeMs) return c.sha1;
+  const hash = crypto.createHash('sha1');
+  const fd = fs.openSync(abs, 'r');
+  try {
+    const buf = Buffer.alloc(1024 * 1024);
+    for (let n = fs.readSync(fd, buf); n > 0; n = fs.readSync(fd, buf)) hash.update(buf.subarray(0, n));
+  } finally {
+    fs.closeSync(fd);
+  }
+  const sha = hash.digest('hex');
+  hashCache.set(abs, { size: stat.size, mtimeMs: stat.mtimeMs, sha1: sha });
+  return sha;
+}
+
+// Everything under a tasks folder, as the server mirrors it: every file, relative to the folder, a
+// task.txt as text and any other file (attachments, whatever else is there) by the sha1 of its
+// content, which the server fetches from its blob store (see pushJob); an empty folder as a bare
+// folder. Symbolic links are followed; .DS_Store files are left out. Sorted, so the same folder
+// always gives the same hash. `blobs` maps each sha1 to one file that has it, for the upload.
 function snapshot(root) {
   const entries = [];
+  const blobs = new Map();
+  const seen = new Set();
   const walk = (dir, rel) => {
-    for (const status of ['', ...STATUS_DIRS]) {
-      const listDir = status ? path.join(dir, status) : dir;
-      let names;
-      try {
-        names = fs.readdirSync(listDir, { withFileTypes: true });
-      } catch (e) {
-        continue;
-      }
-      for (const e of names) {
-        if (!e.isDirectory() && !e.isSymbolicLink()) continue;
-        const abs = path.join(listDir, e.name);
-        if (!isTaskFolder(abs)) continue;
-        const taskRel = [rel, status, e.name].filter(Boolean).join('/');
-        let content = null;
-        try {
-          content = fs.readFileSync(path.join(abs, TASK_FILE), 'utf8');
-        } catch (err) { /* a task folder without a task file */ }
-        if (content === null) entries.push({ path: taskRel, dir: true });
-        else entries.push({ path: `${taskRel}/${TASK_FILE}`, content });
-        walk(abs, taskRel);
-      }
+    let names;
+    try {
+      names = fs.readdirSync(dir);
+    } catch (e) {
+      return;
     }
+    let count = 0;
+    for (const name of names) {
+      if (SKIPPED_FILES.has(name)) continue;
+      const abs = path.join(dir, name);
+      let stat;
+      try {
+        stat = fs.statSync(abs);  // through a symbolic link
+      } catch (e) {
+        continue;  // a broken link, or gone meanwhile
+      }
+      const entryRel = rel ? `${rel}/${name}` : name;
+      if (stat.isDirectory()) {
+        walk(abs, entryRel);
+      } else if (stat.isFile()) {
+        if (name === TASK_FILE) {
+          try {
+            entries.push({ path: entryRel, content: fs.readFileSync(abs, 'utf8') });
+          } catch (e) {
+            continue;
+          }
+        } else {
+          let sha;
+          try {
+            sha = fileHash(abs, stat);
+          } catch (e) {
+            continue;
+          }
+          seen.add(abs);
+          entries.push({ path: entryRel, blob: sha });
+          if (!blobs.has(sha)) blobs.set(sha, abs);
+        }
+      } else {
+        continue;  // a socket, a device: not a file to mirror
+      }
+      count++;
+    }
+    if (!count && rel) entries.push({ path: rel, dir: true });
   };
   walk(root, '');
+  for (const abs of hashCache.keys()) if (!seen.has(abs) && abs.startsWith(root + path.sep)) hashCache.delete(abs);
   entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  return { entries, hash: sha1(JSON.stringify(entries)) };
+  return { entries, blobs, hash: sha1(JSON.stringify(entries)) };
 }
 
 function isDir(p) {
@@ -126,21 +173,29 @@ function isDir(p) {
 
 // ---------- the server ----------
 
-async function request(method, route, body) {
+// One request to the server: `body` is sent as JSON, or as it is when it is a Buffer (a file). A
+// refused request throws an error carrying the server's `code` and `missing` (see server/sync.js).
+async function request(method, route, body, { timeout = REQUEST_TIMEOUT_MS } = {}) {
+  const raw = Buffer.isBuffer(body);
   let res;
   try {
     res = await fetch(`${SERVER}${route}`, {
       method,
-      headers: { Authorization: `Bearer ${TOKEN}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      headers: { Authorization: `Bearer ${TOKEN}`, ...(body ? { 'Content-Type': raw ? 'application/octet-stream' : 'application/json' } : {}) },
+      body: body ? (raw ? body : JSON.stringify(body)) : undefined,
+      signal: AbortSignal.timeout(timeout)
     });
   } catch (e) {
     const why = e.name === 'TimeoutError' ? 'no answer in time' : (e.cause && e.cause.code) || e.cause?.message || e.message;
     throw new Error(`cannot reach ${SERVER} (${why})`);
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`${SERVER} answered ${res.status}${data.error ? `: ${data.error}` : ''}`);
+  if (!res.ok) {
+    const err = new Error(`${SERVER} answered ${res.status}${data.error ? `: ${data.error}` : ''}`);
+    err.code = data.code;
+    err.missing = data.missing;
+    throw err;
+  }
   return data;
 }
 
@@ -170,11 +225,40 @@ async function pushJob(job) {
     onServer.config = job.hash;
     return `pushed taskmgr.json${pruned.length ? ` (removed on the server: ${pruned.join(', ')})` : ''}`;
   }
-  const { files, dirs } = await request('PUT', '/api/sync/space', {
-    origin: job.space.origin, work: job.space.work, repository: job.space.repository, entries: job.entries
-  });
+  // The attachments the server does not have yet go first, one by one; then the snapshot. Should
+  // the server lose one meanwhile, it says which (MISSING_BLOBS) and those are sent once more.
+  let uploaded = 0;
+  const upload = async (shas) => {
+    for (const sha of shas) {
+      const abs = job.blobs.get(sha);
+      if (!abs) throw new Error(`${label(job.space)}: no file for blob ${sha}`);
+      let content;
+      try {
+        content = fs.readFileSync(abs);
+      } catch (e) {
+        throw new Error(`${abs}: ${e.message}`);
+      }
+      await request('PUT', `/api/sync/blob/${sha}`, content, { timeout: UPLOAD_TIMEOUT_MS });
+      uploaded++;
+    }
+  };
+  if (job.blobs.size) {
+    const { missing } = await request('POST', '/api/sync/blobs', { blobs: [...job.blobs.keys()] });
+    await upload(missing);
+  }
+  const body = { origin: job.space.origin, work: job.space.work, repository: job.space.repository, entries: job.entries };
+  let result;
+  try {
+    result = await request('PUT', '/api/sync/space', body);
+  } catch (e) {
+    if (e.code !== 'MISSING_BLOBS' || !Array.isArray(e.missing)) throw e;
+    await upload(e.missing);
+    result = await request('PUT', '/api/sync/space', body);
+  }
+  const { files, dirs } = result;
   onServer.spaces[job.key] = job.hash;
-  return `pushed ${label(job.space)} (${files} task file${files === 1 ? '' : 's'}${dirs ? `, ${dirs} bare folder${dirs === 1 ? '' : 's'}` : ''})`;
+  const n = (count, what) => `${count} ${what}${count === 1 ? '' : 's'}`;
+  return `pushed ${label(job.space)} (${n(files, 'file')}${dirs ? `, ${n(dirs, 'empty folder')}` : ''}${uploaded ? `, ${n(uploaded, 'attachment')} uploaded` : ''})`;
 }
 
 async function drain() {
@@ -228,10 +312,10 @@ function scanRoot(root) {
     r.missing = false;
   }
   if (!r.watcher) watchRoot(r);
-  const { entries, hash } = snapshot(root);
+  const { entries, blobs, hash } = snapshot(root);
   for (const s of r.spaces) {
     const key = spaceKey(s);
-    if (onServer.spaces[key] !== hash) enqueue({ key, space: s, entries, hash });
+    if (onServer.spaces[key] !== hash) enqueue({ key, space: s, entries, blobs, hash });
   }
   drain();
 }

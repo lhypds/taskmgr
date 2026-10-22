@@ -20,3 +20,4 @@ dist/
 /data/origins/
 /data/.sync-tmp/
 /data/.sync-state.json
+/data/.sync-blobs/

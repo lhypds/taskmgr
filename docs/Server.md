@@ -177,6 +177,15 @@ Origins, works and repositories only on the server are kept, those only pushed a
 (same origin, same name) takes the pushed fields, its repositories merged the same way (the pushed one wins  
 for a repository in both). A work pushed under another origin moves there. 409 when the merge is invalid.  
 
+`POST /api/sync/blobs` `{ blobs }`  
+Which of these files (sha1 hashes of their content) the server does not have yet: `{ ok, missing }`.  
+
+`PUT /api/sync/blob/<sha1>` (the raw file as the body, up to 1 GB)  
+Store one file in the blob store, `data/.sync-blobs/<sha1>`. 400 when the content does not hash to `<sha1>`. `{ ok }`.  
+
 `PUT /api/sync/space` `{ origin, work, repository, entries }`  
-Replace one tasks folder: `entries` are `{ path, content }` for task files and `{ path, dir: true }` for a  
-task folder without one, paths relative to the folder. `{ ok, files, dirs }`.  
+Replace one tasks folder with the snapshot: `entries` are `{ path, content }` for task files (text),  
+`{ path, blob: sha1 }` for every other file (attachments included), taken from the blob store, and  
+`{ path, dir: true }` for an empty folder, paths relative to the tasks folder. After it, the server's copy  
+is the pushed folder exactly. `{ ok, files, dirs }`. 409 `MISSING_BLOBS` `{ missing }` when a blob is not in the  
+store; nothing is written then. A blob no space refers to any more is removed once it is an hour old.  

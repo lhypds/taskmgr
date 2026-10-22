@@ -67,6 +67,26 @@
   padding-bottom: 4px;
 }
 
+/* With no rows the table fills the pane, so the "no tasks" message (and its new-task button) sits
+   in the centre of the area under the header, as the other empty states do. */
+.table[data-empty="true"] {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px 10vh;
+  text-align: center;
+}
+
 .row[data-status="done"] > div,
 .row[data-status="pending"] > div {
   color: var(--muted);

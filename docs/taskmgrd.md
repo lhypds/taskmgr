@@ -12,8 +12,9 @@ data/
   origins/
     <origin>/                      "_" for the works without an origin
       <work>/
-        tasks/                     the work's common tasks (its tasks_path), the task folders as they are
+        tasks/                     the work's common tasks (its tasks_path), the folder as it is
           202508142100 Buy apple/task.txt
+          202508142100 Buy apple/receipt.pdf
           done/202508142000 Buy orange/task.txt
         repositories/
           <repository>/            the repository's tasks (its tasks_path, or the tasks folder of its source_path)
@@ -21,11 +22,14 @@ data/
 ```
 
 What is pushed: `taskmgr.json` whole when it changes (an invalid one is not pushed; the folders of the  
-last good one stay watched), and each tasks folder as a snapshot of its task files, every `task.txt`  
-with the folder it is in, `done` / `pending` folders and subtasks included, whenever anything in the  
-folder changes. The server replaces its copy with the snapshot, so a renamed, moved or deleted task  
-is mirrored too; a task folder without a `task.txt` is mirrored as a bare folder. Attachments are not  
-pushed. The server merges a pushed `taskmgr.json` into its own: origins, works and repositories it  
+last good one stay watched), and each tasks folder whole, whenever anything in it changes: every file in  
+it, task files, attachments and anything else, `done` / `pending` folders and subtasks included, and every  
+empty folder. The server replaces its copy with the snapshot, so after a push its copy is the folder  
+exactly as it is here, and a renamed, moved or deleted task or attachment is mirrored too. Only `.DS_Store`  
+files are left out. Task files go as text; every other file by the sha1 of its content: the daemon asks the  
+server which of them it does not have yet and uploads only those, so an unchanged attachment, or the same  
+file under a renamed task, is never sent twice (the server keeps them in `data/.sync-blobs/`).  
+The server merges a pushed `taskmgr.json` into its own: origins, works and repositories it  
 does not have are added, the ones it has take the pushed settings, and the ones it has that were not  
 pushed are kept, with their folders (so several machines can push to one server; a work or  
 repository renamed or removed on one machine stays on the server until removed there). In the  
@@ -39,7 +43,8 @@ that fails (the server is down) is retried, with growing waits, until it goes th
 
 On the server: set `TASKMGRD_TOKEN` in `.env` to a secret of your choice and restart the web UI  
 (`./start.sh`); its startup lines then say `sync : receiving from taskmgrd`. Without the token the  
-server refuses pushes. The copied files are git-ignored.  
+server refuses pushes. The copied files are git-ignored. A task changed in the server's web UI is  
+changed in the copy only: the next push of its folder overwrites it.  
 
 On the machine with the tasks: in `.env`, `TASKMGRD_SERVER` is the server's URL (the one its web UI  
 answers at, e.g. `https://tm.example.com`) and `TASKMGRD_TOKEN` the same secret. Then:  
