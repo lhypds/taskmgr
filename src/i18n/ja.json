@@ -9,7 +9,6 @@
     "close": "閉じる",
     "dialog": "ダイアログ",
     "edit": "編集",
-    "subtasks": "サブタスク",
     "typeToConfirm": "確認のため「{{name}}」と入力してください"
   },
   "status": {
@@ -18,15 +17,12 @@
     "pending": "保留"
   },
   "field": {
-    "detail": "詳細",
     "created": "作成日時",
-    "id": "ID",
-    "task": "タスク",
-    "status": "状態"
+    "task": "タスク"
   },
   "header": {
     "showDone": "完了を表示",
-    "filter": "タイトル・IDで絞り込み",
+    "filter": "タスクを検索...",
     "filterLabel": "タスクを絞り込む",
     "clearFilter": "絞り込みを解除",
     "up": "上へ",
@@ -71,6 +67,7 @@
   },
   "tree": {
     "origins": "Origins",
+    "allOrigins": "すべての origin",
     "noOrigins": "taskmgr.json に origin がありません。",
     "openFolder": "フォルダを開く",
     "showHidden": "非表示の work を表示（{{count}}）"
@@ -83,8 +80,8 @@
   "panel": {
     "heading": "タスク",
     "none": "タスクが選択されていません。",
-    "details": "詳細",
-    "noDetails": "詳細はありません。"
+    "undo": "元に戻す",
+    "redo": "やり直す"
   },
   "attach": {
     "title": "添付ファイル",
@@ -96,7 +93,6 @@
     "choose": "ファイルを選択"
   },
   "editor": {
-    "editTask": "タスクを編集",
     "newTask": "新規タスク",
     "saveHint": "⌘S / Ctrl+S で保存",
     "save": "保存",

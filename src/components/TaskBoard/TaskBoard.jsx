@@ -61,7 +61,7 @@ export default function TaskBoard({
             </header>
             <div className={styles.cards}>
               {cards.map((t) => {
-                const { body } = splitDetails(t.details);
+                const detail = splitDetails(t.details).body;
                 return (
                   <div
                     key={t.key}
@@ -91,20 +91,7 @@ export default function TaskBoard({
                         )}
                       </span>
                     </div>
-                    <div className={styles.cardField}>
-                      <span className={styles.cardLabel}>
-                        {tr("field.created")}:
-                      </span>
-                      <span className="mono">{formatStamp(t.id)}</span>
-                    </div>
-                    {body && (
-                      <div className={styles.cardField}>
-                        <span className={styles.cardLabel}>
-                          {tr("field.detail")}:
-                        </span>
-                        <span className={styles.cardDetail}>{body}</span>
-                      </div>
-                    )}
+                    {detail && <div className={styles.cardDetail}>{detail}</div>}
                     {t.hasSubtask && (
                       <div className={styles.cardFoot}>
                         <button
@@ -120,6 +107,7 @@ export default function TaskBoard({
                         </button>
                       </div>
                     )}
+                    <div className={`mono ${styles.cardStamp}`}>{formatStamp(t.id)}</div>
                     <TaskActions
                       task={t}
                       className={styles.actions}

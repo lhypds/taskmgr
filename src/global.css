@@ -8,6 +8,7 @@
   --faint: #bbbbbb;
   --border: #000000;
   --soft-line: #e2e2e2;
+  --grid: rgba(0, 0, 0, 0.08); /* the faint grid behind task text */
   --focus: #0969da;
   --line: 1px; /* hairline width */
   --bg: #ffffff;
@@ -47,6 +48,7 @@ button {
   color: inherit;
   cursor: pointer;
   user-select: none;
+  outline: none;
 }
 
 input,

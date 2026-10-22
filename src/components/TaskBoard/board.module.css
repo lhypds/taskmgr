@@ -89,24 +89,21 @@
   color: var(--muted);
 }
 
-.cardField {
-  display: flex;
-  gap: 6px;
+/* The created time, on the last line beside the hover buttons. */
+.cardStamp {
   font-size: 10px;
   line-height: 14px;
-}
-
-.cardLabel {
-  flex: none;
   color: var(--muted);
 }
 
-/* The details after the first line, cut to three lines. */
+/* The details after the name, cut to three lines. */
 .cardDetail {
-  min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--muted);
   overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
@@ -118,12 +115,12 @@
   height: 20px;
 }
 
-/* The edit / open folder / delete buttons float at the bottom right on hover, so they take no
-   row of their own: a card is only as tall as what it shows. */
+/* The edit / open folder / delete buttons float at the bottom right on hover, beside the created
+   time, so they take no row of their own. */
 .actions {
   position: absolute;
+  bottom: 7px;
   right: 10px;
-  bottom: 8px;
 }
 
 .card:hover .actions {

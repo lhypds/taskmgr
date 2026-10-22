@@ -14,6 +14,7 @@ function Gate() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/all" element={<Home all />} />
         <Route path="/o/:origin" element={<Home />} />
         <Route path="/w/:work" element={<Home />} />
         <Route path="/w/:work/:repository" element={<Home />} />

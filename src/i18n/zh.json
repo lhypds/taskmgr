@@ -9,7 +9,6 @@
     "close": "关闭",
     "dialog": "对话框",
     "edit": "编辑",
-    "subtasks": "子任务",
     "typeToConfirm": "输入“{{name}}”以确认"
   },
   "status": {
@@ -18,15 +17,12 @@
     "pending": "搁置"
   },
   "field": {
-    "detail": "详情",
     "created": "创建于",
-    "id": "编号",
-    "task": "任务",
-    "status": "状态"
+    "task": "任务"
   },
   "header": {
     "showDone": "显示已完成",
-    "filter": "按标题或编号筛选",
+    "filter": "搜索任务...",
     "filterLabel": "筛选任务",
     "clearFilter": "清除筛选",
     "up": "上级",
@@ -71,6 +67,7 @@
   },
   "tree": {
     "origins": "Origins",
+    "allOrigins": "所有 origin",
     "noOrigins": "taskmgr.json 中没有 origin。",
     "openFolder": "打开文件夹",
     "showHidden": "显示已隐藏的 work（{{count}}）"
@@ -83,8 +80,8 @@
   "panel": {
     "heading": "任务",
     "none": "未选择任务。",
-    "details": "详情",
-    "noDetails": "没有详情。"
+    "undo": "撤销",
+    "redo": "重做"
   },
   "attach": {
     "title": "附件",
@@ -96,7 +93,6 @@
     "choose": "选择文件"
   },
   "editor": {
-    "editTask": "编辑任务",
     "newTask": "新建任务",
     "saveHint": "⌘S / Ctrl+S 保存",
     "save": "保存",

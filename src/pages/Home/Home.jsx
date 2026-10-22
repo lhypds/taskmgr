@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SpaceTree, TaskList, TaskBoard, MonthPicker, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryEditModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
 import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon, PieIcon, ListIcon, BoardIcon } from "@components/icons";
@@ -44,21 +44,24 @@ function writeFlag(key, value) {
 const keyOf = (space, rel) => `${space.work}/${space.repository || ""}/${rel}`;
 
 // The one page: the origins, works and repositories as a tree on the left, the tasks of the chosen
-// one on the right. What is shown is in the path (/o/:origin for every task of an origin, /w/:work
+// one on the right. What is shown is in the path (/all for every task, /o/:origin for every task of an origin, /w/:work
 // for a work's tasks and its repositories', /w/:work/:repository for a repository) and the folder
 // inside a space in ?dir=, so back/forward and reload keep both. A work with ?dir= is a folder in
 // the work's own tasks.
-export default function Home() {
+export default function Home({ all = false }) {
   const { t } = useTranslation();
   const { logout } = useAuth();
   const { origin = "", work = "", repository = "" } = useParams();
   const space = useMemo(() => (work ? { work, repository } : null), [work, repository]);
-  const spaceTo = origin ? api.originPath(origin) : work ? api.spacePath(work, repository) : null;
+  const spaceTo = all ? api.allPath : origin ? api.originPath(origin) : work ? api.spacePath(work, repository) : null;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const dir = searchParams.get("dir") || "";
-  // The tasks of several spaces in one list: a whole origin, or a work at its top.
-  const scope = useMemo(() => (origin ? { origin } : work && !repository && !dir ? { work } : null), [origin, work, repository, dir]);
+  // The tasks of several spaces in one list: every work, a whole origin, or a work at its top.
+  const scope = useMemo(
+    () => (all ? { all: "1" } : origin ? { origin } : work && !repository && !dir ? { work } : null),
+    [all, origin, work, repository, dir],
+  );
 
   const [works, setWorks] = useState(null);
   const [origins, setOrigins] = useState([]); // the named origins, { origin, income }, some maybe without works
@@ -70,7 +73,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
-  const [editor, setEditor] = useState({ open: false, task: null });
+  const [creating, setCreating] = useState(false); // the new task modal is open
+  const [focusKey, setFocusKey] = useState(null); // the task whose text the panel should focus
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null); // task to delete
   const [deleting, setDeleting] = useState(false);
@@ -121,7 +125,11 @@ export default function Home() {
     }
   }, [setSpaces]);
 
+  // Only the latest load may set the list: an earlier one answering late (after the path changed)
+  // would put another space's tasks on the right.
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     if (!scope && !space) {
       setData(EMPTY_DIR);
       setLoading(false);
@@ -130,13 +138,15 @@ export default function Home() {
     setLoading(true);
     try {
       const d = scope ? await api.listAllTasks(scope) : await api.listTasks(space, dir);
+      if (seq !== loadSeq.current) return;
       setData(d);
       setLoadError("");
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setData(EMPTY_DIR);
       setLoadError(e.message);
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, [scope, space, dir]);
 
@@ -148,25 +158,33 @@ export default function Home() {
   }, [loadSpaces]);
 
   useEffect(() => {
-    document.title = origin ? `taskmgr - ${origin}` : work ? `taskmgr - ${work}${repository ? ` / ${repository}` : ""}` : "taskmgr";
-  }, [origin, work, repository]);
+    document.title = all
+      ? `taskmgr - ${t("tree.allOrigins")}`
+      : origin
+        ? `taskmgr - ${origin}`
+        : work
+          ? `taskmgr - ${work}${repository ? ` / ${repository}` : ""}`
+          : "taskmgr";
+  }, [all, origin, work, repository, t]);
 
   useEffect(() => {
     setQuery("");
     load();
   }, [load]);
 
-  // The tree's rows in order (each origin, then its works and their repositories), including the
-  // spaces whose folder is missing.
+  // The tree's rows in order (all origins, each origin, then its works and their repositories),
+  // including the spaces whose folder is missing.
   const spaces = useMemo(
-    () =>
-      groupWorksByOrigin(treeWorks, origins).flatMap((g) => [
+    () => [
+      { to: api.allPath, exists: true },
+      ...groupWorksByOrigin(treeWorks, origins).flatMap((g) => [
         ...(g.origin ? [{ to: api.originPath(g.origin), exists: true }] : []),
         ...g.works.flatMap((w) => [
           { to: api.spacePath(w.work), root: w.root, exists: w.exists },
           ...w.repositories.map((p) => ({ to: api.spacePath(w.work, p.name), root: p.root, exists: p.exists })),
         ]),
       ]),
+    ],
     [treeWorks, origins],
   );
   // The space on the right when its task folder does not exist. A list of several spaces just
@@ -185,15 +203,18 @@ export default function Home() {
 
   // Every task with the space it lives in, a key unique across spaces, and, in a list of several
   // spaces, where it is from: the repository in a work's list, the work (and repository) in an
-  // origin's.
+  // origin's or in all of them.
   const tasks = useMemo(
     () =>
-      data.tasks.map((t) => {
+      // Until the new path's list arrives, the previous one may still be here; a task of one space
+      // has no space of its own to show on an origin's page, so it is left out.
+      data.tasks.flatMap((t) => {
         const s = t.work !== undefined ? { work: t.work, repository: t.repository } : space;
-        const from = !scope ? "" : origin ? [s.work, s.repository].filter(Boolean).join(" / ") : s.repository;
+        if (!s) return [];
+        const from = !scope ? "" : all || origin ? [s.work, s.repository].filter(Boolean).join(" / ") : s.repository;
         return { ...t, space: s, key: keyOf(s, t.rel), from };
       }),
-    [data.tasks, space, scope, origin],
+    [data.tasks, space, scope, all, origin],
   );
 
   // The month filter's entries; a month that this list has no task from shows every month.
@@ -231,7 +252,12 @@ export default function Home() {
     setPane("tasks");
   });
 
-  const openEditor = (task) => setEditor({ open: true, task });
+  // Edit a task in the panel: select it, show the panel and put the caret in its text.
+  const openEditor = (task) => {
+    setSelectedKey(task.key);
+    setDetailOpen(true);
+    setFocusKey(task.key);
+  };
 
   async function setStatus(task, status) {
     try {
@@ -261,34 +287,40 @@ export default function Home() {
     goTo(data.parent || "");
   }
 
+  // The text edited in the task panel. A new first line renames the folder; the task stays
+  // selected under its new rel unless another one was picked meanwhile.
+  async function saveText(task, text) {
+    try {
+      const { task: { rel } } = await api.saveTaskText(task.space, task.rel, text);
+      setSelectedKey((k) => (k === task.key ? keyOf(task.space, rel) : k));
+      await reload();
+      showToast(t("toast.saved"));
+    } catch (e) {
+      showToast(e.message, 4000);
+    }
+  }
+
   async function saveEditor(text, files = []) {
     setSaving(true);
     // a new task goes in the folder on the right; in a work's list, in the work's own tasks
-    const target = editor.task ? editor.task.space : space;
     try {
-      let rel;
-      if (editor.task) {
-        ({ task: { rel } } = await api.saveTaskText(target, editor.task.rel, text));
-      } else {
-        ({ task: { rel } } = await api.createTaskText(target, dir, text));
-        // the task exists now, so a failed upload must not keep the editor open for a second create
-        try {
-          for (const f of files) await api.uploadFile(target, rel, f);
-        } catch (e) {
-          showToast(t("toast.createdUploadFailed", { error: e.message }), 5000);
-        }
+      const { task: { rel } } = await api.createTaskText(space, dir, text);
+      // the task exists now, so a failed upload must not keep the editor open for a second create
+      try {
+        for (const f of files) await api.uploadFile(space, rel, f);
+      } catch (e) {
+        showToast(t("toast.createdUploadFailed", { error: e.message }), 5000);
       }
-      setEditor({ open: false, task: null });
-      // an edited task stays selected (its folder may have been renamed); a new one is not selected
-      if (editor.task) setSelectedKey(keyOf(target, rel));
+      setCreating(false);
       await reload();
-      showToast(editor.task ? t("toast.saved") : t("toast.created"));
+      showToast(t("toast.created"));
     } catch (e) {
       showToast(e.message, 4000);
     } finally {
       setSaving(false);
     }
   }
+
 
   // Remove an origin, a work or a repository from taskmgr.json; leave the space on the right when
   // it was in it.
@@ -320,7 +352,6 @@ export default function Home() {
       const i = visible.findIndex((t) => t.key === confirm.key);
       setSelectedKey(visible[Math.max(0, i - 1)]?.key ?? null);
       setConfirm(null);
-      setEditor({ open: false, task: null });
       await reload();
       showToast(t("toast.deleted"));
     } catch (e) {
@@ -389,7 +420,7 @@ export default function Home() {
 
   // The terminal's key bindings (see cli.js); :h lists them.
   useShortcuts((name) => {
-    if (editor.open || confirm || configOpen || editingWork || editingOrigin || adding || editingRepository || analysisOpen || command !== null) return false;
+    if (creating || confirm || configOpen || editingWork || editingOrigin || adding || editingRepository || analysisOpen || command !== null) return false;
     if (preview) {
       if (!["q", "enter", "space"].includes(name)) return false;
       setPreview(null);
@@ -435,7 +466,7 @@ export default function Home() {
         return true;
       case "a":
       case "n":
-        if (canAdd) setEditor({ open: true, task: null });
+        if (canAdd) setCreating(true);
         return true;
       case "e":
       case "i":
@@ -513,7 +544,7 @@ export default function Home() {
           <>
             <p className="muted">{data.isRoot ? t("home.noTasks") : t("home.noSubtasks")}</p>
             {canAdd && (
-              <button type="button" className="btn primary" onClick={() => setEditor({ open: true, task: null })}>
+              <button type="button" className="btn primary" onClick={() => setCreating(true)}>
                 <PlusIcon />
                 {t("header.newTask")}
               </button>
@@ -535,9 +566,7 @@ export default function Home() {
           tasks={visible}
           selectedKey={selected?.key}
           onSelect={(t) => setSelectedKey(t.key)}
-          onOpen={openEditor}
           onOpenFolder={openFolder}
-          onDelete={setConfirm}
           onToggleDone={toggleDone}
           onEnter={enterFolder}
         />
@@ -642,10 +671,10 @@ export default function Home() {
             if (!e.target.closest('[role="button"], button, a, input, label')) setSelectedKey(null);
           }}
         >
-          {origin && (
+          {(all || origin) && (
             <nav className={styles.section} aria-label={t("header.location")}>
               <button type="button" className={crumbClass(true)} disabled>
-                {origin}
+                {all ? t("tree.allOrigins") : origin}
               </button>
             </nav>
           )}
@@ -686,7 +715,7 @@ export default function Home() {
               <button
                 type="button"
                 className={`btn ${styles.addTask}`}
-                onClick={() => setEditor({ open: true, task: null })}
+                onClick={() => setCreating(true)}
                 disabled={!canAdd}
               >
                 <PlusIcon />
@@ -708,14 +737,7 @@ export default function Home() {
         </button>
         <aside className={styles.detail} data-open={detailOpen}>
           {spaceTo && (
-            <TaskPanel
-              space={selected?.space}
-              task={selected}
-              version={data}
-              onEdit={openEditor}
-              onEnter={enterFolder}
-              onPreview={(file) => setPreview({ ...file, space: selected.space })}
-            />
+            <TaskPanel task={selected} focusKey={focusKey} onFocused={() => setFocusKey(null)} onSave={saveText} onDelete={setConfirm} />
           )}
         </aside>
       </div>
@@ -819,18 +841,12 @@ export default function Home() {
       <HelpModal isOpen={help} onClose={() => setHelp(false)} />
 
       <TaskEditorModal
-        isOpen={editor.open}
-        space={editor.task ? editor.task.space : space}
-        task={editor.task}
+        isOpen={creating}
+        space={space}
         saving={saving}
-        onCancel={() => setEditor({ open: false, task: null })}
+        onCancel={() => setCreating(false)}
         onSave={saveEditor}
-        onEnter={(t) => {
-          setEditor({ open: false, task: null });
-          enterFolder(t);
-        }}
-        onDelete={(t) => setConfirm(t)}
-        onPreview={(file) => setPreview({ ...file, space: editor.task ? editor.task.space : space })}
+        onPreview={(file) => setPreview({ ...file, space })}
       />
 
       <FilePreviewModal space={preview?.space} file={preview} onClose={() => setPreview(null)} />

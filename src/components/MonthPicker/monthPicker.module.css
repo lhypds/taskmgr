@@ -66,11 +66,6 @@
   background: var(--bg-hover);
 }
 
-.month:focus-visible {
-  outline: var(--line) solid var(--focus);
-  outline-offset: -2px;
-}
-
 /* The list: a column of rows the month's height, their borders merging, the top one sharing the month's bottom line. It is no
    narrower than the month, so the months line up under it, and scrolls past half the window. */
 .list {

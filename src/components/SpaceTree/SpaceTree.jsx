@@ -89,8 +89,9 @@ function Row({ to, exists, hidden, depth, through = [], last, active, focused, l
   );
 }
 
-// An origin's name (and income) at the top of its tree; choosing it shows every task of its works.
-function Origin({ name, active, focused, income, actions, onSelect }) {
+// An origin's name (and income) at the top of its tree; choosing it (`to`) shows every task of its
+// works. "All origins" above the trees is one too, for every task.
+function Origin({ name, to, active, focused, income, actions, onSelect }) {
   const ref = useRef(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -104,15 +105,15 @@ function Origin({ name, active, focused, income, actions, onSelect }) {
       data-focused={active && focused}
       role="button"
       tabIndex={0}
-      onClick={() => onSelect(api.originPath(name))}
+      onClick={() => onSelect(to)}
     >
       <Top label={name} income={income} actions={actions} />
     </div>
   );
 }
 
-// The origins as trees, each with its works and their repositories; works without an origin come
-// last. `activeTo` is what is shown on the right; `focused` says the keyboard is on the tree rather
+// "All origins", then the origins as trees, each with its works and their repositories; works
+// without an origin come last. `activeTo` is what is shown on the right; `focused` says the keyboard is on the tree rather
 // than the task list. `onAdd` opens the add modal with what to start with: { type: "origin" } from
 // the head, a work into an origin, a repository into a work. `works` leaves out the hidden ones
 // unless `showHidden`; the checkbox under the head (with `hiddenCount`) turns that on and off.
@@ -143,101 +144,107 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
         ) : groups.length === 0 ? (
           <p className={styles.empty}>{t("tree.noOrigins")}</p>
         ) : (
-          groups.map((g) => {
-            const base = g.origin ? 1 : 0;
-            return (
-              <div key={g.origin} className={styles.group}>
-                {g.origin && (
-                  <Origin
-                    name={g.origin}
-                    income={g.income}
-                    active={activeTo === api.originPath(g.origin)}
-                    focused={focused}
-                    onSelect={onSelect}
-                    actions={
-                      <>
-                        <RowButton label={t("add.workInto")} onClick={() => onAdd({ type: "work", origin: g.origin })}>
-                          <PlusIcon />
-                        </RowButton>
-                        <RowButton label={t("origin.edit")} onClick={() => onEditOrigin({ origin: g.origin, income: g.income })}>
-                          <EditIcon />
-                        </RowButton>
-                        <RowButton label={t("origin.delete")} onClick={() => onDelete({ origin: g.origin })}>
-                          <TrashIcon />
-                        </RowButton>
-                      </>
-                    }
-                  />
-                )}
-                {g.works.map((w, wi) => {
-                  const lastWork = wi === g.works.length - 1;
-                  return [
-                    <Row
-                      key={w.work}
-                      to={api.spacePath(w.work)}
-                      exists={w.exists}
-                      hidden={w.hidden}
-                      depth={base}
-                      last={lastWork}
-                      active={activeTo === api.spacePath(w.work)}
+          <>
+            <div className={styles.group}>
+              <Origin name={t("tree.allOrigins")} to={api.allPath} active={activeTo === api.allPath} focused={focused} onSelect={onSelect} />
+            </div>
+            {groups.map((g) => {
+              const base = g.origin ? 1 : 0;
+              return (
+                <div key={g.origin} className={styles.group}>
+                  {g.origin && (
+                    <Origin
+                      name={g.origin}
+                      to={api.originPath(g.origin)}
+                      income={g.income}
+                      active={activeTo === api.originPath(g.origin)}
                       focused={focused}
-                      label={w.work}
-                      root={w.shownPath}
-                      income={w.income}
                       onSelect={onSelect}
                       actions={
                         <>
-                          <RowButton label={t("add.repositoryInto")} onClick={() => onAdd({ type: "repository", work: w.work })}>
+                          <RowButton label={t("add.workInto")} onClick={() => onAdd({ type: "work", origin: g.origin })}>
                             <PlusIcon />
                           </RowButton>
-                          <RowButton label={t("work.edit")} onClick={() => onEditWork(w)}>
+                          <RowButton label={t("origin.edit")} onClick={() => onEditOrigin({ origin: g.origin, income: g.income })}>
                             <EditIcon />
                           </RowButton>
-                          {w.root && (
-                            <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work })}>
-                              <FolderIcon />
-                            </RowButton>
-                          )}
-                          <RowButton label={t("work.delete")} onClick={() => onDelete({ work: w.work })}>
+                          <RowButton label={t("origin.delete")} onClick={() => onDelete({ origin: g.origin })}>
                             <TrashIcon />
                           </RowButton>
                         </>
                       }
-                    />,
-                    ...w.repositories.map((p, i) => (
+                    />
+                  )}
+                  {g.works.map((w, wi) => {
+                    const lastWork = wi === g.works.length - 1;
+                    return [
                       <Row
-                        key={`${w.work}/${p.name}`}
-                        to={api.spacePath(w.work, p.name)}
-                        exists={p.exists}
+                        key={w.work}
+                        to={api.spacePath(w.work)}
+                        exists={w.exists}
                         hidden={w.hidden}
-                        depth={base + 1}
-                        through={g.origin ? [!lastWork] : []}
-                        last={i === w.repositories.length - 1}
-                        active={activeTo === api.spacePath(w.work, p.name)}
+                        depth={base}
+                        last={lastWork}
+                        active={activeTo === api.spacePath(w.work)}
                         focused={focused}
-                        label={p.name}
-                        root={p.shownPath}
+                        label={w.work}
+                        root={w.shownPath}
+                        income={w.income}
                         onSelect={onSelect}
                         actions={
                           <>
-                            <RowButton label={t("repository.edit")} onClick={() => onEditRepository({ work: w.work, name: p.name, paths: p.paths })}>
+                            <RowButton label={t("add.repositoryInto")} onClick={() => onAdd({ type: "repository", work: w.work })}>
+                              <PlusIcon />
+                            </RowButton>
+                            <RowButton label={t("work.edit")} onClick={() => onEditWork(w)}>
                               <EditIcon />
                             </RowButton>
-                            <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work, repository: p.name })}>
-                              <FolderIcon />
-                            </RowButton>
-                            <RowButton label={t("repository.delete")} onClick={() => onDelete({ work: w.work, repository: p.name })}>
+                            {w.root && (
+                              <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work })}>
+                                <FolderIcon />
+                              </RowButton>
+                            )}
+                            <RowButton label={t("work.delete")} onClick={() => onDelete({ work: w.work })}>
                               <TrashIcon />
                             </RowButton>
                           </>
                         }
-                      />
-                    )),
-                  ];
-                })}
-              </div>
-            );
-          })
+                      />,
+                      ...w.repositories.map((p, i) => (
+                        <Row
+                          key={`${w.work}/${p.name}`}
+                          to={api.spacePath(w.work, p.name)}
+                          exists={p.exists}
+                          hidden={w.hidden}
+                          depth={base + 1}
+                          through={g.origin ? [!lastWork] : []}
+                          last={i === w.repositories.length - 1}
+                          active={activeTo === api.spacePath(w.work, p.name)}
+                          focused={focused}
+                          label={p.name}
+                          root={p.shownPath}
+                          onSelect={onSelect}
+                          actions={
+                            <>
+                              <RowButton label={t("repository.edit")} onClick={() => onEditRepository({ work: w.work, name: p.name, paths: p.paths })}>
+                                <EditIcon />
+                              </RowButton>
+                              <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work, repository: p.name })}>
+                                <FolderIcon />
+                              </RowButton>
+                              <RowButton label={t("repository.delete")} onClick={() => onDelete({ work: w.work, repository: p.name })}>
+                                <TrashIcon />
+                              </RowButton>
+                            </>
+                          }
+                        />
+                      )),
+                    ];
+                  })}
+                </div>
+              );
+            })}
+          </>
         )}
       </div>
     </div>

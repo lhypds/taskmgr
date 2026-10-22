@@ -85,8 +85,8 @@ export const deleteRepository = (work, name) => request(`/api/repository?${q({ w
 
 export const listTasks = (space, dir = "") => request(`/api/tasks?${q({ ...sp(space), dir })}`);
 
-// The tasks of a whole origin ({ origin }) or work ({ work }: its own and its repositories'), each
-// with the work and repository it lives in.
+// The tasks of every work ({ all: "1" }), a whole origin ({ origin }) or work ({ work }: its own and
+// its repositories'), each with the work and repository it lives in.
 export const listAllTasks = (scope) => request(`/api/tasks/all?${q(scope)}`);
 
 // fields: { status, details }
@@ -121,6 +121,9 @@ export const deleteFile = (space, rel) => request(`/api/file?${q({ ...sp(space),
 
 export const fileUrl = (space, rel, download = false) =>
   `/api/file?${q({ ...sp(space), rel, ...(download ? { download: "1" } : {}) })}`;
+
+// Route to the tasks of every origin.
+export const allPath = "/all";
 
 // Route to all the tasks of an origin.
 export const originPath = (origin) => `/o/${encodeURIComponent(origin)}`;

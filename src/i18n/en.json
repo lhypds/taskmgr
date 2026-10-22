@@ -9,7 +9,6 @@
     "close": "Close",
     "dialog": "Dialog",
     "edit": "Edit",
-    "subtasks": "Subtasks",
     "typeToConfirm": "Type “{{name}}” to confirm"
   },
   "status": {
@@ -18,15 +17,12 @@
     "pending": "pending"
   },
   "field": {
-    "detail": "detail",
     "created": "created",
-    "id": "id",
-    "task": "task",
-    "status": "status"
+    "task": "task"
   },
   "header": {
     "showDone": "Show done tasks",
-    "filter": "Filter by title or id",
+    "filter": "Search task...",
     "filterLabel": "Filter tasks",
     "clearFilter": "Clear filter",
     "up": "Up",
@@ -71,6 +67,7 @@
   },
   "tree": {
     "origins": "Origins",
+    "allOrigins": "All origins",
     "noOrigins": "No origins in taskmgr.json.",
     "openFolder": "Open folder",
     "showHidden": "Show hidden works ({{count}})"
@@ -83,8 +80,8 @@
   "panel": {
     "heading": "Task",
     "none": "No task selected.",
-    "details": "Details",
-    "noDetails": "No details."
+    "undo": "Undo",
+    "redo": "Redo"
   },
   "attach": {
     "title": "Attachments",
@@ -96,7 +93,6 @@
     "choose": "choose files"
   },
   "editor": {
-    "editTask": "Edit task",
     "newTask": "New task",
     "saveHint": "⌘S / Ctrl+S saves",
     "save": "Save",

@@ -1,6 +1,6 @@
 .table {
-  /* check | created | task | subtasks | buttons */
-  --cols: 32px 132px minmax(160px, 1fr) 28px 76px;
+  /* check | created | task | subtasks (only on a row that has them) */
+  --cols: 32px 132px minmax(160px, 1fr) auto;
   min-width: 360px;
   padding-bottom: 12px;
 }
@@ -77,6 +77,7 @@
 /* The title and the details after it wrap, so a task with more details makes a taller row, up
    to three lines. */
 .row > .title {
+  padding-right: 12px;
   white-space: normal;
 }
 
@@ -89,21 +90,12 @@
   word-break: break-word;
 }
 
-/* Buttons in the last column, at the right edge (edit, open folder, delete): shown only while the
-   row is hovered, as in the tree. The column keeps its width so nothing moves. */
+/* The edit, open folder and delete buttons, shown only while a progress card is hovered. */
 .rowActions {
   display: flex;
   justify-content: flex-end;
   gap: 4px;
   visibility: hidden;
-}
-
-.row > .rowActions {
-  padding-right: 12px;
-}
-
-.row:hover > .rowActions {
-  visibility: visible;
 }
 
 .rowButton {
@@ -142,6 +134,7 @@
 }
 
 .enter {
+  width: 28px;
   padding: 0 !important;
   display: flex;
   justify-content: center;

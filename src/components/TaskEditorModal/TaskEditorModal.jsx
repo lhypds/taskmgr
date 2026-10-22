@@ -1,56 +1,29 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { Modal, TextArea } from "@ui";
-import { TrashIcon, ChevronRightIcon } from "@components/icons";
-import Attachments, { useTaskFiles } from "@components/Attachments";
-import * as api from "@utils/api";
+import Attachments from "@components/Attachments";
 import styles from "./editor.module.css";
 
-// A new task file is just its details; the first line becomes the title.
-const TEMPLATE = "";
-
-// The task file in one text area, the way the terminal opens it in $EDITOR. `task` is null for a
-// new task; `isOpen` is separate so a closed editor keeps its last text until it reopens.
-// An existing task uploads attachments right away and gets buttons to go into its subtasks and
-// delete it; a new task keeps its attachments until it is saved (onSave(text, files)).
-export default function TaskEditorModal({ isOpen, space, task, saving, onCancel, onSave, onEnter, onDelete, onPreview }) {
+// A new task in one text area, the way the terminal opens it in $EDITOR; the first line becomes
+// the title. `isOpen` is separate so a closed editor keeps its last text until it reopens. Its
+// attachments are kept until it is saved (onSave(text, files)). An existing task is edited in the
+// task panel instead.
+export default function TaskEditorModal({ isOpen, space, saving, onCancel, onSave, onPreview }) {
   const { t } = useTranslation();
-  const [text, setText] = useState(null); // null while the file loads
-  const [pending, setPending] = useState([]); // File objects for a new task
-  const { files, uploading, add, remove } = useTaskFiles(space, isOpen ? task?.rel : null);
+  const [text, setText] = useState("");
+  const [pending, setPending] = useState([]); // File objects
   const textRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setPending([]);
-    if (!task) {
-      setText(TEMPLATE);
-      return;
-    }
-    setText(null);
-    let stale = false;
-    api
-      .getTaskText(space, task.rel)
-      .then((d) => !stale && setText(d.text))
-      .catch((e) => !stale && setText(`${e.message}`));
-    return () => {
-      stale = true;
-    };
-  }, [isOpen, task, space]);
-
-  // Once the text is in, focus it with the caret at the end, where the details go.
-  const loaded = text !== null;
-  useEffect(() => {
-    if (!isOpen || !loaded) return;
-    const el = textRef.current;
-    if (!el) return;
-    el.focus();
-    el.setSelectionRange(el.value.length, el.value.length);
-  }, [isOpen, loaded]);
+    setText("");
+    textRef.current?.focus();
+  }, [isOpen]);
 
   function submit(e) {
     e?.preventDefault();
-    if (saving || uploading || text === null) return;
+    if (saving) return;
     onSave(text, pending);
   }
 
@@ -62,53 +35,33 @@ export default function TaskEditorModal({ isOpen, space, task, saving, onCancel,
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onCancel} title={task ? t("editor.editTask") : t("editor.newTask")} closeOnOverlay={false} className={styles.modal}>
+    <Modal isOpen={isOpen} onClose={onCancel} title={t("editor.newTask")} closeOnOverlay={false} className={styles.modal}>
       <form className={styles.form} onSubmit={submit} onKeyDown={onKeyDown}>
         <TextArea
           ref={textRef}
           className={styles.text}
           minHeight={320}
-          value={text ?? ""}
-          placeholder={text === null ? t("common.loading") : ""}
-          disabled={text === null}
+          value={text}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
-          aria-label={task ? t("editor.editTask") : t("editor.newTask")}
+          aria-label={t("editor.newTask")}
         />
 
         <Attachments
           space={space}
           onPreview={onPreview}
-          files={files}
+          files={[]}
           pending={pending}
-          busy={uploading}
-          onAdd={(list) => (task ? add(list) : setPending((p) => [...p, ...list]))}
-          onRemove={remove}
+          onAdd={(list) => setPending((p) => [...p, ...list])}
           onRemovePending={(i) => setPending((p) => p.filter((_, j) => j !== i))}
         />
 
         <div className={styles.actions}>
-          {task ? (
-            <>
-              {task.hasSubtask && (
-                <button type="button" className="btn lg" onClick={() => onEnter(task)}>
-                  <ChevronRightIcon />
-                  {t("common.subtasks")}
-                </button>
-              )}
-              <button type="button" className="btn lg" onClick={() => onDelete(task)}>
-                <TrashIcon />
-                {t("common.delete")}
-              </button>
-              <span className={styles.spacer} />
-            </>
-          ) : (
-            <span className={`muted ${styles.hint}`}>{t("editor.saveHint")}</span>
-          )}
+          <span className={`muted ${styles.hint}`}>{t("editor.saveHint")}</span>
           <button type="button" className="btn lg" onClick={onCancel} disabled={saving}>
             {t("common.cancel")}
           </button>
-          <button type="submit" className="btn lg primary" disabled={saving || uploading || text === null}>
+          <button type="submit" className="btn lg primary" disabled={saving}>
             {saving ? t("editor.saving") : t("editor.save")}
           </button>
         </div>

@@ -5,13 +5,6 @@
   min-height: 100%;
 }
 
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 12px;
-}
-
 /* The head, as the tree's "Origins": it stays at the top while the details scroll. */
 .bar {
   position: sticky;
@@ -27,14 +20,14 @@
   border-bottom: var(--line) solid var(--border);
 }
 
-.barActions {
-  display: flex;
-  gap: 4px;
-}
-
 .barTitle {
   font-size: 12px;
   font-weight: 600;
+}
+
+.barActions {
+  display: flex;
+  gap: 4px;
 }
 
 .empty {
@@ -46,49 +39,30 @@
   text-align: center;
 }
 
-.title {
-  min-width: 0;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.meta {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 6px 8px;
+/* The task's text fills the rest of the pane, over a faint grid as liveboard's Note: a cell is
+   two characters wide and one line tall, so an indent of two spaces is one cell. The grid starts
+   where the text does (inside the padding) and scrolls with it. */
+.text {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
   margin: 0;
-}
-
-.meta dt {
-  color: var(--muted);
-}
-
-.meta dd {
-  margin: 0;
-  min-width: 0;
-  word-break: break-word;
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.sectionTitle {
-  color: var(--muted);
-}
-
-.details {
-  margin: 0;
+  padding: 12px;
+  border: none;
+  outline: none;
+  resize: none;
+  background-color: transparent;
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 2ch 1.5em;
+  background-repeat: repeat; /* ress turns it off everywhere */
+  background-origin: content-box;
+  background-attachment: local;
+  color: var(--fg);
   font-family: var(--font);
+  font-size: inherit;
   line-height: 1.5;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
-.subtasks {
-  align-self: flex-start;
-}

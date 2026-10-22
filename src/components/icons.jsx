@@ -123,6 +123,24 @@ export function RefreshIcon({ className }) {
   );
 }
 
+export function UndoIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <polyline points="9 14 4 9 9 4" />
+      <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
+    </Icon>
+  );
+}
+
+export function RedoIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <polyline points="15 14 20 9 15 4" />
+      <path d="M20 9H9a5 5 0 0 0 0 10h3" />
+    </Icon>
+  );
+}
+
 export function UserIcon({ className }) {
   return (
     <Icon className={className}>

@@ -51,7 +51,7 @@ export function TaskActions({ task, className = "", onOpen, onOpenFolder, onDele
 
 // `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into view. A task's
 // `from` (the work or repository it lives in, in a list of several) shows before its title.
-export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onOpenFolder, onDelete, onToggleDone, onEnter }) {
+export default function TaskList({ tasks, selectedKey, onSelect, onOpenFolder, onToggleDone, onEnter }) {
   const { t: tr } = useTranslation();
   const selectedRef = useRef(null);
   useEffect(() => {
@@ -64,8 +64,6 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onOpenF
         <div />
         <div>{tr("field.created")}</div>
         <div>{tr("field.task")}</div>
-        <div />
-        <div />
       </div>
       {tasks.map((t) => (
         <div
@@ -91,12 +89,12 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onOpenF
             {t.from && <span className="tag">{t.from}</span>}
             <span className={styles.titleText}>
               {t.title || <span className="muted">{tr("common.untitled")}</span>}
-              <span className={styles.detail}>{splitDetails(t.details).body.replace(/\s+/g, " ")}</span>
+              <span className={styles.detail}>{splitDetails(t.details).body.split("\n")[0]}</span>
             </span>
             {t.status === "pending" && <span className="tag pending">{tr("status.pending")}</span>}
           </div>
-          <div className={styles.enter}>
-            {t.hasSubtask && (
+          {t.hasSubtask && (
+            <div className={styles.enter}>
               <button
                 type="button"
                 className={styles.enterButton}
@@ -108,9 +106,8 @@ export default function TaskList({ tasks, selectedKey, onSelect, onOpen, onOpenF
               >
                 <ChevronRightIcon />
               </button>
-            )}
-          </div>
-          <TaskActions task={t} onOpen={onOpen} onOpenFolder={onOpenFolder} onDelete={onDelete} />
+            </div>
+          )}
         </div>
       ))}
     </div>

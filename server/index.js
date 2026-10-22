@@ -445,11 +445,12 @@ app.get('/api/tasks', (req, res) => {
   res.json(listDir(spaceFrom(req.query), String(req.query.dir || '')));
 });
 
-// Every task of an origin (?origin=: all its works and their repositories) or of one work
-// (?work=: its common tasks and its repositories'), in one list.
+// Every task of every work (?all=1), of an origin (?origin=: all its works and their
+// repositories) or of one work (?work=: its common tasks and its repositories'), in one list.
 app.get('/api/tasks/all', (req, res) => {
   const origin = String(req.query.origin || '');
   const work = String(req.query.work || '');
+  if (req.query.all) return res.json(listSpacesTasks(config.getWorks().flatMap(workSpaces), ''));
   if (origin) {
     if (!config.getOrigins().some(o => o.origin === origin)) throw new HttpError(404, `Unknown origin "${origin}".`);
     const works = config.getWorks().filter(w => w.origin === origin);
