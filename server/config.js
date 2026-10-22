@@ -16,7 +16,7 @@
 //               "once": [{ "amount": 100000, "currency": "JPY" }]
 //             },
 //             "hidden": true,                     // optional, left out of the tree unless hidden works are shown
-//             "tasks_path": "~/gcc3",             // common tasks of this work
+//             "tasks_path": "~/gcc3",             // optional, common tasks of this work
 //             "repositories": [
 //               {
 //                 "repository": "repository a",
@@ -34,10 +34,10 @@
 // read, and is rewritten as "origins" when the file is saved from the web UI; so is a repository's
 // older "name", which becomes "repository".
 //
-// Config file precedence: command-line argument, then TASKMGR_CONFIG in .env / environment,
-// then <project>/taskmgr.json. The file is re-read when it changes, so edits apply without a restart.
+// The config file is always <project>/taskmgr.json. It is re-read when it changes, so edits apply
+// without a restart.
 //
-// The web UI's login accounts are in <project>/data/users.json, or TASKMGR_USERS in .env (see server/auth.js).
+// The web UI's login accounts are in <project>/data/users.json (see server/auth.js).
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -212,8 +212,9 @@ function repositoryTasksRoot(tasks, source) {
 function normalizeWork(w, at, origin, seenWorks) {
   if (!w || typeof w !== 'object') throw new Error(`${at} must be an object.`);
   if (!isNonEmptyString(w.work)) throw new Error(`${at}.work must be a non-empty string.`);
-  if (!isNonEmptyString(w.tasks_path)) throw new Error(`${at} ("${w.work}") needs a "tasks_path" folder.`);
   const work = w.work.trim();
+  if (w.tasks_path !== undefined && typeof w.tasks_path !== 'string') throw new Error(`${at}.tasks_path ("${work}") must be a string.`);
+  const tasksPath = (w.tasks_path || '').trim();
   if (work.includes('/')) throw new Error(`${at}.work "${work}" must not contain "/".`);
   if (seenWorks.has(work)) throw new Error(`Duplicate work name "${work}".`);
   seenWorks.add(work);
@@ -234,9 +235,10 @@ function normalizeWork(w, at, origin, seenWorks) {
     origin,
     income,
     hidden: w.hidden === true,
-    root: path.resolve(expandHome(w.tasks_path.trim())),
+    // "" when the work has no common tasks folder, only its repositories'.
+    root: tasksPath ? path.resolve(expandHome(tasksPath)) : '',
     // The path as written in taskmgr.json (with "~" kept), for the UI to show.
-    shownPath: w.tasks_path.trim(),
+    shownPath: tasksPath,
     repositories: repositories.map((p, j) => {
       if (!p || typeof p !== 'object') throw new Error(`${at}.repositories[${j}] ("${work}") must be an object.`);
       if (!isNonEmptyString(p.repository)) throw new Error(`${at}.repositories[${j}].repository ("${work}") must be a non-empty string.`);
@@ -254,7 +256,9 @@ function normalizeWork(w, at, origin, seenWorks) {
         root: repositoryTasksRoot(tasks, source),
         sourcePath: source ? path.resolve(expandHome(source)) : '',
         // Its source code folder as written in taskmgr.json, or its tasks folder when it has none.
-        shownPath: source || tasks
+        shownPath: source || tasks,
+        // Both folders as written ("" when left out), for editing.
+        paths: { source, tasks }
       };
     })
   };
@@ -286,35 +290,19 @@ function readConfigFile(configPath) {
   return parseConfig(text, configPath);
 }
 
-// Where the config file is, without reading it: { configPath, source }.
-// Precedence: argument, then TASKMGR_CONFIG, then <project>/taskmgr.json.
-function resolveConfigPath(argv) {
+function resolveConfig() {
   loadDotenv();
-
-  const arg = (argv && argv.length > 0) ? argv[0] : '';
-  const envPath = (process.env.TASKMGR_CONFIG || '').trim();
-  let source = 'default';
-  let configPath = DEFAULT_CONFIG_PATH;
-  if (arg) { configPath = arg; source = 'argument'; }
-  else if (envPath) { configPath = envPath; source = '.env (TASKMGR_CONFIG)'; }
-  configPath = path.resolve(expandHome(configPath));
-  return { configPath, source };
-}
-
-function resolveConfig(argv) {
-  const { configPath, source } = resolveConfigPath(argv);
+  const configPath = DEFAULT_CONFIG_PATH;
 
   if (!fs.existsSync(configPath)) {
-    const hint = (configPath === DEFAULT_CONFIG_PATH && fs.existsSync(EXAMPLE_CONFIG_PATH))
-      ? ` Copy taskmgr.json.example to taskmgr.json and list your works there.`
-      : '';
-    throw new Error(`Config file not found: ${configPath} (from ${source}).${hint}`);
+    const hint = fs.existsSync(EXAMPLE_CONFIG_PATH) ? ` Copy taskmgr.json.example to taskmgr.json and list your works there.` : '';
+    throw new Error(`Config file not found: ${configPath}.${hint}`);
   }
 
   const first = readConfigFile(configPath);
   const port = parseInt(process.env.PORT || 3456, 10);
   const host = process.env.HOST || '127.0.0.1';
-  const usersPath = path.resolve(expandHome((process.env.TASKMGR_USERS || '').trim() || DEFAULT_USERS_PATH));
+  const usersPath = DEFAULT_USERS_PATH;
 
   // Works and origins are re-read when the file's mtime changes; a broken edit keeps the last good ones.
   let cached = { mtimeMs: fs.statSync(configPath).mtimeMs, ...first };
@@ -392,15 +380,20 @@ function resolveConfig(argv) {
     return out;
   }
 
-  // Set one work's name, income ({ monthly, once }; null removes it) and, when given, whether it is
-  // hidden (false removes the key), and rewrite the file as 2-space indented JSON. Uniqueness and
-  // the "/" rule are checked by writeText.
-  function updateWork(work, { name, income, hidden }) {
+  // Set one work's name, income ({ monthly, once }; null removes it) and, when given, its tasks
+  // folder ("" removes it) and whether it is hidden (false removes the key), and rewrite the file as 2-space
+  // indented JSON. Uniqueness and the "/" rule are checked by writeText.
+  function updateWork(work, { name, income, hidden, tasksPath }) {
     const raw = readRaw();
     const { w, list } = findRawWork(raw, work);
     const newName = name.trim();
     if (!newName) throw new Error('The name must not be empty.');
     w.work = newName;
+    if (tasksPath !== undefined) {
+      const tasks = tasksPath.trim();
+      if (tasks) w.tasks_path = tasks;
+      else delete w.tasks_path;
+    }
     const out = withIncome(w, income);
     if (hidden === true) out.hidden = true;
     else if (hidden === false) delete out.hidden;
@@ -432,21 +425,20 @@ function resolveConfig(argv) {
   }
 
   // Add a work at the end of its origin (which must be named; it is added when it does not exist),
-  // with no repositories. The tasks folder is created when it does not exist yet, so the work can
-  // be opened right away.
+  // with no repositories. The tasks folder, when given, is created when it does not exist yet, so
+  // the work can be opened right away.
   function addWork({ name, origin, tasksPath, income }) {
     const raw = readRaw();
     const work = name.trim();
     if (!work) throw new Error('The name must not be empty.');
     const originName = origin.trim();
     if (!originName) throw new Error('The origin must not be empty.');
-    const tasks = tasksPath.trim();
-    if (!tasks) throw new Error('The tasks folder must not be empty.');
+    const tasks = (tasksPath || '').trim();
     const g = findRawOrigin(raw, originName, true);
     if (!Array.isArray(g.works)) g.works = [];
-    g.works.push(withIncome({ work, tasks_path: tasks, repositories: [] }, income));
+    g.works.push(withIncome({ work, ...(tasks ? { tasks_path: tasks } : {}), repositories: [] }, income));
     write(raw);
-    fs.mkdirSync(path.resolve(expandHome(tasks)), { recursive: true });
+    if (tasks) fs.mkdirSync(path.resolve(expandHome(tasks)), { recursive: true });
   }
 
   // Add a repository at the end of a work; its tasks folder is created like a new work's. With no
@@ -465,22 +457,58 @@ function resolveConfig(argv) {
     fs.mkdirSync(repositoryTasksRoot(tasks, source), { recursive: true });
   }
 
-  // Rename one repository of a work. Uniqueness and the "/" rule are checked by writeText.
-  function renameRepository(work, from, to) {
+  // Set one repository's name, source folder and tasks folder; an empty folder is left out, as
+  // when adding one. Uniqueness and the "/" rule are checked by writeText.
+  function updateRepository(work, from, { name, tasksPath, sourcePath }) {
     const raw = readRaw();
     const { w } = findRawWork(raw, work);
-    const p = (Array.isArray(w.repositories) ? w.repositories : []).find(x => named(x, 'repository', from));
+    const list = Array.isArray(w.repositories) ? w.repositories : [];
+    const p = list.find(x => named(x, 'repository', from));
     if (!p) throw new Error(`No repository named "${from}" in "${work}".`);
-    const name = to.trim();
-    if (!name) throw new Error('The name must not be empty.');
-    p.repository = name;
+    const repository = name.trim();
+    if (!repository) throw new Error('The name must not be empty.');
+    const tasks = (tasksPath || '').trim();
+    const source = (sourcePath || '').trim();
+    if (!tasks && !source) throw new Error('Give a tasks folder or a source folder.');
+    // Rebuilt so the keys keep their usual order; any others stay after them.
+    const { repository: _r, name: _n, source_path: _s, tasks_path: _t, ...rest } = p;
+    list[list.indexOf(p)] = { repository, ...(source ? { source_path: source } : {}), ...(tasks ? { tasks_path: tasks } : {}), ...rest };
+    write(raw);
+  }
+
+  // Remove one work, with its repositories, from the file. Its folders are left as they are.
+  function removeWork(work) {
+    const raw = readRaw();
+    const { w, list } = findRawWork(raw, work);
+    list.splice(list.indexOf(w), 1);
+    write(raw);
+  }
+
+  // Remove one origin, with its works and their repositories, from the file. Their folders are
+  // left as they are.
+  function removeOrigin(origin) {
+    const raw = readRaw();
+    const g = origin && findRawOrigin(raw, origin, false);
+    if (!g) throw new Error(`No origin named "${origin}".`);
+    raw.origins.splice(raw.origins.indexOf(g), 1);
+    write(raw);
+  }
+
+  // Remove one repository of a work from the file. Its folders are left as they are.
+  function removeRepository(work, name) {
+    const raw = readRaw();
+    const { w } = findRawWork(raw, work);
+    const list = Array.isArray(w.repositories) ? w.repositories : [];
+    const p = list.find(x => named(x, 'repository', name));
+    if (!p) throw new Error(`No repository named "${name}" in "${work}".`);
+    list.splice(list.indexOf(p), 1);
     write(raw);
   }
 
   return {
-    configPath, configSource: source, port, host, usersPath, getWorks, getOrigins, readText, writeText,
-    addOrigin, addWork, addRepository, updateWork, updateOrigin, renameRepository
+    configPath, port, host, usersPath, getWorks, getOrigins, readText, writeText,
+    addOrigin, addWork, addRepository, updateWork, updateOrigin, updateRepository, removeOrigin, removeWork, removeRepository
   };
 }
 
-module.exports = { resolveConfig, resolveConfigPath, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH };
+module.exports = { resolveConfig, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH };

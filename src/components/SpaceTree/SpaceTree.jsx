@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
-import { EditIcon, FolderIcon, PlusIcon } from "@components/icons";
+import { EditIcon, FolderIcon, PlusIcon, TrashIcon } from "@components/icons";
 import { Checkbox } from "@ui";
 import * as api from "@utils/api";
 import { formatIncome, formatIncomeShort } from "@utils/income";
@@ -116,7 +116,7 @@ function Origin({ name, active, focused, income, actions, onSelect }) {
 // than the task list. `onAdd` opens the add modal with what to start with: { type: "origin" } from
 // the head, a work into an origin, a repository into a work. `works` leaves out the hidden ones
 // unless `showHidden`; the checkbox under the head (with `hiddenCount`) turns that on and off.
-export default function SpaceTree({ works, origins, error, activeTo, focused, showHidden, hiddenCount, onShowHidden, onSelect, onEdit, onAdd, onEditWork, onEditOrigin, onEditRepository, onOpenFolder }) {
+export default function SpaceTree({ works, origins, error, activeTo, focused, showHidden, hiddenCount, onShowHidden, onSelect, onEdit, onAdd, onEditWork, onEditOrigin, onEditRepository, onOpenFolder, onDelete }) {
   const { t } = useTranslation();
   const groups = groupWorksByOrigin(works, origins);
   return (
@@ -162,6 +162,9 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
                         <RowButton label={t("origin.edit")} onClick={() => onEditOrigin({ origin: g.origin, income: g.income })}>
                           <EditIcon />
                         </RowButton>
+                        <RowButton label={t("origin.delete")} onClick={() => onDelete({ origin: g.origin })}>
+                          <TrashIcon />
+                        </RowButton>
                       </>
                     }
                   />
@@ -190,8 +193,13 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
                           <RowButton label={t("work.edit")} onClick={() => onEditWork(w)}>
                             <EditIcon />
                           </RowButton>
-                          <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work })}>
-                            <FolderIcon />
+                          {w.root && (
+                            <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work })}>
+                              <FolderIcon />
+                            </RowButton>
+                          )}
+                          <RowButton label={t("work.delete")} onClick={() => onDelete({ work: w.work })}>
+                            <TrashIcon />
                           </RowButton>
                         </>
                       }
@@ -212,11 +220,14 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
                         onSelect={onSelect}
                         actions={
                           <>
-                            <RowButton label={t("repository.rename")} onClick={() => onEditRepository({ work: w.work, name: p.name })}>
+                            <RowButton label={t("repository.edit")} onClick={() => onEditRepository({ work: w.work, name: p.name, paths: p.paths })}>
                               <EditIcon />
                             </RowButton>
                             <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work, repository: p.name })}>
                               <FolderIcon />
+                            </RowButton>
+                            <RowButton label={t("repository.delete")} onClick={() => onDelete({ work: w.work, repository: p.name })}>
+                              <TrashIcon />
                             </RowButton>
                           </>
                         }

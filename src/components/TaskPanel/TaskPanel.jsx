@@ -11,7 +11,7 @@ export default function TaskPanel(props) {
   const { t } = useTranslation();
   const { task, onEdit } = props;
   return (
-    <div>
+    <div className={styles.root}>
       <div className={styles.bar}>
         <span className={styles.barTitle}>{t("panel.heading")}</span>
         <div className={styles.barActions}>

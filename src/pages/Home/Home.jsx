@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SpaceTree, TaskList, TaskBoard, MonthPicker, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryNameModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
+import { SpaceTree, TaskList, TaskBoard, MonthPicker, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryEditModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
 import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon, PieIcon, ListIcon, BoardIcon } from "@components/icons";
 import { BOARD_STATUSES, boardStatus } from "@components/TaskBoard";
 import { showToast, Checkbox } from "@ui";
@@ -82,7 +82,8 @@ export default function Home() {
   const [editingWork, setEditingWork] = useState(null); // work whose name and income are being edited
   const [adding, setAdding] = useState(null); // what the add modal starts with: { type, origin, work }
   const [editingOrigin, setEditingOrigin] = useState(null); // { origin, income } of the origin being edited
-  const [renaming, setRenaming] = useState(null); // { work, name } of the repository being renamed
+  const [editingRepository, setEditingRepository] = useState(null); // { work, name, paths } of the repository being edited
+  const [removing, setRemoving] = useState(null); // { origin } or { work, repository? } to remove from taskmgr.json
   const [showHidden, setShowHidden] = useState(() => readFlag("tree.showHidden", false)); // the tree shows hidden works too
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [view, setView] = useState(readView);
@@ -289,6 +290,27 @@ export default function Home() {
     }
   }
 
+  // Remove an origin, a work or a repository from taskmgr.json; leave the space on the right when
+  // it was in it.
+  async function confirmRemove() {
+    const { origin: o, work: w, repository: r } = removing;
+    const kind = o ? "origin" : r ? "repository" : "work";
+    const showing = o
+      ? origin === o || (!!work && works.find((x) => x.work === work)?.origin === o)
+      : work === w && (!r || repository === r);
+    setDeleting(true);
+    try {
+      setSpaces(o ? await api.deleteOrigin(o) : r ? await api.deleteRepository(w, r) : await api.deleteWork(w));
+      setRemoving(null);
+      if (showing) navigate("/", { replace: true });
+      showToast(t(`${kind}.deleted`));
+    } catch (e) {
+      showToast(e.message, 4000);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function confirmDelete() {
     if (!confirm) return;
     setDeleting(true);
@@ -345,8 +367,9 @@ export default function Home() {
     else showToast(t("toast.notCommand", { cmd }));
   }
 
-  // An origin has no tasks folder of its own to add to.
-  const canAdd = !!space && !origin && !loadError;
+  // An origin, or a work without a tasks folder of its own, has nowhere to add to.
+  const workRoot = (works || []).find((w) => w.work === work)?.root;
+  const canAdd = !!space && !origin && !loadError && (!!repository || !!workRoot);
 
   // On the tree: j / k move through the spaces (the right side follows), l / enter go over to
   // the tasks.
@@ -366,7 +389,7 @@ export default function Home() {
 
   // The terminal's key bindings (see cli.js); :h lists them.
   useShortcuts((name) => {
-    if (editor.open || confirm || configOpen || editingWork || editingOrigin || adding || renaming || analysisOpen || command !== null) return false;
+    if (editor.open || confirm || configOpen || editingWork || editingOrigin || adding || editingRepository || analysisOpen || command !== null) return false;
     if (preview) {
       if (!["q", "enter", "space"].includes(name)) return false;
       setPreview(null);
@@ -593,8 +616,9 @@ export default function Home() {
             onAdd={setAdding}
             onEditWork={setEditingWork}
             onEditOrigin={setEditingOrigin}
-            onEditRepository={setRenaming}
+            onEditRepository={setEditingRepository}
             onOpenFolder={openSpaceFolder}
+            onDelete={setRemoving}
           />
         </aside>
         <button
@@ -777,16 +801,16 @@ export default function Home() {
         }}
       />
 
-      <RepositoryNameModal
-        repository={renaming}
-        onClose={() => setRenaming(null)}
+      <RepositoryEditModal
+        repository={editingRepository}
+        onClose={() => setEditingRepository(null)}
         onSaved={(d, newName) => {
-          const { work: inWork, name } = renaming;
-          setRenaming(null);
+          const { work: inWork, name } = editingRepository;
+          setEditingRepository(null);
           setSpaces(d);
-          // Follow the rename when the repository is the one on the right.
+          // Follow a rename when the repository is the one on the right.
           if (spaceTo === api.spacePath(inWork, name)) navigate({ pathname: api.spacePath(inWork, newName), search: searchParams.toString() }, { replace: true });
-          showToast(t("repository.renamed"));
+          showToast(t("repository.saved"));
         }}
       />
 
@@ -818,6 +842,22 @@ export default function Home() {
         busy={deleting}
         onCancel={() => setConfirm(null)}
         onConfirm={confirmDelete}
+      />
+
+      <ConfirmModal
+        isOpen={!!removing}
+        title={t(removing?.origin ? "origin.delete" : removing?.repository ? "repository.delete" : "work.delete")}
+        message={
+          removing
+            ? t(removing.origin ? "origin.deleteMessage" : removing.repository ? "repository.deleteMessage" : "work.deleteMessage", {
+                name: removing.origin || removing.repository || removing.work
+              })
+            : ""
+        }
+        typeToConfirm={removing?.origin}
+        busy={deleting}
+        onCancel={() => setRemoving(null)}
+        onConfirm={confirmRemove}
       />
     </div>
   );

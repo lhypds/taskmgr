@@ -9,7 +9,8 @@
     "close": "閉じる",
     "dialog": "ダイアログ",
     "edit": "編集",
-    "subtasks": "サブタスク"
+    "subtasks": "サブタスク",
+    "typeToConfirm": "確認のため「{{name}}」と入力してください"
   },
   "status": {
     "todo": "未着手",
@@ -199,16 +200,22 @@
     "empty": "収入を 1 件以上追加するか、「なし」を選んでください。"
   },
   "repository": {
-    "rename": "repository の名前を変更",
+    "edit": "repository を編集",
     "name": "名前",
     "nameEmpty": "名前を入力してください。",
-    "renamed": "repository の名前を変更しました",
-    "added": "repository を追加しました"
+    "saved": "repository を保存しました",
+    "added": "repository を追加しました",
+    "delete": "repository を削除",
+    "deleteMessage": "「{{name}}」を taskmgr.json から削除しますか？フォルダとタスクは残ります。",
+    "deleted": "repository を削除しました"
   },
   "origin": {
     "edit": "origin を編集",
     "saved": "origin を保存しました",
-    "added": "origin を追加しました"
+    "added": "origin を追加しました",
+    "delete": "origin を削除",
+    "deleteMessage": "「{{name}}」とそのすべての work・repository を taskmgr.json から削除しますか？フォルダとタスクは残ります。",
+    "deleted": "origin を削除しました"
   },
   "work": {
     "name": "名前",
@@ -219,9 +226,10 @@
     "origin": "組織",
     "originEmpty": "origin を入力してください。",
     "tasksPath": "タスクフォルダ",
-    "tasksPathPlaceholder": "例：~/tasks",
-    "tasksPathEmpty": "タスクフォルダを入力してください。",
-    "hide": "この work を非表示にする"
+    "hide": "この work を非表示にする",
+    "delete": "work を削除",
+    "deleteMessage": "「{{name}}」とその repository を taskmgr.json から削除しますか？フォルダとタスクは残ります。",
+    "deleted": "work を削除しました"
   },
   "add": {
     "title": "追加",

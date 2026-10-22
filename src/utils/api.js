@@ -67,15 +67,21 @@ export const addRepository = ({ work, name, tasksPath, sourcePath }) => request(
 // Add a work to an origin.
 export const addWork = ({ name, origin, tasksPath, income }) => request("/api/work", json("POST", { name, origin, tasksPath, income }));
 
-// Set one work's name, income ({ monthly, once }, lists of { amount, currency }; null clears it)
-// and whether it is hidden.
-export const saveWork = (work, { name, income, hidden }) => request("/api/work", json("PUT", { work, name, income, hidden }));
+// Set one work's name, income ({ monthly, once }, lists of { amount, currency }; null clears it),
+// tasks folder and whether it is hidden.
+export const saveWork = (work, { name, income, hidden, tasksPath }) => request("/api/work", json("PUT", { work, name, income, hidden, tasksPath }));
 
 // Set one origin's name and income, as saveWork does for a work.
 export const saveOrigin = (origin, { name, income }) => request("/api/origin", json("PUT", { origin, name, income }));
 
-// Rename one repository of a work.
-export const renameRepository = (work, name, newName) => request("/api/repository/name", json("PUT", { work, name, newName }));
+// Set one repository's name, source folder and tasks folder (either may be "", not both).
+export const saveRepository = (work, name, { newName, sourcePath, tasksPath }) =>
+  request("/api/repository", json("PUT", { work, name, newName, sourcePath, tasksPath }));
+
+// Remove one origin (with its works), work or repository of a work from taskmgr.json; the folders are kept.
+export const deleteOrigin = (origin) => request(`/api/origin?${q({ origin })}`, { method: "DELETE" });
+export const deleteWork = (work) => request(`/api/work?${q({ work })}`, { method: "DELETE" });
+export const deleteRepository = (work, name) => request(`/api/repository?${q({ work, name })}`, { method: "DELETE" });
 
 export const listTasks = (space, dir = "") => request(`/api/tasks?${q({ ...sp(space), dir })}`);
 

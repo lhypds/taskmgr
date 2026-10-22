@@ -9,7 +9,8 @@
     "close": "关闭",
     "dialog": "对话框",
     "edit": "编辑",
-    "subtasks": "子任务"
+    "subtasks": "子任务",
+    "typeToConfirm": "输入“{{name}}”以确认"
   },
   "status": {
     "todo": "待办",
@@ -199,16 +200,22 @@
     "empty": "请至少添加一笔收入，或选择“没有收入”。"
   },
   "repository": {
-    "rename": "重命名 repository",
+    "edit": "编辑 repository",
     "name": "名称",
     "nameEmpty": "名称不能为空。",
-    "renamed": "repository 已重命名",
-    "added": "repository 已添加"
+    "saved": "repository 已保存",
+    "added": "repository 已添加",
+    "delete": "删除 repository",
+    "deleteMessage": "从 taskmgr.json 中移除“{{name}}”？其文件夹和任务会保留。",
+    "deleted": "repository 已删除"
   },
   "origin": {
     "edit": "编辑 origin",
     "saved": "origin 已保存",
-    "added": "origin 已添加"
+    "added": "origin 已添加",
+    "delete": "删除 origin",
+    "deleteMessage": "从 taskmgr.json 中移除“{{name}}”及其所有 work 和 repository？它们的文件夹和任务会保留。",
+    "deleted": "origin 已删除"
   },
   "work": {
     "name": "名称",
@@ -219,9 +226,10 @@
     "origin": "所属组织",
     "originEmpty": "origin 不能为空。",
     "tasksPath": "任务文件夹",
-    "tasksPathPlaceholder": "例如：~/tasks",
-    "tasksPathEmpty": "任务文件夹不能为空。",
-    "hide": "隐藏这个 work"
+    "hide": "隐藏这个 work",
+    "delete": "删除 work",
+    "deleteMessage": "从 taskmgr.json 中移除“{{name}}”及其 repository？它们的文件夹和任务会保留。",
+    "deleted": "work 已删除"
   },
   "add": {
     "title": "添加",

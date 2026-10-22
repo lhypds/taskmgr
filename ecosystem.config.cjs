@@ -16,7 +16,6 @@ function getEnvVar(key, defaultValue) {
 
 const PORT = getEnvVar('PORT', '3456');
 const PM2_NAME = getEnvVar('PM2_NAME', 'taskmgr');
-const TASKMGR_CONFIG = getEnvVar('TASKMGR_CONFIG', '');
 
 module.exports = {
   apps: [
@@ -27,7 +26,6 @@ module.exports = {
       time: true,
       env: {
         PORT: PORT,
-        TASKMGR_CONFIG: TASKMGR_CONFIG,
         NODE_ENV: 'production',
       },
     },

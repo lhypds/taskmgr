@@ -1,6 +1,6 @@
 // Login for the web UI: several people may open it, and every account sees the same works.
 //
-// Accounts live in data/users.json (TASKMGR_USERS in .env points elsewhere), written by hand
+// Accounts live in data/users.json, written by hand
 // (see data/users.example.json):
 //
 //   [

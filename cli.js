@@ -17,7 +17,7 @@ const {
 } = require('./utils/taskUtils');
 const { clearScreen } = require('./utils/screenUtils');
 const { getEditor, getEditorInfo, getEditorCommand } = require('./utils/editorUtils');
-const { resolveConfig, resolveConfigPath, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH } = require('./server/config');
+const { resolveConfig, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH } = require('./server/config');
 
 // load .env
 const path = require('path');
@@ -283,7 +283,7 @@ function createWorkPicker(screen, config, onPick) {
     const nameWidth = Math.max(4, ...entries.map(e => displayWidth(e.name)));
     const infoWidth = Math.max(4, ...infos.map(displayWidth));
     list.setItems(entries.map((e, i) =>
-      `  ${padToWidth(e.name, nameWidth)}  ${padToWidth(infos[i], infoWidth)}  ${e.root}`));
+      `  ${padToWidth(e.name, nameWidth)}  ${padToWidth(infos[i], infoWidth)}  ${e.root || '(no tasks folder)'}`));
     list.select(Math.min(lastSelected, Math.max(0, entries.length - 1)));
     showStatus();
   }
@@ -309,6 +309,11 @@ function createWorkPicker(screen, config, onPick) {
   list.key(['enter', 'l', 'right'], () => {
     const e = entries[list.selected];
     if (!e) return;
+    if (!e.root) {
+      statusBar.setContent(`${e.label} has no tasks folder of its own.`);
+      screen.render();
+      return;
+    }
     if (!isDirectory(e.root)) {
       statusBar.setContent(`Folder not found: ${e.root}`);
       screen.render();
@@ -945,19 +950,19 @@ const USAGE = `Usage: tm [<folder> | config | help]
 To open a folder named "config" or "help", prefix it: tm ./config
 
 The editor is EDITOR (or VISUAL) from .env / the environment; default: ${process.platform === 'win32' ? 'notepad' : 'vim'}.
-Config file: TASKMGR_CONFIG in .env / the environment, else ${DEFAULT_CONFIG_PATH}.
+Config file: ${DEFAULT_CONFIG_PATH}.
 Inside the task list, type :h for the key bindings.`;
 
-// `tm config`: open the config file in the editor. A missing default config is first
-// created from taskmgr.json.example, so a fresh install can be configured right away.
+// `tm config`: open the config file in the editor. A missing config is first created from
+// taskmgr.json.example, so a fresh install can be configured right away.
 function editConfig() {
-  const { configPath, source } = resolveConfigPath([]);
+  const configPath = DEFAULT_CONFIG_PATH;
   if (!fs.existsSync(configPath)) {
-    if (configPath === DEFAULT_CONFIG_PATH && fs.existsSync(EXAMPLE_CONFIG_PATH)) {
+    if (fs.existsSync(EXAMPLE_CONFIG_PATH)) {
       fs.copyFileSync(EXAMPLE_CONFIG_PATH, configPath);
       console.log(`Created ${configPath} from taskmgr.json.example`);
     } else {
-      console.error(`Config file not found: ${configPath} (from ${source}).`);
+      console.error(`Config file not found: ${configPath}.`);
       process.exit(1);
     }
   }
@@ -1009,7 +1014,7 @@ function main() {
   // `tm`: pick a work or one of its repositories from the taskmgr.json tree, then open its folder.
   let config;
   try {
-    config = resolveConfig([]);
+    config = resolveConfig();
   } catch (e) {
     console.error(`Error: ${e.message}`);
     console.error('Run `tm config` to edit the config, or `tm <folder>` (for example `tm .`) to open a folder of tasks directly.');

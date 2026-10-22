@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run the web UI in the foreground with Vite's dev server (hot reload, no pm2). Ctrl+C stops it.
-# Usage: ./preview.sh [path/to/taskmgr.json]
+# Usage: ./preview.sh
 set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -36,4 +36,4 @@ URL="http://localhost:${PORT}/"
 
 echo "Previewing taskmgr web UI at $URL (Ctrl+C to stop)"
 export NODE_ENV=development
-exec node server/index.js "$@"
+exec node server/index.js

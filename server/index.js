@@ -2,10 +2,9 @@
 // taskmgr web UI server: an Express app exposing the task folders as a JSON API
 // and serving the React frontend (Vite in dev, the prebuilt dist/ in production).
 //
-//   node server/index.js [tasks-root]
+//   node server/index.js
 //
-// The works and repositories (each a folder of tasks) come from taskmgr.json, see server/config.js:
-//   node server/index.js [path/to/taskmgr.json]
+// The works and repositories (each a folder of tasks) come from taskmgr.json, see server/config.js.
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -42,7 +41,7 @@ const DEV = process.env.NODE_ENV === 'development'
 
 let config;
 try {
-  config = resolveConfig(process.argv.slice(2));
+  config = resolveConfig();
 } catch (e) {
   console.error(`Error: ${e.message}`);
   process.exit(1);
@@ -71,6 +70,7 @@ function spaceFrom(params) {
   if (!work) throw new HttpError(400, 'Missing work.');
   const space = findSpace(work, repository);
   if (!space) throw new HttpError(404, repository ? `Unknown repository "${repository}" in "${work}".` : `Unknown work "${work}".`);
+  if (!space.root) throw new HttpError(404, `"${work}" has no tasks folder of its own.`);
   if (!fs.existsSync(space.root) || !fs.statSync(space.root).isDirectory()) {
     throw new HttpError(404, `Folder not found: ${space.root}`);
   }
@@ -195,7 +195,8 @@ function listDir(space, rel) {
 }
 
 // The top-level tasks of several spaces in one list, each task saying which space it lives in
-// (its rel is relative to that space's root). Spaces whose folder is missing are skipped.
+// (its rel is relative to that space's root). Spaces whose folder is missing (or that have none)
+// are skipped.
 function listSpacesTasks(spaces, absDir) {
   const tasks = [];
   for (const s of spaces) {
@@ -214,9 +215,10 @@ function workSpaces(w) {
   ];
 }
 
-// The works/repositories list with, for each folder, whether it exists.
+// The works/repositories list with, for each folder, whether it exists. A work without a tasks
+// folder of its own (root "") is not missing one.
 function listSpaces() {
-  const describe = (root) => ({ root, exists: fs.existsSync(root) && fs.statSync(root).isDirectory() });
+  const describe = (root) => ({ root, exists: !root || (fs.existsSync(root) && fs.statSync(root).isDirectory()) });
   return config.getWorks().map(w => ({
     work: w.work,
     origin: w.origin,
@@ -224,7 +226,7 @@ function listSpaces() {
     hidden: w.hidden,
     shownPath: w.shownPath,
     ...describe(w.root),
-    repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, shownPath: p.shownPath, ...describe(p.root) }))
+    repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, shownPath: p.shownPath, paths: p.paths, ...describe(p.root) }))
   }));
 }
 
@@ -300,8 +302,8 @@ app.put('/api/config', (req, res) => {
 
 // Add a work to taskmgr.json.
 app.post('/api/work', (req, res) => {
-  const { name, origin = '', tasksPath, income = null } = req.body || {};
-  if (typeof name !== 'string' || typeof origin !== 'string' || typeof tasksPath !== 'string') throw new HttpError(400, 'Missing name or tasksPath.');
+  const { name, origin = '', tasksPath = '', income = null } = req.body || {};
+  if (typeof name !== 'string' || typeof origin !== 'string' || typeof tasksPath !== 'string') throw new HttpError(400, 'Missing name.');
   try {
     config.addWork({ name, origin, tasksPath, income });
   } catch (e) {
@@ -310,13 +312,15 @@ app.post('/api/work', (req, res) => {
   res.status(201).json(spacesBody());
 });
 
-// Set the name, income (null clears it) and, when given, whether it is hidden, of one work in taskmgr.json.
+// Set the name, income (null clears it) and, when given, the tasks folder and whether it is hidden,
+// of one work in taskmgr.json.
 app.put('/api/work', (req, res) => {
-  const { work, name, income, hidden } = req.body || {};
+  const { work, name, income, hidden, tasksPath } = req.body || {};
   if (typeof work !== 'string' || typeof name !== 'string' || income === undefined) throw new HttpError(400, 'Missing work, name or income.');
   if (hidden !== undefined && typeof hidden !== 'boolean') throw new HttpError(400, '"hidden" must be true or false.');
+  if (tasksPath !== undefined && typeof tasksPath !== 'string') throw new HttpError(400, '"tasksPath" must be a string.');
   try {
-    config.updateWork(work, { name, income, hidden });
+    config.updateWork(work, { name, income, hidden, tasksPath });
   } catch (e) {
     throw new HttpError(400, e.message);
   }
@@ -335,12 +339,48 @@ app.put('/api/origin', (req, res) => {
   res.json(spacesBody());
 });
 
-// Rename one repository of a work in taskmgr.json.
-app.put('/api/repository/name', (req, res) => {
-  const { work, name, newName } = req.body || {};
-  if (typeof work !== 'string' || typeof name !== 'string' || typeof newName !== 'string') throw new HttpError(400, 'Missing work, name or newName.');
+// Set the name, source folder and tasks folder of one repository of a work in taskmgr.json.
+app.put('/api/repository', (req, res) => {
+  const { work, name, newName, tasksPath = '', sourcePath = '' } = req.body || {};
+  if (typeof work !== 'string' || typeof name !== 'string' || typeof newName !== 'string' || typeof tasksPath !== 'string' || typeof sourcePath !== 'string') {
+    throw new HttpError(400, 'Missing work, name or newName.');
+  }
   try {
-    config.renameRepository(work, name, newName);
+    config.updateRepository(work, name, { name: newName, tasksPath, sourcePath });
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
+// Remove one origin, with its works, from taskmgr.json; their folders are kept.
+app.delete('/api/origin', (req, res) => {
+  const origin = String(req.query.origin || '');
+  try {
+    config.removeOrigin(origin);
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
+// Remove one work from taskmgr.json; its folders are kept.
+app.delete('/api/work', (req, res) => {
+  const work = String(req.query.work || '');
+  try {
+    config.removeWork(work);
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
+// Remove one repository of a work from taskmgr.json; its folders are kept.
+app.delete('/api/repository', (req, res) => {
+  const work = String(req.query.work || '');
+  const name = String(req.query.name || '');
+  try {
+    config.removeRepository(work, name);
   } catch (e) {
     throw new HttpError(400, e.message);
   }
@@ -382,6 +422,7 @@ app.post('/api/space/open', (req, res) => {
   const p = repository ? w?.repositories.find(x => x.name === repository) : null;
   if (!w || (repository && !p)) throw new HttpError(404, repository ? `Unknown repository "${repository}" in "${work}".` : `Unknown work "${work}".`);
   const dir = p ? p.sourcePath || p.root : w.root;
+  if (!dir) throw new HttpError(404, `"${work}" has no tasks folder of its own.`);
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) throw new HttpError(404, `Folder not found: ${dir}`);
   openFolder(dir);
   res.json({ ok: true });
@@ -391,6 +432,7 @@ app.post('/api/space/open', (req, res) => {
 app.post('/api/space/create', (req, res) => {
   const space = findSpace(String(req.body?.work || ''), String(req.body?.repository || ''));
   if (!space) throw new HttpError(404, 'Unknown work or repository.');
+  if (!space.root) throw new HttpError(400, `"${space.work}" has no tasks folder of its own.`);
   fs.mkdirSync(space.root, { recursive: true });
   res.status(201).json(spacesBody());
 });
@@ -594,10 +636,10 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 mountFrontend().then(() => {
   const server = app.listen(config.port, config.host, () => {
     console.log('taskmgr web UI' + (DEV ? ' (dev)' : ''));
-    console.log(`  config     : ${config.configPath}  (from ${config.configSource})`);
+    console.log(`  config     : ${config.configPath}`);
     console.log(`  users      : ${config.usersPath}`);
     for (const w of config.getWorks()) {
-      console.log(`  work       : ${w.work}${w.origin ? ` (${w.origin})` : ''}  ${w.root}`);
+      console.log(`  work       : ${w.work}${w.origin ? ` (${w.origin})` : ''}  ${w.root || '(no tasks folder)'}`);
       for (const p of w.repositories) console.log(`    repository : ${p.name}  ${p.root}${p.sourcePath ? `  (source: ${p.sourcePath})` : ''}`);
     }
     console.log(`  url        : http://${config.host}:${config.port}/`);

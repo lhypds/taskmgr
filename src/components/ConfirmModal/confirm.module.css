@@ -18,3 +18,13 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  color: var(--muted);
+}

@@ -9,7 +9,8 @@
     "close": "Close",
     "dialog": "Dialog",
     "edit": "Edit",
-    "subtasks": "Subtasks"
+    "subtasks": "Subtasks",
+    "typeToConfirm": "Type “{{name}}” to confirm"
   },
   "status": {
     "todo": "todo",
@@ -199,16 +200,22 @@
     "empty": "Add at least one income, or choose “No income”."
   },
   "repository": {
-    "rename": "Rename repository",
+    "edit": "Edit repository",
     "name": "Name",
     "nameEmpty": "The name must not be empty.",
-    "renamed": "Repository renamed",
-    "added": "Repository added"
+    "saved": "Repository saved",
+    "added": "Repository added",
+    "delete": "Delete repository",
+    "deleteMessage": "Remove “{{name}}” from taskmgr.json? Its folders and tasks are kept.",
+    "deleted": "Repository deleted"
   },
   "origin": {
     "edit": "Edit origin",
     "saved": "Origin saved",
-    "added": "Origin added"
+    "added": "Origin added",
+    "delete": "Delete origin",
+    "deleteMessage": "Remove “{{name}}” and all its works and repositories from taskmgr.json? Their folders and tasks are kept.",
+    "deleted": "Origin deleted"
   },
   "work": {
     "name": "Name",
@@ -219,9 +226,10 @@
     "origin": "Origin",
     "originEmpty": "The origin must not be empty.",
     "tasksPath": "Tasks folder",
-    "tasksPathPlaceholder": "e.g. ~/tasks",
-    "tasksPathEmpty": "The tasks folder must not be empty.",
-    "hide": "Hide this work"
+    "hide": "Hide this work",
+    "delete": "Delete work",
+    "deleteMessage": "Remove “{{name}}” and its repositories from taskmgr.json? Their folders and tasks are kept.",
+    "deleted": "Work deleted"
   },
   "add": {
     "title": "Add",
