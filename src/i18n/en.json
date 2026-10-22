@@ -163,5 +163,11 @@
     "passwordEmpty": "Please enter a password",
     "invalid": "Wrong username or password",
     "logout": "Log out"
+  },
+  "reward": {
+    "title": "Reward of {{work}}",
+    "placeholder": "e.g. 500,000 JPY / month (empty to remove)",
+    "edit": "Edit reward",
+    "saved": "Reward saved"
   }
 }

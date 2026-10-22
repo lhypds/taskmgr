@@ -49,6 +49,9 @@ export const getConfig = () => request("/api/config");
 
 export const saveConfig = (text) => request("/api/config", json("PUT", { text }));
 
+// Set one work's reward ("" clears it); resolves to the new { works }.
+export const saveWorkReward = (work, reward) => request("/api/work/reward", json("PUT", { work, reward }));
+
 export const listTasks = (space, dir = "") => request(`/api/tasks?${q({ ...sp(space), dir })}`);
 
 // fields: { status, labels, origin, details }

@@ -8,6 +8,7 @@
 //       {
 //         "work": "gcc3.com",
 //         "orgin": "gcc3",                      // optional, the organization the work is for
+//         "reward": "500,000 JPY / month",      // optional, what the work pays
 //         "tasks_path": "~/gcc3",               // common tasks of this work
 //         "repositories": [
 //           {
@@ -75,6 +76,7 @@ function normalizeWorks(raw) {
     if (seenWorks.has(work)) throw new Error(`Duplicate work name "${work}".`);
     seenWorks.add(work);
     if (w.orgin !== undefined && typeof w.orgin !== 'string') throw new Error(`works[${i}].orgin ("${work}") must be a string.`);
+    if (w.reward !== undefined && typeof w.reward !== 'string') throw new Error(`works[${i}].reward ("${work}") must be a string.`);
 
     const seenRepositories = new Set();
     const repositories = (w.repositories === undefined ? [] : w.repositories);
@@ -82,6 +84,7 @@ function normalizeWorks(raw) {
     return {
       work,
       orgin: (w.orgin || '').trim(),
+      reward: (w.reward || '').trim(),
       root: path.resolve(expandHome(w.tasks_path.trim())),
       repositories: repositories.map((p, j) => {
         if (!p || typeof p !== 'object') throw new Error(`works[${i}].repositories[${j}] ("${work}") must be an object.`);
@@ -186,7 +189,18 @@ function resolveConfig(argv) {
     return parsed.works;
   }
 
-  return { configPath, configSource: source, port, host, usersPath, getWorks, readText, writeText };
+  // Set one work's reward ("" removes it) and rewrite the file as 2-space indented JSON.
+  function setWorkReward(work, reward) {
+    const raw = JSON.parse(readText());
+    const w = (Array.isArray(raw.works) ? raw.works : []).find(x => x && typeof x.work === 'string' && x.work.trim() === work);
+    if (!w) throw new Error(`No work named "${work}".`);
+    const value = reward.trim();
+    if (value) w.reward = value;
+    else delete w.reward;
+    return writeText(JSON.stringify(raw, null, 2) + '\n');
+  }
+
+  return { configPath, configSource: source, port, host, usersPath, getWorks, readText, writeText, setWorkReward };
 }
 
 module.exports = { resolveConfig, resolveConfigPath, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH };

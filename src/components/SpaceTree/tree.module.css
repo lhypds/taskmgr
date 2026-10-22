@@ -140,6 +140,47 @@
   font-weight: 600;
 }
 
+/* Edit button for a work's reward: shown while the row is hovered or on the right. */
+.rewardEdit {
+  flex: none;
+  display: none;
+  align-items: center;
+  margin-right: auto;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.rewardEdit svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rewardEdit:hover,
+.rewardEdit:focus-visible {
+  color: var(--fg);
+}
+
+.row:hover .rewardEdit,
+.row[data-active="true"] .rewardEdit,
+.rewardEdit:focus-visible {
+  display: inline-flex;
+}
+
+.reward {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .root {
   color: var(--muted);
   font-size: 10px;

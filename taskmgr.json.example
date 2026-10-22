@@ -3,6 +3,7 @@
     {
       "work": "gcc3.com",
       "orgin": "gcc3",
+      "reward": "500,000 JPY / month",
       "tasks_path": "~/gcc3/tasks",
       "repositories": [
         {

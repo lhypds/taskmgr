@@ -269,7 +269,7 @@ function createWorkPicker(screen, config, onPick) {
   function buildEntries(works) {
     const rows = [];
     for (const w of works) {
-      rows.push({ name: w.work + (w.orgin ? ` (${w.orgin})` : ''), label: w.work, root: w.root });
+      rows.push({ name: w.work + (w.orgin ? ` (${w.orgin})` : '') + (w.reward ? `  ${w.reward}` : ''), label: w.work, root: w.root });
       w.repositories.forEach((p, i) => {
         const glyph = (i === w.repositories.length - 1) ? '└─ ' : '├─ ';
         rows.push({ name: glyph + p.name, label: `${w.work} / ${p.name}`, root: p.root });

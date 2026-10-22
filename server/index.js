@@ -207,6 +207,7 @@ function listSpaces() {
   return config.getWorks().map(w => ({
     work: w.work,
     orgin: w.orgin,
+    reward: w.reward,
     ...describe(w.root),
     repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, ...describe(p.root) }))
   }));
@@ -272,6 +273,18 @@ app.put('/api/config', (req, res) => {
   if (typeof text !== 'string') throw new HttpError(400, 'Missing text.');
   try {
     config.writeText(text);
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json({ works: listSpaces() });
+});
+
+// Set or clear the reward of one work in taskmgr.json.
+app.put('/api/work/reward', (req, res) => {
+  const { work, reward } = req.body || {};
+  if (typeof work !== 'string' || typeof reward !== 'string') throw new HttpError(400, 'Missing work or reward.');
+  try {
+    config.setWorkReward(work, reward);
   } catch (e) {
     throw new HttpError(400, e.message);
   }

@@ -17,7 +17,8 @@ function Counts({ counts }) {
   );
 }
 
-function Row({ to, exists, level, last, active, focused, label, root, counts, onSelect }) {
+function Row({ to, exists, level, last, active, focused, label, root, counts, reward, onSelect, onEditReward }) {
+  const { t } = useTranslation();
   const ref = useRef(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -38,8 +39,27 @@ function Row({ to, exists, level, last, active, focused, label, root, counts, on
       {level === "repository" && <span className={styles.tree} aria-hidden="true" />}
       <div className={styles.top}>
         <span className={styles.name}>{label}</span>
+        {onEditReward && (
+          <button
+            type="button"
+            className={styles.rewardEdit}
+            title={t("reward.edit")}
+            aria-label={t("reward.edit")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditReward();
+            }}
+          >
+            <EditIcon />
+          </button>
+        )}
         <Counts counts={counts} />
       </div>
+      {reward && (
+        <div className={styles.reward} title={reward}>
+          {reward}
+        </div>
+      )}
       <div className={`mono ${styles.root}`} title={root}>
         {root}
       </div>
@@ -49,7 +69,7 @@ function Row({ to, exists, level, last, active, focused, label, root, counts, on
 
 // The works and their repositories as a tree. `activeTo` is the space shown on the right; `focused`
 // says the keyboard is on the tree rather than the task list.
-export default function SpaceTree({ works, error, activeTo, focused, onSelect, onEdit }) {
+export default function SpaceTree({ works, error, activeTo, focused, onSelect, onEdit, onEditReward }) {
   const { t } = useTranslation();
   return (
     <div className={styles.panel}>
@@ -79,7 +99,9 @@ export default function SpaceTree({ works, error, activeTo, focused, onSelect, o
                 label={w.orgin ? `${w.work} (${w.orgin})` : w.work}
                 root={w.root}
                 counts={w.counts}
+                reward={w.reward}
                 onSelect={onSelect}
+                onEditReward={() => onEditReward(w)}
               />
               {w.repositories.map((p, i) => (
                 <Row

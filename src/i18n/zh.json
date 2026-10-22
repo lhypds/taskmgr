@@ -163,5 +163,11 @@
     "passwordEmpty": "请输入密码",
     "invalid": "用户名或密码错误",
     "logout": "退出登录"
+  },
+  "reward": {
+    "title": "{{work}} 的报酬",
+    "placeholder": "例如：每月 50 万日元（留空则删除）",
+    "edit": "编辑报酬",
+    "saved": "报酬已保存"
   }
 }

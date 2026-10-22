@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SpaceTree, TaskList, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, LanguageSwitcher, UserMenu } from "@components";
+import { SpaceTree, TaskList, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkRewardModal, LanguageSwitcher, UserMenu } from "@components";
 import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon } from "@components/icons";
 import { showToast } from "@ui";
 import { useAuth } from "@store";
@@ -60,6 +60,7 @@ export default function Home() {
   const [command, setCommand] = useState(null); // text after ":" while in command mode
   const [preview, setPreview] = useState(null); // attachment shown in the preview modal
   const [configOpen, setConfigOpen] = useState(false);
+  const [rewardWork, setRewardWork] = useState(null); // work whose reward is being edited
 
   useEffect(() => writeFlag("panel.tree", treeOpen), [treeOpen]);
   useEffect(() => writeFlag("panel.detail", detailOpen), [detailOpen]);
@@ -266,7 +267,7 @@ export default function Home() {
 
   // The terminal's key bindings (see cli.js); :h lists them.
   useShortcuts((name) => {
-    if (editor.open || confirm || configOpen || command !== null) return false;
+    if (editor.open || confirm || configOpen || rewardWork || command !== null) return false;
     if (preview) {
       if (!["q", "enter", "space"].includes(name)) return false;
       setPreview(null);
@@ -448,6 +449,7 @@ export default function Home() {
             focused={pane === "tree"}
             onSelect={(to) => selectSpace(to)}
             onEdit={() => setConfigOpen(true)}
+            onEditReward={setRewardWork}
           />
         </aside>
         <button
@@ -553,6 +555,17 @@ export default function Home() {
           setWorks(w);
           setWorksError("");
           showToast(t("config.saved"));
+        }}
+      />
+
+      <WorkRewardModal
+        work={rewardWork}
+        onClose={() => setRewardWork(null)}
+        onSaved={(w) => {
+          setRewardWork(null);
+          setWorks(w);
+          setWorksError("");
+          showToast(t("reward.saved"));
         }}
       />
 

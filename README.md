@@ -232,6 +232,7 @@ The bare `tm` command reads the same file:
     {
       "work": "gcc3.com",
       "orgin": "gcc3",
+      "reward": "500,000 JPY / month",
       "tasks_path": "~/gcc3/tasks",
       "repositories": [
         { "name": "repository a", "tasks_path": "~/gcc3/repository-a/tasks", "source_path": "~/gcc3/repository-a" }
@@ -240,7 +241,7 @@ The bare `tm` command reads the same file:
   ]
 }
 ```
-`tasks_path` is the folder holding the task folders (`~` is expanded). `orgin` (optional) is the organization the work is for, shown next to its name. `source_path` (optional) is a repository's source code folder. The file is re-read when it changes.  
+`tasks_path` is the folder holding the task folders (`~` is expanded). `orgin` (optional) is the organization the work is for, shown next to its name. `reward` (optional) is what the work pays, shown under its name and editable from the pencil button on the work's row in the web UI. `source_path` (optional) is a repository's source code folder. The file is re-read when it changes.  
 `PORT` / `HOST` in `.env` set the port (default 3456) and host (default 127.0.0.1); `TASKMGR_CONFIG` in `.env` points at a config file elsewhere.  
 
 Login: the web UI asks for a username and password. Accounts are a list in `data/users.json`  
