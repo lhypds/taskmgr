@@ -514,4 +514,4 @@ function resolveConfig() {
   };
 }
 
-module.exports = { resolveConfig, loadDotenv, parseConfig, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH, DEFAULT_DATA_DIR };
+module.exports = { resolveConfig, loadDotenv, parseConfig, upgradeRaw, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH, DEFAULT_DATA_DIR };

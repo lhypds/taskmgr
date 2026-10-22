@@ -8,7 +8,7 @@ running the web UI), which keeps a copy under its `data/` folder, laid out like 
 
 ```
 data/
-  taskmgr.json                     the pushed taskmgr.json, as written
+  taskmgr.json                     the pushed taskmgr.json files, merged
   origins/
     <origin>/                      "_" for the works without an origin
       <work>/
@@ -25,9 +25,11 @@ last good one stay watched), and each tasks folder as a snapshot of its task fil
 with the folder it is in, `done` / `pending` folders and subtasks included, whenever anything in the  
 folder changes. The server replaces its copy with the snapshot, so a renamed, moved or deleted task  
 is mirrored too; a task folder without a `task.txt` is mirrored as a bare folder. Attachments are not  
-pushed. When a work or repository is renamed in or removed from `taskmgr.json`, the server removes  
-its old folder. A tasks folder that does not exist is left as it is on the server and looked for every  
-30 seconds. Changes go out about 1.5 seconds after they happen; at startup and every 5 minutes the  
+pushed. The server merges a pushed `taskmgr.json` into its own: origins, works and repositories it  
+does not have are added, the ones it has take the pushed settings, and the ones it has that were not  
+pushed are kept, with their folders (so several machines can push to one server; a work or  
+repository renamed or removed on one machine stays on the server until removed there). A tasks  
+folder that does not exist is left as it is on the server and looked for every 30 seconds. Changes go out about 1.5 seconds after they happen; at startup and every 5 minutes the  
 daemon asks the server what it has and pushes what differs, and a push that fails (the server is  
 down) is retried, with growing waits, until it goes through.  
 

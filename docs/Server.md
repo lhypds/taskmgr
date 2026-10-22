@@ -167,11 +167,14 @@ Defined in `server/sync.js`, used by `taskmgrd` (see [taskmgrd.md](taskmgrd.md))
 401 `INVALID_TOKEN` for a wrong one.  
 
 `GET /api/sync`  
-What the server has: `{ ok, config, spaces }`, the sha1 of its `taskmgr.json` (`null` when there is none)  
+What the server has: `{ ok, config, spaces }`, the sha1 of the last pushed `taskmgr.json` (`null` when there is none)  
 and of each space's last snapshot, keyed `origin/work/repository` (`""` for no origin, or the work's common tasks).  
 
 `PUT /api/sync/config` `{ text }`  
-Write `data/taskmgr.json` and prune `data/origins/` to what is in it. `{ ok, pruned }`.  
+Merge the pushed config into `data/taskmgr.json` and prune `data/origins/` to what is in it. `{ ok, pruned }`.  
+Origins, works and repositories only on the server are kept, those only pushed are added; a work in both  
+(same origin, same name) takes the pushed fields, its repositories merged the same way (the pushed one wins  
+for a repository in both). A work pushed under another origin moves there. 409 when the merge is invalid.  
 
 `PUT /api/sync/space` `{ origin, work, repository, entries }`  
 Replace one tasks folder: `entries` are `{ path, content }` for task files and `{ path, dir: true }` for a  
