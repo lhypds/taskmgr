@@ -20,6 +20,10 @@
   border-bottom: var(--line) solid var(--border);
 }
 
+.bar[data-focused="true"] {
+  background: var(--bg-hover);
+}
+
 .barTitle {
   font-size: 12px;
   font-weight: 600;
@@ -53,8 +57,7 @@
   resize: none;
   background-color: transparent;
   background-image:
-    linear-gradient(to right, var(--grid) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    linear-gradient(to right, var(--grid) 1px, transparent 1px), linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
   background-size: 2ch 1.5em;
   background-repeat: repeat; /* ress turns it off everywhere */
   background-origin: content-box;
@@ -65,4 +68,3 @@
   line-height: 1.5;
   word-break: break-word;
 }
-

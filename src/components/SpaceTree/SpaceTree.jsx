@@ -117,15 +117,38 @@ function Origin({ name, to, active, focused, income, actions, onSelect }) {
 // than the task list. `onAdd` opens the add modal with what to start with: { type: "origin" } from
 // the head, a work into an origin, a repository into a work. `works` leaves out the hidden ones
 // unless `showHidden`; the checkbox under the head (with `hiddenCount`) turns that on and off.
-export default function SpaceTree({ works, origins, error, activeTo, focused, showHidden, hiddenCount, onShowHidden, onSelect, onEdit, onAdd, onEditWork, onEditOrigin, onEditRepository, onOpenFolder, onDelete }) {
+export default function SpaceTree({
+  works,
+  origins,
+  error,
+  activeTo,
+  focused,
+  showHidden,
+  hiddenCount,
+  onShowHidden,
+  onSelect,
+  onEdit,
+  onAdd,
+  onEditWork,
+  onEditOrigin,
+  onEditRepository,
+  onOpenFolder,
+  onDelete,
+}) {
   const { t } = useTranslation();
   const groups = groupWorksByOrigin(works, origins);
   return (
     <div className={styles.panel}>
-      <div className={styles.head}>
+      <div className={styles.head} data-focused={focused}>
         <span className={styles.title}>{t("tree.origins")}</span>
         <div className={styles.headActions}>
-          <button type="button" className="btn" onClick={() => onAdd({ type: "origin" })} title={t("add.title")} aria-label={t("add.title")}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => onAdd({ type: "origin" })}
+            title={t("add.title")}
+            aria-label={t("add.title")}
+          >
             <PlusIcon />
           </button>
           <button type="button" className="btn" onClick={onEdit} title={t("config.title")} aria-label={t("config.title")}>
@@ -146,7 +169,13 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
         ) : (
           <>
             <div className={styles.group}>
-              <Origin name={t("tree.allOrigins")} to={api.allPath} active={activeTo === api.allPath} focused={focused} onSelect={onSelect} />
+              <Origin
+                name={t("tree.allOrigins")}
+                to={api.allPath}
+                active={activeTo === api.allPath}
+                focused={focused}
+                onSelect={onSelect}
+              />
             </div>
             {groups.map((g) => {
               const base = g.origin ? 1 : 0;
@@ -165,7 +194,10 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
                           <RowButton label={t("add.workInto")} onClick={() => onAdd({ type: "work", origin: g.origin })}>
                             <PlusIcon />
                           </RowButton>
-                          <RowButton label={t("origin.edit")} onClick={() => onEditOrigin({ origin: g.origin, income: g.income })}>
+                          <RowButton
+                            label={t("origin.edit")}
+                            onClick={() => onEditOrigin({ origin: g.origin, income: g.income })}
+                          >
                             <EditIcon />
                           </RowButton>
                           <RowButton label={t("origin.delete")} onClick={() => onDelete({ origin: g.origin })}>
@@ -180,12 +212,12 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
                     return [
                       <Row
                         key={w.work}
-                        to={api.spacePath(w.work)}
+                        to={api.spacePath(g.origin, w.work)}
                         exists={w.exists}
                         hidden={w.hidden}
                         depth={base}
                         last={lastWork}
-                        active={activeTo === api.spacePath(w.work)}
+                        active={activeTo === api.spacePath(g.origin, w.work)}
                         focused={focused}
                         label={w.work}
                         root={w.shownPath}
@@ -193,7 +225,10 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
                         onSelect={onSelect}
                         actions={
                           <>
-                            <RowButton label={t("add.repositoryInto")} onClick={() => onAdd({ type: "repository", work: w.work })}>
+                            <RowButton
+                              label={t("add.repositoryInto")}
+                              onClick={() => onAdd({ type: "repository", work: w.work })}
+                            >
                               <PlusIcon />
                             </RowButton>
                             <RowButton label={t("work.edit")} onClick={() => onEditWork(w)}>
@@ -213,26 +248,35 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, sh
                       ...w.repositories.map((p, i) => (
                         <Row
                           key={`${w.work}/${p.name}`}
-                          to={api.spacePath(w.work, p.name)}
+                          to={api.spacePath(g.origin, w.work, p.name)}
                           exists={p.exists}
                           hidden={w.hidden}
                           depth={base + 1}
                           through={g.origin ? [!lastWork] : []}
                           last={i === w.repositories.length - 1}
-                          active={activeTo === api.spacePath(w.work, p.name)}
+                          active={activeTo === api.spacePath(g.origin, w.work, p.name)}
                           focused={focused}
                           label={p.name}
                           root={p.shownPath}
                           onSelect={onSelect}
                           actions={
                             <>
-                              <RowButton label={t("repository.edit")} onClick={() => onEditRepository({ work: w.work, name: p.name, paths: p.paths })}>
+                              <RowButton
+                                label={t("repository.edit")}
+                                onClick={() => onEditRepository({ work: w.work, name: p.name, paths: p.paths })}
+                              >
                                 <EditIcon />
                               </RowButton>
-                              <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work, repository: p.name })}>
+                              <RowButton
+                                label={t("tree.openFolder")}
+                                onClick={() => onOpenFolder({ work: w.work, repository: p.name })}
+                              >
                                 <FolderIcon />
                               </RowButton>
-                              <RowButton label={t("repository.delete")} onClick={() => onDelete({ work: w.work, repository: p.name })}>
+                              <RowButton
+                                label={t("repository.delete")}
+                                onClick={() => onDelete({ work: w.work, repository: p.name })}
+                              >
                                 <TrashIcon />
                               </RowButton>
                             </>

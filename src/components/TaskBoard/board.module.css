@@ -18,6 +18,11 @@
   border-left: var(--line) solid var(--border);
 }
 
+.column[data-focused="true"] .columnHead {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
 /* As the list's column header: small muted labels. */
 .columnHead {
   flex: none;

@@ -16,6 +16,10 @@
   border-bottom: var(--line) solid var(--border);
 }
 
+.head[data-focused="true"] {
+  background: var(--bg-hover);
+}
+
 .headActions {
   display: flex;
   gap: 4px;

@@ -327,6 +327,13 @@
   overflow: hidden;
 }
 
+.statusBar > span {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  line-height: 1;
+}
+
 .path {
   flex: 1;
   min-width: 0;

@@ -128,6 +128,7 @@ export const allPath = "/all";
 // Route to all the tasks of an origin.
 export const originPath = (origin) => `/o/${encodeURIComponent(origin)}`;
 
-// Route to a space's task list.
-export const spacePath = (work, repository) =>
-  `/w/${encodeURIComponent(work)}` + (repository ? `/${encodeURIComponent(repository)}` : "");
+// Route to a space's task list. Origin-less works keep the legacy /w path.
+export const spacePath = (origin, work, repository) =>
+  (origin ? `${originPath(origin)}/${encodeURIComponent(work)}` : `/w/${encodeURIComponent(work)}`) +
+  (repository ? `/${encodeURIComponent(repository)}` : "");

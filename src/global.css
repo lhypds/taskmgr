@@ -127,13 +127,13 @@ p {
   appearance: none;
   padding-right: 24px;
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position: right 12px center, right 8px center;
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    right 12px center,
+    right 8px center;
   background-size: 4px 4px;
   background-repeat: no-repeat;
 }
-
 
 .mono {
   font-family: var(--font);

@@ -8,14 +8,15 @@ import styles from "./board.module.css";
 export const BOARD_STATUSES = ["todo", "done", "pending"];
 
 // The column a task sits in: anything that is not done or pending is still to do.
-export const boardStatus = (task) =>
-  BOARD_STATUSES.includes(task.status) ? task.status : "todo";
+export const boardStatus = (task) => (BOARD_STATUSES.includes(task.status) ? task.status : "todo");
 
 // The progress view: a column per status with the tasks as cards. Dragging a card into another
 // column sets the task to that status (`onMove`). As in the list, a click only selects.
 export default function TaskBoard({
   tasks,
   selectedKey,
+  focusedStatus,
+  onFocusStatus,
   onSelect,
   onOpen,
   onOpenFolder,
@@ -45,6 +46,11 @@ export default function TaskBoard({
             key={status}
             className={styles.column}
             data-status={status}
+            data-focused={status === focusedStatus}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onFocusStatus(status);
+            }}
             onDragOver={(e) => {
               if (!dragKey) return;
               e.preventDefault();
@@ -85,11 +91,7 @@ export default function TaskBoard({
                   >
                     <div className={styles.cardTitle}>
                       <FromTag task={t} />
-                      <span className={styles.cardName}>
-                        {t.title || (
-                          <span className="muted">{tr("common.untitled")}</span>
-                        )}
-                      </span>
+                      <span className={styles.cardName}>{t.title || <span className="muted">{tr("common.untitled")}</span>}</span>
                       {detail && <span className={styles.cardDetail}>{detail}</span>}
                     </div>
                     {t.hasSubtask && (

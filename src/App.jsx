@@ -15,7 +15,10 @@ function Gate() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/all" element={<Home all />} />
+        <Route path="/o/:origin/:work/:repository" element={<Home />} />
+        <Route path="/o/:origin/:work" element={<Home />} />
         <Route path="/o/:origin" element={<Home />} />
+        {/* Kept for old bookmarks and works that do not belong to an origin. */}
         <Route path="/w/:work" element={<Home />} />
         <Route path="/w/:work/:repository" element={<Home />} />
         <Route path="*" element={<Navigate to="/" replace />} />

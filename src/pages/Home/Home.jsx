@@ -1,8 +1,35 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SpaceTree, TaskList, TaskBoard, MonthPicker, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryEditModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
-import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon, PieIcon, ListIcon, BoardIcon } from "@components/icons";
+import {
+  SpaceTree,
+  TaskList,
+  TaskBoard,
+  MonthPicker,
+  TaskPanel,
+  TaskEditorModal,
+  ConfirmModal,
+  HelpModal,
+  FilePreviewModal,
+  ConfigEditorModal,
+  WorkEditModal,
+  AddSpaceModal,
+  RepositoryEditModal,
+  IncomeAnalysisModal,
+  LanguageSwitcher,
+  UserMenu,
+} from "@components";
+import {
+  PlusIcon,
+  SearchIcon,
+  XIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  RefreshIcon,
+  PieIcon,
+  ListIcon,
+  BoardIcon,
+} from "@components/icons";
 import { BOARD_STATUSES, boardStatus } from "@components/TaskBoard";
 import { showToast, Checkbox } from "@ui";
 import { useAuth } from "@store";
@@ -12,7 +39,15 @@ import { groupWorksByOrigin } from "@utils/works";
 import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
 import styles from "./home.module.css";
 
-const EMPTY_DIR = { dir: "", absDir: "", isRoot: true, parent: null, crumbs: [], tasks: [], counts: { todo: 0, done: 0, pending: 0 } };
+const EMPTY_DIR = {
+  dir: "",
+  absDir: "",
+  isRoot: true,
+  parent: null,
+  crumbs: [],
+  tasks: [],
+  counts: { todo: 0, done: 0, pending: 0 },
+};
 
 function readFlag(key, fallback) {
   try {
@@ -44,22 +79,22 @@ function writeFlag(key, value) {
 const keyOf = (space, rel) => `${space.work}/${space.repository || ""}/${rel}`;
 
 // The one page: the origins, works and repositories as a tree on the left, the tasks of the chosen
-// one on the right. What is shown is in the path (/all for every task, /o/:origin for every task of an origin, /w/:work
-// for a work's tasks and its repositories', /w/:work/:repository for a repository) and the folder
+// one on the right. What is shown is in the path (/all for every task, /o/:origin for every task of an origin,
+// /o/:origin/:work for a work's tasks and its repositories', and one more segment for a repository) and the folder
 // inside a space in ?dir=, so back/forward and reload keep both. A work with ?dir= is a folder in
 // the work's own tasks.
 export default function Home({ all = false }) {
   const { t } = useTranslation();
   const { logout } = useAuth();
   const { origin = "", work = "", repository = "" } = useParams();
-  const space = useMemo(() => (work ? { work, repository } : null), [work, repository]);
-  const spaceTo = all ? api.allPath : origin ? api.originPath(origin) : work ? api.spacePath(work, repository) : null;
+  const space = useMemo(() => (work ? { origin, work, repository } : null), [origin, work, repository]);
+  const spaceTo = all ? api.allPath : work ? api.spacePath(origin, work, repository) : origin ? api.originPath(origin) : null;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const dir = searchParams.get("dir") || "";
   // The tasks of several spaces in one list: every work, a whole origin, or a work at its top.
   const scope = useMemo(
-    () => (all ? { all: "1" } : origin ? { origin } : work && !repository && !dir ? { work } : null),
+    () => (all ? { all: "1" } : origin && !work ? { origin } : work && !repository && !dir ? { work } : null),
     [all, origin, work, repository, dir],
   );
 
@@ -74,6 +109,8 @@ export default function Home({ all = false }) {
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false); // the new task modal is open
+  const [creatingStatus, setCreatingStatus] = useState("todo"); // board column the new task belongs to
+  const searchRef = useRef(null);
   const [focusKey, setFocusKey] = useState(null); // the task whose text the panel should focus
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null); // task to delete
@@ -160,12 +197,23 @@ export default function Home({ all = false }) {
   useEffect(() => {
     document.title = all
       ? `taskmgr - ${t("tree.allOrigins")}`
-      : origin
-        ? `taskmgr - ${origin}`
-        : work
-          ? `taskmgr - ${work}${repository ? ` / ${repository}` : ""}`
+      : work
+        ? `taskmgr - ${work}${repository ? ` / ${repository}` : ""}`
+        : origin
+          ? `taskmgr - ${origin}`
           : "taskmgr";
   }, [all, origin, work, repository, t]);
+
+  // Replace old /w links with the canonical origin path once the config is available.
+  useEffect(() => {
+    if (!work || origin || !works) return;
+    const canonicalOrigin = works.find((item) => item.work === work)?.origin;
+    if (canonicalOrigin)
+      navigate(
+        { pathname: api.spacePath(canonicalOrigin, work, repository), search: searchParams.toString() },
+        { replace: true },
+      );
+  }, [origin, work, repository, works, navigate, searchParams]);
 
   useEffect(() => {
     setQuery("");
@@ -180,8 +228,8 @@ export default function Home({ all = false }) {
       ...groupWorksByOrigin(treeWorks, origins).flatMap((g) => [
         ...(g.origin ? [{ to: api.originPath(g.origin), exists: true }] : []),
         ...g.works.flatMap((w) => [
-          { to: api.spacePath(w.work), root: w.root, exists: w.exists },
-          ...w.repositories.map((p) => ({ to: api.spacePath(w.work, p.name), root: p.root, exists: p.exists })),
+          { to: api.spacePath(g.origin, w.work), root: w.root, exists: w.exists },
+          ...w.repositories.map((p) => ({ to: api.spacePath(g.origin, w.work, p.name), root: p.root, exists: p.exists })),
         ]),
       ]),
     ],
@@ -209,18 +257,24 @@ export default function Home({ all = false }) {
       // Until the new path's list arrives, the previous one may still be here; a task of one space
       // has no space of its own to show on an origin's page, so it is left out.
       data.tasks.flatMap((t) => {
-        const s = t.work !== undefined ? { work: t.work, repository: t.repository } : space;
+        const s =
+          t.work !== undefined
+            ? { origin: (works || []).find((item) => item.work === t.work)?.origin || "", work: t.work, repository: t.repository }
+            : space;
         if (!s) return [];
         const path = !scope ? [] : all || origin ? [s.work, s.repository].filter(Boolean) : [s.repository].filter(Boolean);
         const fromParts = path.slice(-1);
         return { ...t, space: s, key: keyOf(s, t.rel), from: path.join(" / "), fromParts };
       }),
-    [data.tasks, space, scope, all, origin],
+    [data.tasks, space, scope, all, origin, works],
   );
 
   // The month filter's entries; a month that this list has no task from shows every month.
   const months = useMemo(() => taskMonths(tasks), [tasks]);
-  const monthIndex = Math.max(0, months.findIndex((m) => m.key === month));
+  const monthIndex = Math.max(
+    0,
+    months.findIndex((m) => m.key === month),
+  );
   const monthKey = months[monthIndex].key;
 
   const visible = useMemo(() => {
@@ -228,12 +282,7 @@ export default function Home({ all = false }) {
     const inMonth = monthKey === ALL_MONTHS ? tasks : tasks.filter((t) => taskMonth(t) === monthKey);
     const shown = !q
       ? inMonth
-      : inMonth.filter(
-          (t) =>
-            t.title.toLowerCase().includes(q) ||
-            t.id.includes(q) ||
-            t.from.toLowerCase().includes(q),
-        );
+      : inMonth.filter((t) => t.title.toLowerCase().includes(q) || t.id.includes(q) || t.from.toLowerCase().includes(q));
     // On the board, j / k go down a column and on into the next one. The board always has its
     // done column; the list leaves the done tasks out unless they are shown.
     if (view !== "board") return showDone ? shown : shown.filter((t) => t.status !== "done");
@@ -275,7 +324,11 @@ export default function Home({ all = false }) {
 
   const goTo = (rel) => setSearchParams(rel ? { dir: rel } : {});
   // Into a task's subtasks, in the space the task lives in.
-  const enterFolder = (task) => navigate({ pathname: api.spacePath(task.space.work, task.space.repository), search: `?${new URLSearchParams({ dir: task.rel })}` });
+  const enterFolder = (task) =>
+    navigate({
+      pathname: api.spacePath(task.space.origin, task.space.work, task.space.repository),
+      search: `?${new URLSearchParams({ dir: task.rel })}`,
+    });
 
   // Up one folder, selecting the task we came out of; at the top, over to the tree.
   function goUp() {
@@ -292,7 +345,9 @@ export default function Home({ all = false }) {
   // selected under its new rel unless another one was picked meanwhile.
   async function saveText(task, text) {
     try {
-      const { task: { rel } } = await api.saveTaskText(task.space, task.rel, text);
+      const {
+        task: { rel },
+      } = await api.saveTaskText(task.space, task.rel, text);
       setSelectedKey((k) => (k === task.key ? keyOf(task.space, rel) : k));
       await reload();
       showToast(t("toast.saved"));
@@ -305,7 +360,19 @@ export default function Home({ all = false }) {
     setSaving(true);
     // a new task goes in the folder on the right; in a work's list, in the work's own tasks
     try {
-      const { task: { rel } } = await api.createTaskText(space, dir, text);
+      const { task: created } = await api.createTaskText(space, dir, text);
+      let rel = created.rel;
+      if (creatingStatus !== "todo") {
+        try {
+          const { task: updated } = await api.setStatus(space, rel, creatingStatus);
+          rel = updated.rel;
+        } catch (e) {
+          setCreating(false);
+          await reload();
+          showToast(e.message, 5000);
+          return;
+        }
+      }
       // the task exists now, so a failed upload must not keep the editor open for a second create
       try {
         for (const f of files) await api.uploadFile(space, rel, f);
@@ -321,7 +388,6 @@ export default function Home({ all = false }) {
       setSaving(false);
     }
   }
-
 
   // Remove an origin, a work or a repository from taskmgr.json; leave the space on the right when
   // it was in it.
@@ -403,6 +469,72 @@ export default function Home({ all = false }) {
   const workRoot = (works || []).find((w) => w.work === work)?.root;
   const canAdd = !!space && !origin && !loadError && (!!repository || !!workRoot);
 
+  function openCreator(status = "todo") {
+    if (!canAdd) return;
+    setCreatingStatus(status);
+    setCreating(true);
+  }
+
+  const boardPane = BOARD_STATUSES.includes(pane) ? pane : selected ? boardStatus(selected) : BOARD_STATUSES[0];
+
+  function selectBoardColumn(status, row = 0) {
+    const cards = visible.filter((task) => boardStatus(task) === status);
+    setPane(status);
+    setSelectedKey(cards[Math.min(row, cards.length - 1)]?.key ?? null);
+  }
+
+  function moveBoardColumn(step) {
+    const areas = ["tree", ...BOARD_STATUSES, "detail"];
+    const current = ["tree", "detail"].includes(pane) ? pane : boardPane;
+    const target = areas[Math.max(0, Math.min(areas.length - 1, areas.indexOf(current) + step))];
+    if (target === current) return;
+    if (target === "tree") {
+      setTreeOpen(true);
+      setPane("tree");
+      return;
+    }
+    if (target === "detail") {
+      setDetailOpen(true);
+      setPane("detail");
+      return;
+    }
+    const cards = visible.filter((task) => boardStatus(task) === boardPane);
+    const row = Math.max(
+      0,
+      cards.findIndex((task) => task.key === selectedKey),
+    );
+    selectBoardColumn(target, row);
+  }
+
+  function toggleTreePane() {
+    const next = !treeOpen;
+    setTreeOpen(next);
+    if (!next && pane === "tree") setPane(view === "board" ? boardPane : "tasks");
+  }
+
+  function toggleDetailPane(focusWhenOpening = true) {
+    const next = !detailOpen;
+    setDetailOpen(next);
+    if (next) {
+      if (focusWhenOpening) setPane("detail");
+    } else if (pane === "detail") setPane(view === "board" ? boardPane : "tasks");
+  }
+
+  useEffect(() => {
+    const onLayoutKeyDown = (e) => {
+      if (e.defaultPrevented || e.repeat || (e.code !== "KeyB" && e.key.toLowerCase() !== "b")) return;
+      if (e.metaKey && e.altKey && !e.ctrlKey && !e.shiftKey) {
+        e.preventDefault();
+        toggleDetailPane(false);
+      } else if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        toggleTreePane();
+      }
+    };
+    document.addEventListener("keydown", onLayoutKeyDown);
+    return () => document.removeEventListener("keydown", onLayoutKeyDown);
+  });
+
   // On the tree: j / k move through the spaces (the right side follows), l / enter go over to
   // the tasks.
   function treeKey(name) {
@@ -413,7 +545,10 @@ export default function Home({ all = false }) {
       return true;
     }
     if (["l", "right", "enter"].includes(name)) {
-      if (spaceTo) setPane("tasks");
+      if (spaceTo) {
+        if (view === "board") selectBoardColumn(BOARD_STATUSES[0]);
+        else setPane("tasks");
+      }
       return true;
     }
     return false;
@@ -421,7 +556,18 @@ export default function Home({ all = false }) {
 
   // The terminal's key bindings (see cli.js); :h lists them.
   useShortcuts((name) => {
-    if (creating || confirm || configOpen || editingWork || editingOrigin || adding || editingRepository || analysisOpen || command !== null) return false;
+    if (
+      creating ||
+      confirm ||
+      configOpen ||
+      editingWork ||
+      editingOrigin ||
+      adding ||
+      editingRepository ||
+      analysisOpen ||
+      command !== null
+    )
+      return false;
     if (preview) {
       if (!["q", "enter", "space"].includes(name)) return false;
       setPreview(null);
@@ -434,10 +580,17 @@ export default function Home({ all = false }) {
       return true;
     }
     if (name === "Tab") {
-      if (pane === "tasks") {
+      if (pane !== "tree") {
         setTreeOpen(true);
         setPane("tree");
-      } else if (spaceTo) setPane("tasks");
+      } else if (spaceTo) {
+        if (view === "board") selectBoardColumn(BOARD_STATUSES[0]);
+        else setPane("tasks");
+      }
+      return true;
+    }
+    if (name === "/") {
+      searchRef.current?.focus();
       return true;
     }
     if (name === "r") {
@@ -450,9 +603,19 @@ export default function Home({ all = false }) {
     }
     if (pane === "tree") return treeKey(name);
 
-    const move = moveIndex(name, selectedIndex, visible.length);
+    if (view === "board" && ["h", "left", "l", "right"].includes(name)) {
+      moveBoardColumn(["h", "left"].includes(name) ? -1 : 1);
+      return true;
+    }
+    if (view === "board" && BOARD_STATUSES.includes(pane) && ["n", "i"].includes(name)) {
+      openCreator(pane);
+      return true;
+    }
+    const movable = view === "board" ? visible.filter((task) => boardStatus(task) === boardPane) : visible;
+    const moveFrom = view === "board" ? movable.findIndex((task) => task.key === selectedKey) : selectedIndex;
+    const move = moveIndex(name, moveFrom, movable.length);
     if (move !== null) {
-      if (move >= 0) setSelectedKey(visible[move].key);
+      if (move >= 0) setSelectedKey(movable[move].key);
       return true;
     }
     const t = selected;
@@ -467,7 +630,7 @@ export default function Home({ all = false }) {
         return true;
       case "a":
       case "n":
-        if (canAdd) setCreating(true);
+        openCreator();
         return true;
       case "e":
       case "i":
@@ -528,7 +691,12 @@ export default function Home({ all = false }) {
       <TaskBoard
         tasks={visible}
         selectedKey={selected?.key}
-        onSelect={(t) => setSelectedKey(t.key)}
+        focusedStatus={BOARD_STATUSES.includes(pane) ? pane : null}
+        onFocusStatus={setPane}
+        onSelect={(t) => {
+          setPane(boardStatus(t));
+          setSelectedKey(t.key);
+        }}
         onOpen={openEditor}
         onOpenFolder={openFolder}
         onDelete={setConfirm}
@@ -545,7 +713,7 @@ export default function Home({ all = false }) {
           <>
             <p className="muted">{data.isRoot ? t("home.noTasks") : t("home.noSubtasks")}</p>
             {canAdd && (
-              <button type="button" className="btn primary" onClick={() => setCreating(true)}>
+              <button type="button" className="btn primary" onClick={() => openCreator()}>
                 <PlusIcon />
                 {t("header.newTask")}
               </button>
@@ -585,17 +753,29 @@ export default function Home({ all = false }) {
         <div className={styles.search}>
           <SearchIcon className={styles.searchIcon} />
           <input
+            ref={searchRef}
             className={`input ${styles.searchInput}`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Escape") setQuery("");
+              if (e.key !== "Escape") return;
+              e.currentTarget.blur();
+              if (pane !== "tree") {
+                const selectedTask = tasks.find((task) => task.key === selectedKey);
+                const status = selectedTask ? boardStatus(selectedTask) : BOARD_STATUSES.includes(pane) ? pane : BOARD_STATUSES[0];
+                setPane(view === "board" ? status : "tasks");
+              }
             }}
             placeholder={t("header.filter")}
             aria-label={t("header.filterLabel")}
           />
           {query && (
-            <button type="button" className={styles.searchClear} onClick={() => setQuery("")} aria-label={t("header.clearFilter")}>
+            <button
+              type="button"
+              className={styles.searchClear}
+              onClick={() => setQuery("")}
+              aria-label={t("header.clearFilter")}
+            >
               <XIcon />
             </button>
           )}
@@ -611,7 +791,11 @@ export default function Home({ all = false }) {
           <button
             type="button"
             className="btn"
-            onClick={() => setView((v) => (v === "board" ? "list" : "board"))}
+            onClick={() => {
+              const next = view === "board" ? "list" : "board";
+              setView(next);
+              setPane(next === "board" ? (selected ? boardStatus(selected) : BOARD_STATUSES[0]) : "tasks");
+            }}
             title={t(view === "board" ? "header.listView" : "header.boardView")}
             aria-label={t(view === "board" ? "header.listView" : "header.boardView")}
           >
@@ -620,7 +804,13 @@ export default function Home({ all = false }) {
           <button type="button" className="btn" onClick={reload} title={t("header.refresh")} aria-label={t("header.refresh")}>
             <RefreshIcon />
           </button>
-          <button type="button" className="btn" onClick={() => setAnalysisOpen(true)} title={t("analysis.title")} aria-label={t("analysis.title")}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setAnalysisOpen(true)}
+            title={t("analysis.title")}
+            aria-label={t("analysis.title")}
+          >
             <PieIcon />
           </button>
           <div className={styles.account}>
@@ -654,10 +844,7 @@ export default function Home({ all = false }) {
         <button
           type="button"
           className={styles.toggle}
-          onClick={() => {
-            if (treeOpen && pane === "tree") setPane("tasks");
-            setTreeOpen((v) => !v);
-          }}
+          onClick={toggleTreePane}
           title={t(treeOpen ? "header.hideTree" : "header.showTree")}
           aria-label={t(treeOpen ? "header.hideTree" : "header.showTree")}
         >
@@ -681,7 +868,11 @@ export default function Home({ all = false }) {
           )}
           {space && (
             <nav className={styles.section} aria-label={t("header.location")}>
-              <button type="button" className={crumbClass(!repository && data.isRoot)} onClick={() => selectSpace(api.spacePath(work))}>
+              <button
+                type="button"
+                className={crumbClass(!repository && data.isRoot)}
+                onClick={() => selectSpace(api.spacePath(origin, work))}
+              >
                 {work}
               </button>
               {repository && (
@@ -713,12 +904,7 @@ export default function Home({ all = false }) {
                   {t("header.showDone")}
                 </Checkbox>
               )}
-              <button
-                type="button"
-                className={`btn ${styles.addTask}`}
-                onClick={() => setCreating(true)}
-                disabled={!canAdd}
-              >
+              <button type="button" className={`btn ${styles.addTask}`} onClick={() => openCreator()} disabled={!canAdd}>
                 <PlusIcon />
                 {t("header.newTask")}
               </button>
@@ -730,15 +916,22 @@ export default function Home({ all = false }) {
         <button
           type="button"
           className={styles.toggle}
-          onClick={() => setDetailOpen((v) => !v)}
+          onClick={() => toggleDetailPane()}
           title={t(detailOpen ? "header.hideDetails" : "header.showDetails")}
           aria-label={t(detailOpen ? "header.hideDetails" : "header.showDetails")}
         >
           {detailOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
         </button>
-        <aside className={styles.detail} data-open={detailOpen}>
+        <aside className={styles.detail} data-open={detailOpen} onMouseDown={() => setPane("detail")}>
           {spaceTo && (
-            <TaskPanel task={selected} focusKey={focusKey} onFocused={() => setFocusKey(null)} onSave={saveText} onDelete={setConfirm} />
+            <TaskPanel
+              task={selected}
+              focused={pane === "detail"}
+              focusKey={focusKey}
+              onFocused={() => setFocusKey(null)}
+              onSave={saveText}
+              onDelete={setConfirm}
+            />
           )}
         </aside>
       </div>
@@ -790,7 +983,8 @@ export default function Home({ all = false }) {
           setEditingWork(null);
           setSpaces(d);
           // Follow the rename when the space on the right is this work or one of its repositories.
-          if (newName !== oldName && work === oldName) navigate({ pathname: api.spacePath(newName, repository), search: searchParams.toString() }, { replace: true });
+          if (newName !== oldName && work === oldName)
+            navigate({ pathname: api.spacePath(editingWork.origin || origin, newName, repository), search: searchParams.toString() }, { replace: true });
           showToast(t("work.saved"));
         }}
       />
@@ -803,7 +997,8 @@ export default function Home({ all = false }) {
           setEditingOrigin(null);
           setSpaces(d);
           // Follow the rename when the origin is the one on the right.
-          if (newName !== oldName && origin === oldName) navigate(api.originPath(newName), { replace: true });
+          if (newName !== oldName && origin === oldName)
+            navigate(work ? api.spacePath(newName, work, repository) : api.originPath(newName), { replace: true });
           showToast(t("origin.saved"));
         }}
       />
@@ -818,7 +1013,11 @@ export default function Home({ all = false }) {
           setSpaces(d);
           // Open what was added on the right.
           const to =
-            added.type === "origin" ? api.originPath(added.name) : added.type === "work" ? api.spacePath(added.name) : api.spacePath(added.work, added.name);
+            added.type === "origin"
+              ? api.originPath(added.name)
+              : added.type === "work"
+                ? api.spacePath(added.origin, added.name)
+                : api.spacePath(d.works.find((item) => item.work === added.work)?.origin || "", added.work, added.name);
           selectSpace(to);
           showToast(t(`${added.type}.added`));
         }}
@@ -832,7 +1031,9 @@ export default function Home({ all = false }) {
           setEditingRepository(null);
           setSpaces(d);
           // Follow a rename when the repository is the one on the right.
-          if (spaceTo === api.spacePath(inWork, name)) navigate({ pathname: api.spacePath(inWork, newName), search: searchParams.toString() }, { replace: true });
+          const inOrigin = (works || []).find((item) => item.work === inWork)?.origin || "";
+          if (spaceTo === api.spacePath(inOrigin, inWork, name))
+            navigate({ pathname: api.spacePath(inOrigin, inWork, newName), search: searchParams.toString() }, { replace: true });
           showToast(t("repository.saved"));
         }}
       />
@@ -866,9 +1067,16 @@ export default function Home({ all = false }) {
         title={t(removing?.origin ? "origin.delete" : removing?.repository ? "repository.delete" : "work.delete")}
         message={
           removing
-            ? t(removing.origin ? "origin.deleteMessage" : removing.repository ? "repository.deleteMessage" : "work.deleteMessage", {
-                name: removing.origin || removing.repository || removing.work
-              })
+            ? t(
+                removing.origin
+                  ? "origin.deleteMessage"
+                  : removing.repository
+                    ? "repository.deleteMessage"
+                    : "work.deleteMessage",
+                {
+                  name: removing.origin || removing.repository || removing.work,
+                },
+              )
             : ""
         }
         typeToConfirm={removing?.origin}

@@ -15,8 +15,7 @@
   font-family: var(--font);
   line-height: 1.5;
   background-image:
-    linear-gradient(to right, var(--grid) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    linear-gradient(to right, var(--grid) 1px, transparent 1px), linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
   background-size: 2ch 1.5em;
   background-repeat: repeat; /* ress turns it off everywhere */
   background-origin: content-box;
@@ -30,7 +29,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding-top: 4px;
 }
 
 .hint {

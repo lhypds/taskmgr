@@ -8,7 +8,7 @@ import styles from "./panel.module.css";
 // writes it. When `focusKey` is the task's key, its text takes the focus and onFocused is called.
 // Under a head like the tree's: "Task", with undo, redo and delete at its right; onDelete(task)
 // asks before deleting.
-export default function TaskPanel({ task, focusKey, onFocused, onSave, onDelete }) {
+export default function TaskPanel({ task, focused, focusKey, onFocused, onSave, onDelete }) {
   const { t } = useTranslation();
   const textRef = useRef(null);
 
@@ -23,23 +23,53 @@ export default function TaskPanel({ task, focusKey, onFocused, onSave, onDelete 
 
   return (
     <div className={styles.root}>
-      <div className={styles.bar}>
+      <div className={styles.bar} data-focused={focused}>
         <span className={styles.barTitle}>{t("panel.heading")}</span>
         <div className={styles.barActions}>
-          <button type="button" className="btn" disabled={!task} onMouseDown={(e) => e.preventDefault()} onClick={() => edit("undo")} title={t("panel.undo")} aria-label={t("panel.undo")}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!task}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => edit("undo")}
+            title={t("panel.undo")}
+            aria-label={t("panel.undo")}
+          >
             <UndoIcon />
           </button>
-          <button type="button" className="btn" disabled={!task} onMouseDown={(e) => e.preventDefault()} onClick={() => edit("redo")} title={t("panel.redo")} aria-label={t("panel.redo")}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!task}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => edit("redo")}
+            title={t("panel.redo")}
+            aria-label={t("panel.redo")}
+          >
             <RedoIcon />
           </button>
-          <button type="button" className="btn" disabled={!task} onClick={() => onDelete(task)} title={t("delete.title")} aria-label={t("delete.title")}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!task}
+            onClick={() => onDelete(task)}
+            title={t("delete.title")}
+            aria-label={t("delete.title")}
+          >
             <TrashIcon />
           </button>
         </div>
       </div>
       {task ? (
         // keyed by id, which a rename (a new first line) keeps, so saving does not lose the focus
-        <TaskText key={`${task.space.work}/${task.space.repository || ""}/${task.id}`} task={task} textRef={textRef} focus={focusKey === task.key} onFocused={onFocused} onSave={onSave} />
+        <TaskText
+          key={`${task.space.work}/${task.space.repository || ""}/${task.id}`}
+          task={task}
+          textRef={textRef}
+          focus={focusKey === task.key}
+          onFocused={onFocused}
+          onSave={onSave}
+        />
       ) : (
         <div className={styles.empty}>
           <p className="muted">{t("panel.none")}</p>
