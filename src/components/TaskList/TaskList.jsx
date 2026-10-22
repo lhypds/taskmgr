@@ -31,8 +31,8 @@ function RowButton({ label, onClick, children }) {
   );
 }
 
-// Where a task is from: its work and repository names. A long name is cut short with an ellipsis,
-// and the whole path shows on hover.
+// Where a task is from: its repository (or work) name. A long name is cut short with an ellipsis,
+// and the whole work / repository path shows on hover.
 export function FromTag({ task }) {
   if (!task.from) return null;
   return (

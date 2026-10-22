@@ -202,8 +202,8 @@ export default function Home({ all = false }) {
   };
 
   // Every task with the space it lives in, a key unique across spaces, and, in a list of several
-  // spaces, where it is from: the repository in a work's list, the work (and repository) in an
-  // origin's or in all of them.
+  // spaces, where it is from: its repository, or its work for a work's own task in an origin's or
+  // in all of them. The whole work / repository path is kept for the hover title and search.
   const tasks = useMemo(
     () =>
       // Until the new path's list arrives, the previous one may still be here; a task of one space
@@ -211,8 +211,9 @@ export default function Home({ all = false }) {
       data.tasks.flatMap((t) => {
         const s = t.work !== undefined ? { work: t.work, repository: t.repository } : space;
         if (!s) return [];
-        const fromParts = !scope ? [] : all || origin ? [s.work, s.repository].filter(Boolean) : [s.repository];
-        return { ...t, space: s, key: keyOf(s, t.rel), from: fromParts.join(" / "), fromParts };
+        const path = !scope ? [] : all || origin ? [s.work, s.repository].filter(Boolean) : [s.repository].filter(Boolean);
+        const fromParts = path.slice(-1);
+        return { ...t, space: s, key: keyOf(s, t.rel), from: path.join(" / "), fromParts };
       }),
     [data.tasks, space, scope, all, origin],
   );
