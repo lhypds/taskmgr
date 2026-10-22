@@ -1,9 +1,9 @@
 // Receiving end of taskmgrd (taskmgrd.js): the daemon on the machine that has the tasks pushes its
-// taskmgr.json and the task files of every work and repository here, and they are kept under data/,
-// laid out like the origins tree of taskmgr.json:
+// taskmgr.json and the task files of every work and repository here. The config is merged into this
+// server's own taskmgr.json, each pushed work and repository pointing at its copy of the tasks, which
+// is kept under data/, laid out like the origins tree of taskmgr.json:
 //
 //   data/
-//     taskmgr.json                    the pushed configs, merged
 //     origins/
 //       <origin>/                     "_" for the works without an origin
 //         <work>/
@@ -21,8 +21,9 @@
 //       what is here: the sha1 of the last pushed config, and of each space's last snapshot
 //       ("origin/work/repository" -> sha1), so the daemon pushes only what differs.
 //   PUT /api/sync/config  { text }                           -> { ok, pruned }
-//       merges the config into data/taskmgr.json (an invalid one is refused; see mergeConfigs) and
-//       removes, under data/origins/, the origins, works and repositories that are not in it.
+//       merges the config into this server's taskmgr.json (an invalid one is refused; see
+//       mergeConfigs), with the pushed tasks_path set to the copies under data/origins/ (see
+//       toMirror), and removes, under data/origins/, the origins, works and repositories not in it.
 //   PUT /api/sync/space   { origin, work, repository, entries }  -> { ok, files, dirs }
 //       replaces one space's folder with the snapshot: entries are [{ path, content }] for task files
 //       and [{ path, dir: true }] for a task folder without one, paths relative to the space's folder.
@@ -35,7 +36,6 @@ const crypto = require('crypto');
 const express = require('express');
 const { parseConfig, upgradeRaw } = require('./config');
 
-const CONFIG_FILE = 'taskmgr.json';
 const ORIGINS_DIR = 'origins';
 const NO_ORIGIN_DIR = '_';
 const WORK_TASKS_DIR = 'tasks';
@@ -172,6 +172,26 @@ function pruneOrigins(dataDir, works) {
   return pruned;
 }
 
+// The pushed config (raw, "origins" form) with its folders turned into the copies here: a work with
+// common tasks gets the folder of its copy as tasks_path, and so does every repository, whose
+// source_path (a folder on the other machine) is left out.
+function toMirror(dataDir, pushed) {
+  const name = (v, key) => (v && typeof v[key] === 'string' ? v[key].trim() : '');
+  for (const g of pushed.origins) {
+    const origin = name(g, 'origin');
+    for (const w of g.works || []) {
+      const work = name(w, 'work');
+      if (name(w, 'tasks_path')) w.tasks_path = spaceDir(dataDir, { origin, work, repository: '' });
+      else delete w.tasks_path;
+      for (const p of w.repositories || []) {
+        delete p.source_path;
+        p.tasks_path = spaceDir(dataDir, { origin, work, repository: name(p, 'repository') });
+      }
+    }
+  }
+  return pushed;
+}
+
 // The pushed config merged into the one here, both raw and in the "origins" form: an origin, work
 // or repository that is only here is kept, one that is only pushed is added. A work in both (by
 // name, in the same origin) takes the pushed fields, with its repositories merged the same way (a
@@ -208,18 +228,6 @@ function mergeConfigs(here, pushed) {
   return merged;
 }
 
-// The taskmgr.json here, raw and in the "origins" form; null when there is none or it is invalid
-// (a push then takes its place).
-function readConfigHere(file) {
-  try {
-    const text = fs.readFileSync(file, 'utf8');
-    parseConfig(text, CONFIG_FILE);
-    return upgradeRaw(JSON.parse(text));
-  } catch (e) {
-    return null;
-  }
-}
-
 // Constant-time comparison, as for passwords (see server/auth.js).
 function tokensMatch(a, b) {
   const left = Buffer.from(String(a));
@@ -228,8 +236,9 @@ function tokensMatch(a, b) {
 }
 
 // Mounts the sync routes. Mount it before the login guard: a push is authorized by the token, not a
-// session. `token` is TASKMGRD_TOKEN; with none, every push is refused.
-function createSyncApp({ dataDir, token }) {
+// session. `token` is TASKMGRD_TOKEN; with none, every push is refused. `readConfig` and
+// `writeConfig` read and replace this server's taskmgr.json (see server/config.js).
+function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
   const app = express();
   const enabled = typeof token === 'string' && token.trim() !== '';
   const statePath = path.join(dataDir, STATE_FILE);
@@ -270,30 +279,26 @@ function createSyncApp({ dataDir, token }) {
         if (fs.existsSync(spaceDir(dataDir, { origin, work, repository }))) spaces[key] = hash;
       } catch (e) { /* a key that is not a space: left out */ }
     }
-    const configHere = fs.existsSync(path.join(dataDir, CONFIG_FILE));
-    res.json({ ok: true, config: configHere ? state.config : null, spaces });
+    res.json({ ok: true, config: state.config, spaces });
   });
 
   app.put('/api/sync/config', json, (req, res) => {
     const text = (req.body || {}).text;
     if (typeof text !== 'string') throw new SyncError(400, 'Missing text.');
     try {
-      parseConfig(text, CONFIG_FILE);
+      parseConfig(text, 'the pushed taskmgr.json');
     } catch (e) {
       throw new SyncError(400, e.message);
     }
-    const file = path.join(dataDir, CONFIG_FILE);
-    const here = readConfigHere(file);
-    const pushed = upgradeRaw(JSON.parse(text));
-    const mergedText = JSON.stringify(here ? mergeConfigs(here, pushed) : pushed, null, 2) + '\n';
+    const pushed = toMirror(dataDir, upgradeRaw(JSON.parse(text)));
+    const mergedText = JSON.stringify(mergeConfigs(upgradeRaw(JSON.parse(readConfig())), pushed), null, 2) + '\n';
     let parsed;
     try {
-      parsed = parseConfig(mergedText, CONFIG_FILE);
+      parsed = parseConfig(mergedText, 'taskmgr.json');
+      writeConfig(mergedText);
     } catch (e) {
       throw new SyncError(409, `Cannot merge with the taskmgr.json here: ${e.message}`);
     }
-    fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(file, mergedText);
     const pruned = pruneOrigins(dataDir, parsed.works);
     const state = readState();
     state.config = sha1(text);

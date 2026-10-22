@@ -280,7 +280,7 @@ app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next
 // Pushes from taskmgrd on another machine (see server/sync.js): authorized by a shared token, not a
 // login, and larger than the UI's requests, so mounted before the body limit and the login guard.
 const syncToken = process.env.TASKMGRD_TOKEN;
-app.use(createSyncApp({ dataDir: config.dataDir, token: syncToken }));
+app.use(createSyncApp({ dataDir: config.dataDir, token: syncToken, readConfig: config.readText, writeConfig: config.writeText }));
 
 app.use(express.json({ limit: '10mb' }));
 

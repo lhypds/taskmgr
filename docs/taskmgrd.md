@@ -4,11 +4,11 @@ taskmgrd
 
 `taskmgrd` runs in the background on the machine that has the tasks. It watches `taskmgr.json` and the  
 tasks folder of every work and repository in it, and pushes what changes to a remote tm server (one  
-running the web UI), which keeps a copy under its `data/` folder, laid out like the origins tree:  
+running the web UI). The server merges the pushed `taskmgr.json` into its own `taskmgr.json`, and  
+keeps a copy of the tasks under its `data/` folder, laid out like the origins tree:  
 
 ```
 data/
-  taskmgr.json                     the pushed taskmgr.json files, merged
   origins/
     <origin>/                      "_" for the works without an origin
       <work>/
@@ -28,7 +28,10 @@ is mirrored too; a task folder without a `task.txt` is mirrored as a bare folder
 pushed. The server merges a pushed `taskmgr.json` into its own: origins, works and repositories it  
 does not have are added, the ones it has take the pushed settings, and the ones it has that were not  
 pushed are kept, with their folders (so several machines can push to one server; a work or  
-repository renamed or removed on one machine stays on the server until removed there). A tasks  
+repository renamed or removed on one machine stays on the server until removed there). In the  
+merged file, the `tasks_path` of every pushed work (that has common tasks) and repository is its  
+copy under `data/origins/`, and a repository's `source_path` is left out, so the server's web UI  
+shows the pushed tasks. A tasks  
 folder that does not exist is left as it is on the server and looked for every 30 seconds. Changes  
 go out about 1.5 seconds after they happen; at startup the daemon pushes `taskmgr.json` once, and  
 at startup and every 5 minutes it asks the server what it has and pushes what differs, and a push  

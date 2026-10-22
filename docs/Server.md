@@ -171,7 +171,8 @@ What the server has: `{ ok, config, spaces }`, the sha1 of the last pushed `task
 and of each space's last snapshot, keyed `origin/work/repository` (`""` for no origin, or the work's common tasks).  
 
 `PUT /api/sync/config` `{ text }`  
-Merge the pushed config into `data/taskmgr.json` and prune `data/origins/` to what is in it. `{ ok, pruned }`.  
+Merge the pushed config into the server's `taskmgr.json` and prune `data/origins/` to what is in it. `{ ok, pruned }`.  
+The pushed works and repositories get their copies under `data/origins/` as `tasks_path`; `source_path` is left out.  
 Origins, works and repositories only on the server are kept, those only pushed are added; a work in both  
 (same origin, same name) takes the pushed fields, its repositories merged the same way (the pushed one wins  
 for a repository in both). A work pushed under another origin moves there. 409 when the merge is invalid.  
