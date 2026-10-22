@@ -68,7 +68,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 12px 0;
+  padding: 8px 12px;
   cursor: pointer;
   outline: none;
   user-select: none;
@@ -179,8 +179,8 @@
   font-weight: 600;
 }
 
-/* Buttons at the right end (add, edit, open folder): shown only while the row is hovered (or the
-   keyboard is on it), in place of the income. Its fixed height keeps it from making the name line taller. */
+/* Buttons at the right end (add, edit, open folder): shown only while the row is hovered, in place
+   of the income. Its fixed height keeps it from making the name line taller. */
 .rowEdit {
   flex: none;
   display: none;
@@ -212,16 +212,12 @@
 }
 
 .row:hover .rowEdit,
-.origin:hover .rowEdit,
-.row:focus-within .rowEdit,
-.origin:focus-within .rowEdit {
+.origin:hover .rowEdit {
   display: inline-flex;
 }
 
 .row:hover .income,
-.origin:hover .income,
-.row:focus-within .income,
-.origin:focus-within .income {
+.origin:hover .income {
   display: none;
 }
 
