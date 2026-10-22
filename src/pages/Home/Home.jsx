@@ -762,7 +762,11 @@ export default function Home({ all = false }) {
               e.currentTarget.blur();
               if (pane !== "tree") {
                 const selectedTask = tasks.find((task) => task.key === selectedKey);
-                const status = selectedTask ? boardStatus(selectedTask) : BOARD_STATUSES.includes(pane) ? pane : BOARD_STATUSES[0];
+                const status = selectedTask
+                  ? boardStatus(selectedTask)
+                  : BOARD_STATUSES.includes(pane)
+                    ? pane
+                    : BOARD_STATUSES[0];
                 setPane(view === "board" ? status : "tasks");
               }
             }}
@@ -984,7 +988,10 @@ export default function Home({ all = false }) {
           setSpaces(d);
           // Follow the rename when the space on the right is this work or one of its repositories.
           if (newName !== oldName && work === oldName)
-            navigate({ pathname: api.spacePath(editingWork.origin || origin, newName, repository), search: searchParams.toString() }, { replace: true });
+            navigate(
+              { pathname: api.spacePath(editingWork.origin || origin, newName, repository), search: searchParams.toString() },
+              { replace: true },
+            );
           showToast(t("work.saved"));
         }}
       />
