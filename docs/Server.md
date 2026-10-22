@@ -1,0 +1,178 @@
+
+Server
+======
+
+
+The web UI server (`server/index.js`, Express) answers at `http://<HOST>:<PORT>/` (default `http://127.0.0.1:3456/`).  
+Every API is under `/api`, takes and returns JSON, and is never cached (`Cache-Control: no-store`).  
+An error answers with its status and `{ error }` (the auth and sync APIs also add a `code`).  
+An unknown route under `/api` answers 404.  
+
+
+Common parameters
+-----------------
+
+A *space* is the tasks folder of a work (its common tasks) or of a repository. Task APIs pick one with:  
+`work` the work name (required)  
+`repository` the repository name (empty or left out for the work's common tasks)  
+
+They are in the query for `GET` / `DELETE` and in the body otherwise (and in the query for `POST /api/task/file`).  
+
+`rel` a task folder (or an attachment) relative to the space's folder, e.g. `done/202508142100 Buy apple`  
+`dir` a folder of tasks relative to the space's folder (empty for the space's folder; a task folder for its subtasks)  
+
+A task, as answered:  
+```
+{ "id": "202508142100", "rel": "202508142100 Buy apple", "folder": "202508142100 Buy apple",
+  "status": "todo", "title": "Buy apple", "details": "Buy apple\nfrom the store.", "hasSubtask": false }
+```
+
+`status` is `todo`, `done` or `pending`.  
+
+The works APIs answer with the tree, `{ works, origins }`: each work with its origin, income, paths and  
+repositories, and the origins (`{ origin, income }`, an origin possibly without works yet).  
+
+
+Login
+-----
+
+Defined in `server/auth.js`. A login sets the `taskmgr_session` cookie (30 days, kept in memory).  
+Every other API below, except the sync API, answers 401 `LOGIN_REQUIRED` without a session.  
+
+`POST /api/login` `{ username, password }`  
+Log in against `data/users.json`. Answers `{ username }`.  
+401 `INVALID_CREDENTIALS`, 503 `NO_USERS` without the users file, 429 `RATE_LIMITED` after 20 attempts a minute from one IP.  
+
+`GET /api/session`  
+The logged-in user: `{ username }`, or 401 `LOGIN_REQUIRED`.  
+
+`DELETE /api/session`  
+Log out. Answers `{ ok: true }`.  
+
+
+Settings
+--------
+
+`GET /api/settings`  
+`{ configPath, editor }`: the path of `taskmgr.json` and the default text editor.  
+
+`GET /api/config`  
+The raw `taskmgr.json`: `{ configPath, text }`.  
+
+`PUT /api/config` `{ text }`  
+Write `taskmgr.json` as given (400 when it is not valid). Answers the tree.  
+
+
+Origins, works and repositories
+-------------------------------
+
+These change `taskmgr.json` and answer the tree. Removing one never removes its folders.  
+
+`GET /api/spaces`  
+The tree.  
+
+`POST /api/origin` `{ name, income? }`  
+Add an origin with no works yet. 201.  
+
+`PUT /api/origin` `{ origin, name, income }`  
+Rename an origin and set its income (`null` clears it).  
+
+`DELETE /api/origin?origin=`  
+Remove an origin with its works.  
+
+`POST /api/work` `{ name, origin?, tasksPath?, income? }`  
+Add a work. 201.  
+
+`PUT /api/work` `{ work, name, income, hidden?, tasksPath? }`  
+Rename a work, set its income (`null` clears it), and, when given, whether it is hidden and its tasks folder.  
+
+`DELETE /api/work?work=`  
+Remove a work.  
+
+`POST /api/repository` `{ work, name, tasksPath?, sourcePath? }`  
+Add a repository to a work. 201.  
+
+`PUT /api/repository` `{ work, name, newName, tasksPath?, sourcePath? }`  
+Rename a repository and set its folders.  
+
+`DELETE /api/repository?work=&name=`  
+Remove a repository from a work.  
+
+`POST /api/space/create` `{ work, repository? }`  
+Create the missing tasks folder of a work or a repository. 201.  
+
+`POST /api/space/open` `{ work, repository? }`  
+Open the folder of a tree row with the OS file manager on the server's machine: a work's tasks folder,  
+or a repository's source folder (its tasks folder when it has none). Answers `{ ok: true }`.  
+
+
+Tasks
+-----
+
+`GET /api/tasks?work=&repository=&dir=`  
+The tasks in a folder, sorted todo, done, pending:  
+`{ work, repository, dir, absDir, isRoot, parent, crumbs, tasks, ... }`.  
+
+`GET /api/tasks/all?all=1` / `?origin=` / `?work=`  
+Every task of every work, of one origin (all its works and their repositories), or of one work  
+(its common tasks and its repositories'), in one list.  
+
+`POST /api/tasks` `{ work, repository?, dir?, details?, status? }`  
+Create a task in `dir`; the folder is named after the first line of `details`. 201 `{ task }`.  
+
+`POST /api/tasks/text` `{ work, repository?, dir?, text }`  
+Create a task in `dir` from the whole `task.txt` text. 201 `{ task }`.  
+
+`GET /api/task?work=&repository=&rel=`  
+One task and its files: `{ task, files }`, each file `{ name, rel, isDir, isSubtask, size }`.  
+
+`PUT /api/task` `{ work, repository?, rel, details?, status? }`  
+Set a task's details and status; the folder is renamed after the first line and moved by the status. `{ task }`.  
+
+`POST /api/task/status` `{ work, repository?, rel, status }`  
+Mark a task `todo`, `done` or `pending` (moves its folder). `{ task }`.  
+
+`GET /api/task/text?work=&repository=&rel=`  
+The `task.txt` text: `{ text }`.  
+
+`PUT /api/task/text` `{ work, repository?, rel, text }`  
+Write `task.txt` as typed, tidy it and rename the folder after its first line. `{ task }`.  
+
+`POST /api/task/open` `{ work, repository?, rel }`  
+Open the task folder with the OS file manager on the server's machine. `{ ok: true }`.  
+
+`DELETE /api/task?work=&repository=&rel=`  
+Delete a task folder. `{ ok: true }`.  
+
+
+Attachments
+-----------
+
+`GET /api/file?work=&repository=&rel=&download=`  
+Serve a file inside a task folder; `download=1` sends it as a download.  
+
+`POST /api/task/file?work=&repository=&rel=&name=`  
+Upload an attachment into the task folder `rel`. The body is the raw file (up to 200 MB). A taken name  
+becomes `name (1).ext`, `name (2).ext`, ...; a hidden name or `task.txt` is refused. 201 `{ files }`.  
+
+`DELETE /api/file?work=&repository=&rel=`  
+Delete one attachment (not `task.txt`). `{ files }`.  
+
+
+Sync
+----
+
+Defined in `server/sync.js`, used by `taskmgrd` (see [taskmgrd.md](taskmgrd.md)). No login: every request needs  
+`Authorization: Bearer <TASKMGRD_TOKEN>`; 503 `SYNC_OFF` when the server has no `TASKMGRD_TOKEN`,  
+401 `INVALID_TOKEN` for a wrong one.  
+
+`GET /api/sync`  
+What the server has: `{ ok, config, spaces }`, the sha1 of its `taskmgr.json` (`null` when there is none)  
+and of each space's last snapshot, keyed `origin/work/repository` (`""` for no origin, or the work's common tasks).  
+
+`PUT /api/sync/config` `{ text }`  
+Write `data/taskmgr.json` and prune `data/origins/` to what is in it. `{ ok, pruned }`.  
+
+`PUT /api/sync/space` `{ origin, work, repository, entries }`  
+Replace one tasks folder: `entries` are `{ path, content }` for task files and `{ path, dir: true }` for a  
+task folder without one, paths relative to the folder. `{ ok, files, dirs }`.  

@@ -87,7 +87,7 @@ Opens that folder as a task list. No `taskmgr.json` is needed.
 If there is no task, it will show a message: "No tasks found."
 
 `tm` (or `taskmgr`) without arguments  
-Shows the works listed in `taskmgr.json` (the same file as the web UI, see `Web UI` below) as a tree,  
+Shows the works listed in `taskmgr.json` (the same file as the web UI, see [docs/Web UI.md](docs/Web%20UI.md)) as a tree,  
 each work followed by its repositories:  
 
 ```
@@ -222,124 +222,18 @@ Scroll through the task list.
 Web UI
 ------
 
-A React app (Vite + Express) over the same task folders, in a plain black-and-white style.  
-It manages several *works*, each with common tasks and any number of *repositories*:  
-
-```
-work
-  repository
-    task
-```
-
-It is one page: that tree on the left (a drawer that folds away), the tasks of the chosen work  
-(its common tasks) or repository on the right, to list, filter, add, edit, mark done or pending,  
-delete, and open subtasks and attachments. `tab` (or `h` at the top of a task list) moves the  
-keyboard to the tree, `l` / `enter` back to the tasks.  
-
-Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-ignored).  
-The bare `tm` command reads the same file:  
-```
-{
-  "origins": [
-    {
-      "origin": "gcc3",
-      "works": [
-        {
-          "work": "gcc3.com",
-          "income": { "monthly": [{ "amount": 500000, "currency": "JPY", "from": "2026-01" }], "once": [{ "amount": 100000, "currency": "JPY" }] },
-          "tasks_path": "~/gcc3/tasks",
-          "repositories": [
-            { "repository": "repository a", "source_path": "~/gcc3/repository-a" },
-            { "repository": "repository b", "source_path": "~/gcc3/repository-b", "tasks_path": "~/gcc3/tasks/repository-b" }
-          ]
-        }
-      ]
-    },
-    { "works": [{ "work": "personal", "tasks_path": "~/tasks", "repositories": [] }] }
-  ]
-}
-```
-`tasks_path` is the folder holding the task folders (`~` is expanded). A work's `tasks_path` is optional: a work without one has no common tasks of its own, only its repositories'. Each entry of `origins` is an organization the works are for, with its works; in the web UI's tree, its works are grouped under its name. One entry may leave `origin` out (or `""`) for works without an origin, which come last. Work names are unique across all origins. The older form, a top-level `works` list whose works each have an optional `origin`, is still read, and is rewritten as `origins` when the file is saved from the web UI; so is a repository's older `name`, which becomes `repository`. `income` (optional) is what the work pays, as two lists of `{ amount, currency }` (a 3-letter code): `monthly` and `once` (one-time payments); a monthly item may also have `from`, the year and month it starts (`"2026-01"`, optional); An origin may have an `income` of the same form too (what it pays besides its works). An older single `reward` (`{ amount, currency, period }`) is still read, and becomes `income` when the work is saved from the web UI. In the web UI, the + button next to "Origins" opens the add dialog, which adds an origin (name and income), a work (into an origin, which is required; its tasks folder, if given, is created if missing) or a repository (into a work, with a source folder, a tasks folder or both; its tasks folder is created if missing); the + on an origin's row starts it on adding a work there, the one on a work's row on adding a repository there. The income of an origin or a work is shown at the right of its name in units of 10,000 (万): the one-time total, then `m` and the monthly total, e.g. `44 + m7`. The pencil button at the right of an origin's or a work's row edits its name and income (add or remove monthly and one-time items), and the one on a repository's row edits its name. `hidden` (optional, `true`) hides a work and its repositories from the tree; it is set with the "Hide this work" box in the work's edit dialog, and the "Show hidden works" box under the tree's head shows them again (greyed out). The pie-chart button at the top right opens the income analysis: in one currency, the annual income (monthly × 12), what the monthly items actually pay in a chosen year (counted from each one's `from` month), the one-time total, and a pie of where the income comes from, by origin (hidden works count only when asked for). `source_path` (optional) is a repository's source code folder; the tree shows it under the repository's name, or its `tasks_path` when it has none. A repository's `tasks_path` may be left out (or `""`) when it has a `source_path`: its tasks are then read from the `tasks` folder in the source folder. Paths in the tree are shown as written here, with `~` kept. The file is re-read when it changes.  
-`PORT` / `HOST` in `.env` set the port (default 3456) and host (default 127.0.0.1).  
-
-Login: the web UI asks for a username and password. Accounts are a list in `data/users.json`  
-(copy `data/users.example.json`; the file is git-ignored),  
-all seeing the same works. The file is read on every login, so edits apply without a restart:  
-```
-[
-  { "username": "admin", "password": "change-me" },
-  { "username": "liu", "password": "..." }
-]
-```
-Without the file nobody can log in. Sessions are kept in memory, so a restart signs everyone out  
-(the browser remembers the password and logs back in by itself until "Log out").  
-
-Setup (installs dependencies, creates `.env`, `taskmgr.json` and `data/users.json` from the examples, builds the frontend):  
-`./setup.sh`  
-
-Run as a background service with pm2 (`pnpm add -g pm2`):  
-`./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, rebuild and restart.  
-Then open the printed URL (default `http://127.0.0.1:3456/`).  
-The pm2 process name is `PM2_NAME` in `.env` (default `taskmgr`), configured in `ecosystem.config.cjs`.  
-
-Develop with hot reload in the foreground (Ctrl+C to stop):  
-`./preview.sh` or `./preview.sh /path/to/taskmgr.json` (also `pnpm run dev`)  
-
-Production server without pm2, after `pnpm run build`:  
-`NODE_ENV=production node server/index.js [path/to/taskmgr.json]`  
-or, after installing globally: `taskmgr-web`  
+A React app over the same task folders, managing works and repositories.  
+See [docs/Web UI.md](docs/Web%20UI.md).  
 
 
 Sync daemon (taskmgrd)
 ----------------------
 
-`taskmgrd` runs in the background on the machine that has the tasks. It watches `taskmgr.json` and the  
-tasks folder of every work and repository in it, and pushes what changes to a remote tm server (one  
-running the web UI), which keeps a copy under its `data/` folder, laid out like the origins tree:  
+Pushes the tasks to a remote tm server running the web UI.  
+See [docs/taskmgrd.md](docs/taskmgrd.md).  
 
-```
-data/
-  taskmgr.json                     the pushed taskmgr.json, as written
-  origins/
-    <origin>/                      "_" for the works without an origin
-      <work>/
-        tasks/                     the work's common tasks (its tasks_path), the task folders as they are
-          202508142100 Buy apple/task.txt
-          done/202508142000 Buy orange/task.txt
-        repositories/
-          <repository>/            the repository's tasks (its tasks_path, or the tasks folder of its source_path)
-            202508142200 Fix mail/task.txt
-```
 
-What is pushed: `taskmgr.json` whole when it changes (an invalid one is not pushed; the folders of the  
-last good one stay watched), and each tasks folder as a snapshot of its task files, every `task.txt`  
-with the folder it is in, `done` / `pending` folders and subtasks included, whenever anything in the  
-folder changes. The server replaces its copy with the snapshot, so a renamed, moved or deleted task  
-is mirrored too; a task folder without a `task.txt` is mirrored as a bare folder. Attachments are not  
-pushed. When a work or repository is renamed in or removed from `taskmgr.json`, the server removes  
-its old folder. A tasks folder that does not exist is left as it is on the server and looked for every  
-30 seconds. Changes go out about 1.5 seconds after they happen; at startup and every 5 minutes the  
-daemon asks the server what it has and pushes what differs, and a push that fails (the server is  
-down) is retried, with growing waits, until it goes through.  
+Development
+-----------
 
-On the server: set `TASKMGRD_TOKEN` in `.env` to a secret of your choice and restart the web UI  
-(`./start.sh`); its startup lines then say `sync : receiving from taskmgrd`. Without the token the  
-server refuses pushes. The copied files are git-ignored.  
-
-On the machine with the tasks: in `.env`, `TASKMGRD_SERVER` is the server's URL (the one its web UI  
-answers at, e.g. `https://tm.example.com`) and `TASKMGRD_TOKEN` the same secret. Then:  
-
-`./taskmgrd.sh` starts the daemon under pm2 (and restarts it when it already runs, picking up a changed `.env`)  
-`./taskmgrd.sh stop` stops it  
-`./taskmgrd.sh status` says whether it runs  
-`./taskmgrd.sh logs` follows its log  
-`./taskmgrd.sh fg` runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
-
-The pm2 process name is `TASKMGRD_PM2_NAME` in `.env` (default `taskmgrd`), configured in  
-`taskmgrd.config.cjs`; `pm2 startup` then `pm2 save` make it start with the machine. After  
-`./install.sh`, `taskmgrd` runs it in the foreground too (also `pnpm run daemon`).  
-
-The API the daemon uses, every request with `Authorization: Bearer <TASKMGRD_TOKEN>`:  
-`GET /api/sync` what the server has: the sha1 of its `taskmgr.json` and of each space's last snapshot, keyed `origin/work/repository` (`""` for no origin, or the work's common tasks).  
-`PUT /api/sync/config` `{ text }` writes `data/taskmgr.json` and prunes `data/origins/` to what is in it.  
-`PUT /api/sync/space` `{ origin, work, repository, entries }` replaces one tasks folder: `entries` are `{ path, content }` for task files and `{ path, dir: true }` for a task folder without one, paths relative to the folder.  
+See [docs/Develop.md](docs/Develop.md) and, for the APIs, [docs/Server.md](docs/Server.md).  
