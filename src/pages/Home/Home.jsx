@@ -467,12 +467,18 @@ export default function Home({ all = false }) {
 
   // An origin, or a work without a tasks folder of its own, has nowhere to add to.
   const workRoot = (works || []).find((w) => w.work === work)?.root;
-  const canAdd = !!space && !origin && !loadError && (!!repository || !!workRoot);
+  const canAdd = !!space && !loadError && (!!repository || !!workRoot);
 
   function openCreator(status = "todo") {
     if (!canAdd) return;
     setCreatingStatus(status);
     setCreating(true);
+  }
+
+  function toggleView() {
+    const next = view === "board" ? "list" : "board";
+    setView(next);
+    setPane(next === "board" ? (selected ? boardStatus(selected) : BOARD_STATUSES[0]) : "tasks");
   }
 
   const boardPane = BOARD_STATUSES.includes(pane) ? pane : selected ? boardStatus(selected) : BOARD_STATUSES[0];
@@ -597,8 +603,16 @@ export default function Home({ all = false }) {
       reload();
       return true;
     }
+    if (name === "v") {
+      toggleView();
+      return true;
+    }
     if (name === ":") {
       setCommand("");
+      return true;
+    }
+    if (["a", "n"].includes(name)) {
+      openCreator(view === "board" && BOARD_STATUSES.includes(pane) ? pane : "todo");
       return true;
     }
     if (pane === "tree") return treeKey(name);
@@ -607,7 +621,7 @@ export default function Home({ all = false }) {
       moveBoardColumn(["h", "left"].includes(name) ? -1 : 1);
       return true;
     }
-    if (view === "board" && BOARD_STATUSES.includes(pane) && ["n", "i"].includes(name)) {
+    if (view === "board" && BOARD_STATUSES.includes(pane) && name === "i") {
       openCreator(pane);
       return true;
     }
@@ -627,10 +641,6 @@ export default function Home({ all = false }) {
       case "l":
       case "right":
         if (t) enterFolder(t);
-        return true;
-      case "a":
-      case "n":
-        openCreator();
         return true;
       case "e":
       case "i":
@@ -795,11 +805,7 @@ export default function Home({ all = false }) {
           <button
             type="button"
             className="btn"
-            onClick={() => {
-              const next = view === "board" ? "list" : "board";
-              setView(next);
-              setPane(next === "board" ? (selected ? boardStatus(selected) : BOARD_STATUSES[0]) : "tasks");
-            }}
+            onClick={toggleView}
             title={t(view === "board" ? "header.listView" : "header.boardView")}
             aria-label={t(view === "board" ? "header.listView" : "header.boardView")}
           >
@@ -863,22 +869,30 @@ export default function Home({ all = false }) {
             if (!e.target.closest('[role="button"], button, a, input, label')) setSelectedKey(null);
           }}
         >
-          {(all || origin) && (
+          {(all || origin || space) && (
             <nav className={styles.section} aria-label={t("header.location")}>
-              <button type="button" className={crumbClass(true)} disabled>
-                {all ? t("tree.allOrigins") : origin}
-              </button>
-            </nav>
-          )}
-          {space && (
-            <nav className={styles.section} aria-label={t("header.location")}>
-              <button
-                type="button"
-                className={crumbClass(!repository && data.isRoot)}
-                onClick={() => selectSpace(api.spacePath(origin, work))}
-              >
-                {work}
-              </button>
+              {(all || origin) && (
+                <button
+                  type="button"
+                  className={crumbClass(!space)}
+                  onClick={() => origin && space && selectSpace(api.originPath(origin))}
+                  disabled={!space}
+                >
+                  {all ? t("tree.allOrigins") : origin}
+                </button>
+              )}
+              {space && (
+                <span className={styles.crumbItem}>
+                  {origin && <span className={styles.crumbSep}>&gt;</span>}
+                  <button
+                    type="button"
+                    className={crumbClass(!repository && data.isRoot)}
+                    onClick={() => selectSpace(api.spacePath(origin, work))}
+                  >
+                    {work}
+                  </button>
+                </span>
+              )}
               {repository && (
                 <span className={styles.crumbItem}>
                   <span className={styles.crumbSep}>&gt;</span>
