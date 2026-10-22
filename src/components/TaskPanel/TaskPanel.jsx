@@ -1,16 +1,22 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { RedoIcon, TrashIcon, UndoIcon } from "@components/icons";
+import Attachments, { useTaskFiles } from "@components/Attachments";
 import styles from "./panel.module.css";
 
 // The selected task beside the list: its task.txt as written, editable in place. It is saved
 // when the text loses focus or on cmd/ctrl+s; esc ends the edit, saving it. onSave(task, text)
 // writes it. When `focusKey` is the task's key, its text takes the focus and onFocused is called.
 // Under a head like the tree's: "Task", with undo, redo and delete at its right; onDelete(task)
-// asks before deleting.
-export default function TaskPanel({ task, focused, focusKey, onFocused, onSave, onDelete }) {
+// asks before deleting. Under the text, the task's attachments; files dropped anywhere on the
+// panel are uploaded into the task folder (`version` reloads the list when it changes; onPreview(file)
+// opens one).
+export default function TaskPanel({ task, focused, focusKey, onFocused, onSave, onDelete, onPreview, version }) {
   const { t } = useTranslation();
   const textRef = useRef(null);
+  const attachments = useTaskFiles(task?.space, task?.rel, version);
+  const [over, setOver] = useState(false);
+  const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
 
   // The text's own undo history, the one cmd/ctrl+z walks, so the buttons and the keys agree. The
   // text keeps the focus (the buttons do not take it on mousedown), so a click does not save it.
@@ -22,7 +28,27 @@ export default function TaskPanel({ task, focused, focusKey, onFocused, onSave, 
   }
 
   return (
-    <div className={styles.root}>
+    <div
+      className={styles.root}
+      data-over={over}
+      onDragOver={(e) => {
+        if (!task || !hasFiles(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setOver(true);
+      }}
+      onDragLeave={(e) => {
+        // leaving for a child keeps the highlight; leaving the panel drops it
+        if (!e.currentTarget.contains(e.relatedTarget)) setOver(false);
+      }}
+      onDrop={(e) => {
+        if (!task || !hasFiles(e)) return;
+        e.preventDefault();
+        setOver(false);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length) attachments.add(files);
+      }}
+    >
       <div className={styles.bar} data-focused={focused}>
         <span className={styles.barTitle}>{t("panel.heading")}</span>
         <div className={styles.barActions}>
@@ -61,15 +87,27 @@ export default function TaskPanel({ task, focused, focusKey, onFocused, onSave, 
         </div>
       </div>
       {task ? (
-        // keyed by id, which a rename (a new first line) keeps, so saving does not lose the focus
-        <TaskText
-          key={`${task.space.work}/${task.space.repository || ""}/${task.id}`}
-          task={task}
-          textRef={textRef}
-          focus={focusKey === task.key}
-          onFocused={onFocused}
-          onSave={onSave}
-        />
+        <>
+          {/* keyed by id, which a rename (a new first line) keeps, so saving does not lose the focus */}
+          <TaskText
+            key={`${task.space.work}/${task.space.repository || ""}/${task.id}`}
+            task={task}
+            textRef={textRef}
+            focus={focusKey === task.key}
+            onFocused={onFocused}
+            onSave={onSave}
+          />
+          <Attachments
+            className={styles.files}
+            space={task.space}
+            files={attachments.files}
+            busy={attachments.uploading}
+            onAdd={attachments.add}
+            onRemove={attachments.remove}
+            onPreview={onPreview}
+          />
+          {over && <div className={styles.dropOverlay}>{t("panel.dropFiles")}</div>}
+        </>
       ) : (
         <div className={styles.empty}>
           <p className="muted">{t("panel.none")}</p>

@@ -1,8 +1,30 @@
 /* Fills the pane's height, so the empty note can sit in its middle. */
 .root {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100%;
+}
+
+/* The attachments under the text, and the overlay while files are dragged over the panel. */
+.files {
+  flex: none;
+  padding: 12px;
+  border-top: var(--line) solid var(--border);
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 40px 0 0 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-alt);
+  opacity: 0.92;
+  border: var(--line) dashed var(--border);
+  color: var(--muted);
+  pointer-events: none;
 }
 
 /* The head, as the tree's "Origins": it stays at the top while the details scroll. */

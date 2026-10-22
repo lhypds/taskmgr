@@ -82,7 +82,8 @@
     "heading": "Task",
     "none": "No task selected.",
     "undo": "Undo",
-    "redo": "Redo"
+    "redo": "Redo",
+    "dropFiles": "Drop files to attach them to this task"
   },
   "attach": {
     "title": "Attachments",

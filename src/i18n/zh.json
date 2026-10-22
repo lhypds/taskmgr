@@ -82,7 +82,8 @@
     "heading": "任务",
     "none": "未选择任务。",
     "undo": "撤销",
-    "redo": "重做"
+    "redo": "重做",
+    "dropFiles": "拖放文件以添加到此任务"
   },
   "attach": {
     "title": "附件",

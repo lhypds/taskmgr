@@ -972,6 +972,8 @@ export default function Home({ all = false }) {
               onFocused={() => setFocusKey(null)}
               onSave={saveText}
               onDelete={setConfirm}
+              onPreview={(file) => selected && setPreview({ ...file, space: selected.space })}
+              version={data}
             />
           )}
         </aside>
