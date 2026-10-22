@@ -704,7 +704,7 @@ function createTaskView(screen, onBack) {
     '',
     '  j / k, up / down   move between tasks',
     '  h / l, left/right  go to parent / into subtasks',
-    ...(onBack ? ['  h at the top      back to the work / repository tree'] : []),
+    ...(onBack ? ['  h at the top       back to the work / repository tree'] : []),
     '  a                  add a task (asks for a name, then opens editor)',
     '  e / i              edit the selected task',
     '  space              preview task details',

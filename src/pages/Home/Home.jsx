@@ -512,6 +512,18 @@ export default function Home({ all = false }) {
     selectBoardColumn(target, row);
   }
 
+  function moveListPane(step) {
+    const areas = ["tree", "tasks", "detail"];
+    const current = areas.includes(pane) ? pane : "tasks";
+    const target = areas[Math.max(0, Math.min(areas.length - 1, areas.indexOf(current) + step))];
+    if (target === current) return;
+    if (target === "tree") setTreeOpen(true);
+    if (target === "detail") {
+      setDetailOpen(true);
+    }
+    setPane(target);
+  }
+
   function toggleTreePane() {
     const next = !treeOpen;
     setTreeOpen(next);
@@ -615,6 +627,10 @@ export default function Home({ all = false }) {
       openCreator(view === "board" && BOARD_STATUSES.includes(pane) ? pane : "todo");
       return true;
     }
+    if (view === "list" && ["h", "left", "l", "right"].includes(name)) {
+      moveListPane(["h", "left"].includes(name) ? -1 : 1);
+      return true;
+    }
     if (pane === "tree") return treeKey(name);
 
     if (view === "board" && ["h", "left", "l", "right"].includes(name)) {
@@ -634,21 +650,21 @@ export default function Home({ all = false }) {
     }
     const t = selected;
     switch (name) {
-      case "h":
-      case "left":
-        goUp();
-        return true;
-      case "l":
-      case "right":
-        if (t) enterFolder(t);
-        return true;
       case "e":
       case "i":
-      case "space":
         if (t) openEditor(t);
         return true;
+      case "space":
+        if (t) {
+          if (view === "list") toggleDone(t);
+          else openEditor(t);
+        }
+        return true;
       case "enter":
-        if (t) openFolder(t);
+        if (t) {
+          if (view === "list") openEditor(t);
+          else openFolder(t);
+        }
         return true;
       case "x":
         if (t) toggleDone(t);
@@ -723,7 +739,7 @@ export default function Home({ all = false }) {
           <>
             <p className="muted">{data.isRoot ? t("home.noTasks") : t("home.noSubtasks")}</p>
             {canAdd && (
-              <button type="button" className="btn primary" onClick={() => openCreator()}>
+              <button type="button" className="btn" onClick={() => openCreator()}>
                 <PlusIcon />
                 {t("header.newTask")}
               </button>
@@ -744,6 +760,7 @@ export default function Home({ all = false }) {
         <TaskList
           tasks={visible}
           selectedKey={selected?.key}
+          focused={pane === "tasks"}
           onSelect={(t) => setSelectedKey(t.key)}
           onOpenFolder={openFolder}
           onToggleDone={toggleDone}
@@ -805,6 +822,8 @@ export default function Home({ all = false }) {
           <button
             type="button"
             className="btn"
+            tabIndex={-1}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={toggleView}
             title={t(view === "board" ? "header.listView" : "header.boardView")}
             aria-label={t(view === "board" ? "header.listView" : "header.boardView")}

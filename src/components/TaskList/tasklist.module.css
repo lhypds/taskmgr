@@ -23,6 +23,9 @@
 }
 
 .row > div:first-child {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
   padding-left: 12px;
   overflow: visible;
 }
@@ -52,6 +55,11 @@
   border-bottom: var(--line) solid var(--border);
   color: var(--muted);
   font-size: 10px;
+}
+
+.head[data-focused="true"] {
+  background: var(--bg-hover);
+  color: var(--fg);
 }
 
 .row.head > div {
@@ -208,6 +216,7 @@
 }
 
 .box {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -218,13 +227,22 @@
   color: var(--fg); /* the tick is black on white, the box is never filled */
 }
 
+.box[data-pending="true"] {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+
 .box::before {
   content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 6px;
   height: 4px;
   border-left: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
-  transform: translateY(-20%) rotate(-45deg);
+  transform: translate(-50%, -70%) rotate(-45deg);
   opacity: 0;
 }
 

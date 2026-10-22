@@ -87,6 +87,16 @@ p {
   color: var(--bg);
 }
 
+.btn.primary {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.btn.primary:hover:not(:disabled) {
+  opacity: 0.82;
+}
+
 .btn:disabled {
   opacity: 0.4;
   cursor: default;

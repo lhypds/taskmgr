@@ -114,10 +114,10 @@
     },
     "nav": {
       "keys": "h / l, left / right",
-      "desc": "go to parent / into subtasks"
+      "desc": "move between Origins, task areas and Task details"
     },
     "toTree": {
-      "keys": "h at the top",
+      "keys": "h from the leftmost task area",
       "desc": "over to the work / repository tree"
     },
     "fromTree": {
@@ -133,15 +133,15 @@
       "desc": "add a task"
     },
     "edit": {
-      "keys": "e / i, space",
+      "keys": "e / i; enter in list; space in progress",
       "desc": "edit the selected task"
     },
     "open": {
-      "keys": "enter",
+      "keys": "enter in progress",
       "desc": "open the task folder"
     },
     "done": {
-      "keys": "x",
+      "keys": "x; space in list",
       "desc": "mark done / undone"
     },
     "pending": {

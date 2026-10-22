@@ -114,10 +114,10 @@
     },
     "nav": {
       "keys": "h / l、左 / 右",
-      "desc": "親へ / サブタスクへ"
+      "desc": "Origins・タスク領域・Task 詳細の間を移動"
     },
     "toTree": {
-      "keys": "最上位で h",
+      "keys": "左端のタスク領域で h",
       "desc": "作業 / リポジトリのツリーへ"
     },
     "fromTree": {
@@ -133,15 +133,15 @@
       "desc": "タスクを追加"
     },
     "edit": {
-      "keys": "e / i、space",
+      "keys": "e / i、一覧では enter、進捗では space",
       "desc": "選択中のタスクを編集"
     },
     "open": {
-      "keys": "enter",
+      "keys": "進捗で enter",
       "desc": "タスクフォルダを開く"
     },
     "done": {
-      "keys": "x",
+      "keys": "x、一覧では space",
       "desc": "完了 / 未完了を切り替え"
     },
     "pending": {
