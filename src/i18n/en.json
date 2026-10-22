@@ -245,7 +245,6 @@
   "analysis": {
     "title": "Income analysis",
     "year": "Year",
-    "includeHidden": "Include hidden works",
     "annual": "Annual income",
     "annualNote": "{{value}} / month × 12",
     "inYear": "Actual in {{year}}",

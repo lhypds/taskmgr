@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useState } from "react";
-import { Checkbox, Modal } from "@ui";
+import { Modal } from "@ui";
 import { currenciesOf, incomeFigures, yearsOf } from "@utils/income";
 import styles from "./analysis.module.css";
 
@@ -38,25 +38,22 @@ function Pie({ slices }) {
 // The income of every origin (its own) and work in one currency: per month, annual (monthly × 12),
 // what the monthly items actually pay in the chosen year given their start months, and one-time;
 // with a pie of where the annual or the chosen year's income comes from, one slice per origin (a
-// work without an origin is its own source). Hidden works count only when asked for.
+// work without an origin is its own source). Hidden works count too.
 export default function IncomeAnalysisModal({ isOpen, works, origins, onClose }) {
   const { t } = useTranslation();
   const now = new Date().getFullYear();
   const [year, setYear] = useState(now);
   const [currency, setCurrency] = useState("");
   const [basis, setBasis] = useState("inYear"); // what the pie shows: "inYear" or "annual"
-  const [includeHidden, setIncludeHidden] = useState(false);
 
   // Every income: each origin's own, then each work's, with the source it counts toward.
   const entries = useMemo(
     () =>
       [
         ...(origins || []).map((o) => ({ key: `o/${o.origin}`, source: o.origin, label: t("analysis.originOwn", { origin: o.origin }), income: o.income })),
-        ...(works || [])
-          .filter((w) => includeHidden || !w.hidden)
-          .map((w) => ({ key: `w/${w.work}`, source: w.origin || w.work, label: w.origin ? `${w.origin} / ${w.work}` : w.work, income: w.income })),
+        ...(works || []).map((w) => ({ key: `w/${w.work}`, source: w.origin || w.work, label: w.origin ? `${w.origin} / ${w.work}` : w.work, income: w.income })),
       ].filter((e) => e.income),
-    [works, origins, includeHidden, t],
+    [works, origins, t],
   );
   const currencies = useMemo(() => currenciesOf(entries), [entries]);
   const years = useMemo(() => yearsOf(entries, now), [entries, now]);
@@ -104,9 +101,6 @@ export default function IncomeAnalysisModal({ isOpen, works, origins, onClose })
               </select>
             </label>
           )}
-          <Checkbox checked={includeHidden} onChange={setIncludeHidden}>
-            {t("analysis.includeHidden")}
-          </Checkbox>
         </div>
 
         {rows.length === 0 ? (

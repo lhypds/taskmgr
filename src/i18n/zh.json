@@ -245,7 +245,6 @@
   "analysis": {
     "title": "收入分析",
     "year": "年份",
-    "includeHidden": "包含已隐藏的 work",
     "annual": "年收入",
     "annualNote": "每月 {{value}} × 12",
     "inYear": "{{year}} 年实际",

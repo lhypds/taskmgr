@@ -245,7 +245,6 @@
   "analysis": {
     "title": "収入分析",
     "year": "年",
-    "includeHidden": "非表示の work を含める",
     "annual": "年収入",
     "annualNote": "毎月 {{value}} × 12",
     "inYear": "{{year}} 年の実績",
