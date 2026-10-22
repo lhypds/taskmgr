@@ -15,3 +15,9 @@ dist/
 
 # web UI login accounts
 /data/users.json
+
+# what taskmgrd pushes to this server (see README, "Sync daemon")
+/data/taskmgr.json
+/data/origins/
+/data/.sync-tmp/
+/data/.sync-state.json

@@ -21,4 +21,4 @@ pnpm_bin_dir_args() {
 echo "Installing taskmgr globally..."
 pnpm add --global "link:$PWD" $(pnpm_bin_dir_args)
 
-echo "Done. Commands available: taskmgr, tm, taskmgr-web"
+echo "Done. Commands available: taskmgr, tm, taskmgr-web, taskmgrd"

@@ -288,3 +288,58 @@ Develop with hot reload in the foreground (Ctrl+C to stop):
 Production server without pm2, after `pnpm run build`:  
 `NODE_ENV=production node server/index.js [path/to/taskmgr.json]`  
 or, after installing globally: `taskmgr-web`  
+
+
+Sync daemon (taskmgrd)
+----------------------
+
+`taskmgrd` runs in the background on the machine that has the tasks. It watches `taskmgr.json` and the  
+tasks folder of every work and repository in it, and pushes what changes to a remote tm server (one  
+running the web UI), which keeps a copy under its `data/` folder, laid out like the origins tree:  
+
+```
+data/
+  taskmgr.json                     the pushed taskmgr.json, as written
+  origins/
+    <origin>/                      "_" for the works without an origin
+      <work>/
+        tasks/                     the work's common tasks (its tasks_path), the task folders as they are
+          202508142100 Buy apple/task.txt
+          done/202508142000 Buy orange/task.txt
+        repositories/
+          <repository>/            the repository's tasks (its tasks_path, or the tasks folder of its source_path)
+            202508142200 Fix mail/task.txt
+```
+
+What is pushed: `taskmgr.json` whole when it changes (an invalid one is not pushed; the folders of the  
+last good one stay watched), and each tasks folder as a snapshot of its task files, every `task.txt`  
+with the folder it is in, `done` / `pending` folders and subtasks included, whenever anything in the  
+folder changes. The server replaces its copy with the snapshot, so a renamed, moved or deleted task  
+is mirrored too; a task folder without a `task.txt` is mirrored as a bare folder. Attachments are not  
+pushed. When a work or repository is renamed in or removed from `taskmgr.json`, the server removes  
+its old folder. A tasks folder that does not exist is left as it is on the server and looked for every  
+30 seconds. Changes go out about 1.5 seconds after they happen; at startup and every 5 minutes the  
+daemon asks the server what it has and pushes what differs, and a push that fails (the server is  
+down) is retried, with growing waits, until it goes through.  
+
+On the server: set `TASKMGRD_TOKEN` in `.env` to a secret of your choice and restart the web UI  
+(`./start.sh`); its startup lines then say `sync : receiving from taskmgrd`. Without the token the  
+server refuses pushes. The copied files are git-ignored.  
+
+On the machine with the tasks: in `.env`, `TASKMGRD_SERVER` is the server's URL (the one its web UI  
+answers at, e.g. `https://tm.example.com`) and `TASKMGRD_TOKEN` the same secret. Then:  
+
+`./taskmgrd.sh` starts the daemon under pm2 (and restarts it when it already runs, picking up a changed `.env`)  
+`./taskmgrd.sh stop` stops it  
+`./taskmgrd.sh status` says whether it runs  
+`./taskmgrd.sh logs` follows its log  
+`./taskmgrd.sh fg` runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
+
+The pm2 process name is `TASKMGRD_PM2_NAME` in `.env` (default `taskmgrd`), configured in  
+`taskmgrd.config.cjs`; `pm2 startup` then `pm2 save` make it start with the machine. After  
+`./install.sh`, `taskmgrd` runs it in the foreground too (also `pnpm run daemon`).  
+
+The API the daemon uses, every request with `Authorization: Bearer <TASKMGRD_TOKEN>`:  
+`GET /api/sync` what the server has: the sha1 of its `taskmgr.json` and of each space's last snapshot, keyed `origin/work/repository` (`""` for no origin, or the work's common tasks).  
+`PUT /api/sync/config` `{ text }` writes `data/taskmgr.json` and prunes `data/origins/` to what is in it.  
+`PUT /api/sync/space` `{ origin, work, repository, entries }` replaces one tasks folder: `entries` are `{ path, content }` for task files and `{ path, dir: true }` for a task folder without one, paths relative to the folder.  

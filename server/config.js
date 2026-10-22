@@ -37,7 +37,8 @@
 // The config file is always <project>/taskmgr.json. It is re-read when it changes, so edits apply
 // without a restart.
 //
-// The web UI's login accounts are in <project>/data/users.json (see server/auth.js).
+// The web UI's login accounts are in <project>/data/users.json (see server/auth.js); the same data/
+// folder receives what taskmgrd pushes from another machine (see server/sync.js).
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -45,7 +46,8 @@ const path = require('path');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_CONFIG_PATH = path.join(PROJECT_ROOT, 'taskmgr.json');
 const EXAMPLE_CONFIG_PATH = path.join(PROJECT_ROOT, 'taskmgr.json.example');
-const DEFAULT_USERS_PATH = path.join(PROJECT_ROOT, 'data', 'users.json');
+const DEFAULT_DATA_DIR = path.join(PROJECT_ROOT, 'data');
+const DEFAULT_USERS_PATH = path.join(DEFAULT_DATA_DIR, 'users.json');
 
 function loadDotenv() {
   let dotenv = null;
@@ -302,6 +304,7 @@ function resolveConfig() {
   const first = readConfigFile(configPath);
   const port = parseInt(process.env.PORT || 3456, 10);
   const host = process.env.HOST || '127.0.0.1';
+  const dataDir = DEFAULT_DATA_DIR;
   const usersPath = DEFAULT_USERS_PATH;
 
   // Works and origins are re-read when the file's mtime changes; a broken edit keeps the last good ones.
@@ -506,9 +509,9 @@ function resolveConfig() {
   }
 
   return {
-    configPath, port, host, usersPath, getWorks, getOrigins, readText, writeText,
+    configPath, port, host, dataDir, usersPath, getWorks, getOrigins, readText, writeText,
     addOrigin, addWork, addRepository, updateWork, updateOrigin, updateRepository, removeOrigin, removeWork, removeRepository
   };
 }
 
-module.exports = { resolveConfig, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH };
+module.exports = { resolveConfig, loadDotenv, parseConfig, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH, DEFAULT_DATA_DIR };

@@ -31,6 +31,7 @@ const {
 const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig } = require('./config');
 const { createAuthApp } = require('./auth');
+const { createSyncApp } = require('./sync');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
@@ -274,8 +275,14 @@ const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json({ limit: '10mb' }));
 app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+
+// Pushes from taskmgrd on another machine (see server/sync.js): authorized by a shared token, not a
+// login, and larger than the UI's requests, so mounted before the body limit and the login guard.
+const syncToken = process.env.TASKMGRD_TOKEN;
+app.use(createSyncApp({ dataDir: config.dataDir, token: syncToken }));
+
+app.use(express.json({ limit: '10mb' }));
 
 // Login first: everything under /api below needs a session (see server/auth.js).
 app.use(createAuthApp({ usersPath: config.usersPath }));
@@ -639,6 +646,7 @@ mountFrontend().then(() => {
     console.log('taskmgr web UI' + (DEV ? ' (dev)' : ''));
     console.log(`  config     : ${config.configPath}`);
     console.log(`  users      : ${config.usersPath}`);
+    console.log(`  sync       : ${syncToken && syncToken.trim() ? `receiving from taskmgrd into ${path.join(config.dataDir, 'origins')}` : 'off (set TASKMGRD_TOKEN in .env to receive pushes from taskmgrd)'}`);
     for (const w of config.getWorks()) {
       console.log(`  work       : ${w.work}${w.origin ? ` (${w.origin})` : ''}  ${w.root || '(no tasks folder)'}`);
       for (const p of w.repositories) console.log(`    repository : ${p.name}  ${p.root}${p.sourcePath ? `  (source: ${p.sourcePath})` : ''}`);
