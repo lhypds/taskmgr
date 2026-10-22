@@ -1,17 +1,19 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
-import { Modal } from "@ui";
+import { Checkbox, Modal } from "@ui";
 import * as api from "@utils/api";
 import IncomeFields, { useIncomeFields, readIncome } from "@components/IncomeFields";
 import styles from "./work.module.css";
 
-// Edit one work: its name, and whether it has income; if it does, its income as two lists, monthly
-// and one-time, each of amount and currency. Both are written into taskmgr.json; "no income" removes
-// the income. Given an `origin` ({ origin, income }) instead, it edits that origin's name and income
-// the same way. onSaved gets the new { works, origins } and the new name.
+// Edit one work: its name, whether it is hidden from the tree, and whether it has income; if it
+// does, its income as two lists, monthly and one-time, each of amount and currency. All are written
+// into taskmgr.json; "no income" removes the income. Given an `origin` ({ origin, income }) instead,
+// it edits that origin's name and income the same way. onSaved gets the new { works, origins } and
+// the new name.
 export default function WorkEditModal({ work, origin, onClose, onSaved }) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
+  const [hidden, setHidden] = useState(false);
   const income = useIncomeFields();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -20,6 +22,7 @@ export default function WorkEditModal({ work, origin, onClose, onSaved }) {
   useEffect(() => {
     if (!work && !origin) return;
     setName(origin ? origin.origin : work.work);
+    setHidden(!origin && !!work.hidden);
     reset((origin || work).income);
     setError("");
   }, [work, origin, reset]);
@@ -39,7 +42,7 @@ export default function WorkEditModal({ work, origin, onClose, onSaved }) {
     try {
       const spaces = origin
         ? await api.saveOrigin(origin.origin, { name: newName, income: read.income })
-        : await api.saveWork(work.work, { name: newName, income: read.income });
+        : await api.saveWork(work.work, { name: newName, income: read.income, hidden });
       onSaved(spaces, newName);
     } catch (e) {
       setError(e.message);
@@ -61,6 +64,12 @@ export default function WorkEditModal({ work, origin, onClose, onSaved }) {
           <span className={styles.label}>{t("work.name")}</span>
           <input className="input" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
         </label>
+
+        {!origin && (
+          <Checkbox className={styles.check} checked={hidden} onChange={setHidden}>
+            {t("work.hide")}
+          </Checkbox>
+        )}
 
         <IncomeFields fields={income} />
 

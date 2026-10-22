@@ -6,11 +6,11 @@ import styles from "./income.module.css";
 
 // Each row being edited gets its own key, so removing one does not shift the inputs of the others.
 let nextKey = 0;
-const row = (amount = "", currency = INCOME_CURRENCIES[0]) => ({ key: nextKey++, amount, currency });
+const row = (amount = "", currency = INCOME_CURRENCIES[0], from = "") => ({ key: nextKey++, amount, currency, from });
 
 // The rows to edit for an income: its monthly and one-time items.
 function rowsOf(income) {
-  return Object.fromEntries(INCOME_PERIODS.map((p) => [p, (income?.[p] || []).map((x) => row(String(x.amount), x.currency))]));
+  return Object.fromEntries(INCOME_PERIODS.map((p) => [p, (income?.[p] || []).map((x) => row(String(x.amount), x.currency, x.from || ""))]));
 }
 
 // The state of the income fields; `reset(income)` starts them over from an income (null for none).
@@ -25,7 +25,7 @@ export function useIncomeFields() {
 }
 
 // The income typed into the fields: { income } (null for "no income"), or { error } with the
-// i18n key of what is wrong. Rows left empty are dropped.
+// i18n key of what is wrong. Rows left empty are dropped; a monthly row's "from" is optional.
 export function readIncome({ hasIncome, rows }) {
   if (!hasIncome) return { income: null };
   const income = {};
@@ -36,7 +36,9 @@ export function readIncome({ hasIncome, rows }) {
       if (!text) continue;
       const amount = Number(text);
       if (!Number.isFinite(amount) || amount <= 0) return { error: "income.invalidAmount" };
-      income[p].push({ amount, currency: x.currency });
+      const from = p === "monthly" ? x.from.trim() : "";
+      if (from && !/^\d{4}-(0[1-9]|1[0-2])$/.test(from)) return { error: "income.invalidFrom" };
+      income[p].push(from ? { amount, currency: x.currency, from } : { amount, currency: x.currency });
     }
   }
   if (INCOME_PERIODS.every((p) => income[p].length === 0)) return { error: "income.empty" };
@@ -103,6 +105,19 @@ export default function IncomeFields({ fields }) {
                       </option>
                     ))}
                   </select>
+                  {p === "monthly" && (
+                    <label className={styles.fromLabel} title={t("income.from")}>
+                      {t("income.fromLabel")}
+                      <input
+                        className={`input ${styles.from}`}
+                        type="month"
+                        value={x.from}
+                        placeholder="2026-01"
+                        aria-label={t("income.from")}
+                        onChange={(e) => setRow(p, x.key, { from: e.target.value })}
+                      />
+                    </label>
+                  )}
                   <button type="button" className="btn" title={t("income.remove")} aria-label={t("income.remove")} onClick={() => removeRow(p, x.key)}>
                     <XIcon />
                   </button>

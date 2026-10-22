@@ -60,7 +60,8 @@
   "tree": {
     "origins": "Origins",
     "noOrigins": "taskmgr.json に origin がありません。",
-    "openFolder": "フォルダを開く"
+    "openFolder": "フォルダを開く",
+    "showHidden": "非表示の work を表示（{{count}}）"
   },
   "list": {
     "markTodo": "未着手にする",
@@ -173,11 +174,15 @@
     "amount": "金額",
     "amountPlaceholder": "例：500000",
     "currency": "通貨",
+    "from": "開始年月（任意）",
+    "fromLabel": "開始年月",
+    "fromValue": "（{{from}} から）",
     "add": "追加",
     "remove": "削除",
     "perMonth": "{{value}} / 月",
     "perOnce": "{{value}}（単発）",
     "invalidAmount": "金額は正の数で入力してください。",
+    "invalidFrom": "開始年月は 2026-01 のように入力してください。",
     "empty": "収入を 1 件以上追加するか、「なし」を選んでください。"
   },
   "repository": {
@@ -202,7 +207,8 @@
     "originEmpty": "origin を入力してください。",
     "tasksPath": "タスクフォルダ",
     "tasksPathPlaceholder": "例：~/tasks",
-    "tasksPathEmpty": "タスクフォルダを入力してください。"
+    "tasksPathEmpty": "タスクフォルダを入力してください。",
+    "hide": "この work を非表示にする"
   },
   "add": {
     "title": "追加",
@@ -216,5 +222,23 @@
     "optional": "任意",
     "submit": "追加",
     "workEmpty": "work を選んでください。"
+  },
+  "analysis": {
+    "title": "収入分析",
+    "year": "年",
+    "includeHidden": "非表示の work を含める",
+    "annual": "年収入",
+    "annualNote": "毎月 {{value}} × 12",
+    "inYear": "{{year}} 年の実績",
+    "inYearNote": "毎月の収入の開始年月から計算",
+    "once": "単発の合計",
+    "onceNote": "日付がないため年収入に含めない",
+    "sources": "収入源",
+    "basis": "円グラフの基準",
+    "source": "収入源",
+    "total": "合計",
+    "originOwn": "{{origin}}（本体）",
+    "none": "収入がありません。",
+    "noneInYear": "{{year}} 年の収入はありません。"
   }
 }

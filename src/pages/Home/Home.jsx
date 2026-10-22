@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SpaceTree, TaskList, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryNameModal, LanguageSwitcher, UserMenu } from "@components";
-import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon } from "@components/icons";
+import { SpaceTree, TaskList, TaskPanel, TaskEditorModal, ConfirmModal, HelpModal, FilePreviewModal, ConfigEditorModal, WorkEditModal, AddSpaceModal, RepositoryNameModal, IncomeAnalysisModal, LanguageSwitcher, UserMenu } from "@components";
+import { PlusIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, RefreshIcon, PieIcon } from "@components/icons";
 import { showToast } from "@ui";
 import { useAuth } from "@store";
 import * as api from "@utils/api";
@@ -73,9 +73,16 @@ export default function Home() {
   const [adding, setAdding] = useState(null); // what the add modal starts with: { type, origin, work }
   const [editingOrigin, setEditingOrigin] = useState(null); // { origin, income } of the origin being edited
   const [renaming, setRenaming] = useState(null); // { work, name } of the repository being renamed
+  const [showHidden, setShowHidden] = useState(() => readFlag("tree.showHidden", false)); // the tree shows hidden works too
+  const [analysisOpen, setAnalysisOpen] = useState(false);
 
   useEffect(() => writeFlag("panel.tree", treeOpen), [treeOpen]);
   useEffect(() => writeFlag("panel.detail", detailOpen), [detailOpen]);
+  useEffect(() => writeFlag("tree.showHidden", showHidden), [showHidden]);
+
+  // The works in the tree: the hidden ones only when they are shown.
+  const treeWorks = useMemo(() => (works && !showHidden ? works.filter((w) => !w.hidden) : works), [works, showHidden]);
+  const hiddenCount = (works || []).filter((w) => w.hidden).length;
 
   // The { works, origins } every change to taskmgr.json answers with.
   const setSpaces = useCallback((d) => {
@@ -131,14 +138,14 @@ export default function Home() {
   // spaces whose folder is missing.
   const spaces = useMemo(
     () =>
-      groupWorksByOrigin(works, origins).flatMap((g) => [
+      groupWorksByOrigin(treeWorks, origins).flatMap((g) => [
         ...(g.origin ? [{ to: api.originPath(g.origin), exists: true }] : []),
         ...g.works.flatMap((w) => [
           { to: api.spacePath(w.work), root: w.root, exists: w.exists },
           ...w.repositories.map((p) => ({ to: api.spacePath(w.work, p.name), root: p.root, exists: p.exists })),
         ]),
       ]),
-    [works, origins],
+    [treeWorks, origins],
   );
   // The space on the right when its task folder does not exist. A list of several spaces just
   // leaves the missing ones out.
@@ -319,7 +326,7 @@ export default function Home() {
 
   // The terminal's key bindings (see cli.js); :h lists them.
   useShortcuts((name) => {
-    if (editor.open || confirm || configOpen || editingWork || editingOrigin || adding || renaming || command !== null) return false;
+    if (editor.open || confirm || configOpen || editingWork || editingOrigin || adding || renaming || analysisOpen || command !== null) return false;
     if (preview) {
       if (!["q", "enter", "space"].includes(name)) return false;
       setPreview(null);
@@ -493,6 +500,9 @@ export default function Home() {
           <button type="button" className="btn" onClick={reload} title={t("header.refresh")} aria-label={t("header.refresh")}>
             <RefreshIcon />
           </button>
+          <button type="button" className="btn" onClick={() => setAnalysisOpen(true)} title={t("analysis.title")} aria-label={t("analysis.title")}>
+            <PieIcon />
+          </button>
           <div className={styles.account}>
             <LanguageSwitcher />
             <UserMenu />
@@ -503,11 +513,14 @@ export default function Home() {
       <div className={styles.body}>
         <aside className={styles.drawer} data-open={treeOpen} onMouseDown={() => setPane("tree")}>
           <SpaceTree
-            works={works}
+            works={treeWorks}
             origins={origins}
             error={worksError}
             activeTo={spaceTo}
             focused={pane === "tree"}
+            showHidden={showHidden}
+            hiddenCount={hiddenCount}
+            onShowHidden={setShowHidden}
             onSelect={(to) => selectSpace(to)}
             onEdit={() => setConfigOpen(true)}
             onAdd={setAdding}
@@ -683,6 +696,8 @@ export default function Home() {
           showToast(t("repository.renamed"));
         }}
       />
+
+      <IncomeAnalysisModal isOpen={analysisOpen} works={works} origins={origins} onClose={() => setAnalysisOpen(false)} />
 
       <HelpModal isOpen={help} onClose={() => setHelp(false)} />
 

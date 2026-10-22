@@ -26,6 +26,15 @@
   font-weight: 600;
 }
 
+/* Under the head: whether the hidden works are shown too. */
+.showHidden {
+  flex: none;
+  height: 28px;
+  padding: 0 12px;
+  border-bottom: var(--line) solid var(--border);
+  color: var(--muted);
+}
+
 .list {
   flex: 1;
   min-height: 0;
@@ -112,6 +121,12 @@
   color: var(--muted);
 }
 
+/* A hidden work (and its repositories), shown because hidden works are shown. */
+.row[data-hidden="true"] .top,
+.row[data-hidden="true"] .root {
+  opacity: 0.5;
+}
+
 /* Tree lines, drawn with borders. Level i sits at 16px + 20px * i, under the start of the name of
    the row one level up. The elbow (├, or └ for the last row) points at the middle of the name
    line: the 8px row padding plus half its 16px. A through line carries an ancestor's line past
@@ -164,14 +179,13 @@
   font-weight: 600;
 }
 
-/* Buttons at the right end (add, edit, open folder): shown only while
-   the row is hovered (or the button has keyboard focus). Its fixed height keeps it from making the name line taller. */
+/* Buttons at the right end (add, edit, open folder): shown only while the row is hovered (or the
+   keyboard is on it), in place of the income. Its fixed height keeps it from making the name line taller. */
 .rowEdit {
   flex: none;
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
-  visibility: hidden;
   width: 16px;
   height: 16px;
   padding: 0;
@@ -199,11 +213,19 @@
 
 .row:hover .rowEdit,
 .origin:hover .rowEdit,
-.rowEdit:focus-visible {
-  visibility: visible;
+.row:focus-within .rowEdit,
+.origin:focus-within .rowEdit {
+  display: inline-flex;
 }
 
-/* The income in short (in 万) at the right of the name, before the buttons. */
+.row:hover .income,
+.origin:hover .income,
+.row:focus-within .income,
+.origin:focus-within .income {
+  display: none;
+}
+
+/* The income in short (in 万) at the right end of the name line; the buttons take its place on hover. */
 .income {
   flex: none;
   font-size: 12px;

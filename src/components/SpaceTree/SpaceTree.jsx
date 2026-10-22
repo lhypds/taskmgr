@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
 import { EditIcon, FolderIcon, PlusIcon } from "@components/icons";
+import { Checkbox } from "@ui";
 import * as api from "@utils/api";
 import { formatIncome, formatIncomeShort } from "@utils/income";
 import { groupWorksByOrigin } from "@utils/works";
@@ -36,7 +37,8 @@ function RowButton({ label, onClick, children }) {
   );
 }
 
-// The name line of a row: the name, its income in short (in 万) on the right, then the buttons.
+// The name line of a row: the name, then its income in short (in 万) at the right end, which the
+// buttons replace while the row is hovered.
 function Top({ label, income, actions }) {
   const { t } = useTranslation();
   return (
@@ -56,7 +58,7 @@ function Top({ label, income, actions }) {
 
 // One space in the tree. `depth` is 0 for a work without an origin, 1 for a work under its origin
 // or a repository of a depth-0 work, and 2 for a repository of a work under an origin.
-function Row({ to, exists, depth, through = [], last, active, focused, label, root, income, actions, onSelect }) {
+function Row({ to, exists, hidden, depth, through = [], last, active, focused, label, root, income, actions, onSelect }) {
   const ref = useRef(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -71,6 +73,7 @@ function Row({ to, exists, depth, through = [], last, active, focused, label, ro
       data-active={active}
       data-focused={active && focused}
       data-missing={!exists}
+      data-hidden={!!hidden}
       role="button"
       tabIndex={0}
       onClick={() => onSelect(to)}
@@ -111,8 +114,9 @@ function Origin({ name, active, focused, income, actions, onSelect }) {
 // The origins as trees, each with its works and their repositories; works without an origin come
 // last. `activeTo` is what is shown on the right; `focused` says the keyboard is on the tree rather
 // than the task list. `onAdd` opens the add modal with what to start with: { type: "origin" } from
-// the head, a work into an origin, a repository into a work.
-export default function SpaceTree({ works, origins, error, activeTo, focused, onSelect, onEdit, onAdd, onEditWork, onEditOrigin, onEditRepository, onOpenFolder }) {
+// the head, a work into an origin, a repository into a work. `works` leaves out the hidden ones
+// unless `showHidden`; the checkbox under the head (with `hiddenCount`) turns that on and off.
+export default function SpaceTree({ works, origins, error, activeTo, focused, showHidden, hiddenCount, onShowHidden, onSelect, onEdit, onAdd, onEditWork, onEditOrigin, onEditRepository, onOpenFolder }) {
   const { t } = useTranslation();
   const groups = groupWorksByOrigin(works, origins);
   return (
@@ -128,6 +132,9 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, on
           </button>
         </div>
       </div>
+      <Checkbox className={styles.showHidden} checked={showHidden} onChange={onShowHidden}>
+        {t("tree.showHidden", { count: hiddenCount })}
+      </Checkbox>
       <div className={styles.list}>
         {error ? (
           <p className={styles.error}>{error}</p>
@@ -166,6 +173,7 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, on
                       key={w.work}
                       to={api.spacePath(w.work)}
                       exists={w.exists}
+                      hidden={w.hidden}
                       depth={base}
                       last={lastWork}
                       active={activeTo === api.spacePath(w.work)}
@@ -193,6 +201,7 @@ export default function SpaceTree({ works, origins, error, activeTo, focused, on
                         key={`${w.work}/${p.name}`}
                         to={api.spacePath(w.work, p.name)}
                         exists={p.exists}
+                        hidden={w.hidden}
                         depth={base + 1}
                         through={g.origin ? [!lastWork] : []}
                         last={i === w.repositories.length - 1}

@@ -60,7 +60,8 @@
   "tree": {
     "origins": "Origins",
     "noOrigins": "taskmgr.json 中没有 origin。",
-    "openFolder": "打开文件夹"
+    "openFolder": "打开文件夹",
+    "showHidden": "显示已隐藏的 work（{{count}}）"
   },
   "list": {
     "markTodo": "标为待办",
@@ -173,11 +174,15 @@
     "amount": "数额",
     "amountPlaceholder": "例如：500000",
     "currency": "币种",
+    "from": "开始年月（可选）",
+    "fromLabel": "开始年月",
+    "fromValue": "（{{from}} 起）",
     "add": "添加",
     "remove": "删除",
     "perMonth": "{{value}} / 月",
     "perOnce": "{{value}}（单笔）",
     "invalidAmount": "数额必须是正数。",
+    "invalidFrom": "开始年月的格式应为 2026-01。",
     "empty": "请至少添加一笔收入，或选择“没有收入”。"
   },
   "repository": {
@@ -202,7 +207,8 @@
     "originEmpty": "origin 不能为空。",
     "tasksPath": "任务文件夹",
     "tasksPathPlaceholder": "例如：~/tasks",
-    "tasksPathEmpty": "任务文件夹不能为空。"
+    "tasksPathEmpty": "任务文件夹不能为空。",
+    "hide": "隐藏这个 work"
   },
   "add": {
     "title": "添加",
@@ -216,5 +222,23 @@
     "optional": "可选",
     "submit": "添加",
     "workEmpty": "请选择一个 work。"
+  },
+  "analysis": {
+    "title": "收入分析",
+    "year": "年份",
+    "includeHidden": "包含已隐藏的 work",
+    "annual": "年收入",
+    "annualNote": "每月 {{value}} × 12",
+    "inYear": "{{year}} 年实际",
+    "inYearNote": "按每月收入的开始年月计算",
+    "once": "单笔合计",
+    "onceNote": "没有日期，不计入年收入",
+    "sources": "收入来源",
+    "basis": "饼图依据",
+    "source": "来源",
+    "total": "合计",
+    "originOwn": "{{origin}}（本身）",
+    "none": "没有收入。",
+    "noneInYear": "{{year}} 年没有收入。"
   }
 }

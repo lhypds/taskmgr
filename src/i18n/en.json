@@ -60,7 +60,8 @@
   "tree": {
     "origins": "Origins",
     "noOrigins": "No origins in taskmgr.json.",
-    "openFolder": "Open folder"
+    "openFolder": "Open folder",
+    "showHidden": "Show hidden works ({{count}})"
   },
   "list": {
     "markTodo": "Mark as todo",
@@ -173,11 +174,15 @@
     "amount": "Amount",
     "amountPlaceholder": "e.g. 500000",
     "currency": "Currency",
+    "from": "From (year and month, optional)",
+    "fromLabel": "From",
+    "fromValue": " (from {{from}})",
     "add": "Add",
     "remove": "Remove",
     "perMonth": "{{value}} / month",
     "perOnce": "{{value}} one-time",
     "invalidAmount": "Each amount must be a positive number.",
+    "invalidFrom": "“From” must be a year and month such as 2026-01.",
     "empty": "Add at least one income, or choose “No income”."
   },
   "repository": {
@@ -202,7 +207,8 @@
     "originEmpty": "The origin must not be empty.",
     "tasksPath": "Tasks folder",
     "tasksPathPlaceholder": "e.g. ~/tasks",
-    "tasksPathEmpty": "The tasks folder must not be empty."
+    "tasksPathEmpty": "The tasks folder must not be empty.",
+    "hide": "Hide this work"
   },
   "add": {
     "title": "Add",
@@ -216,5 +222,23 @@
     "optional": "Optional",
     "submit": "Add",
     "workEmpty": "Choose a work."
+  },
+  "analysis": {
+    "title": "Income analysis",
+    "year": "Year",
+    "includeHidden": "Include hidden works",
+    "annual": "Annual income",
+    "annualNote": "{{value}} / month × 12",
+    "inYear": "Actual in {{year}}",
+    "inYearNote": "Counted from each monthly item's start month",
+    "once": "One-time total",
+    "onceNote": "Undated, not in the annual figures",
+    "sources": "Sources",
+    "basis": "Pie shows",
+    "source": "Source",
+    "total": "Total",
+    "originOwn": "{{origin}} (own)",
+    "none": "No income.",
+    "noneInYear": "No income in {{year}}."
   }
 }

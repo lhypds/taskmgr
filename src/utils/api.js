@@ -64,8 +64,9 @@ export const addRepository = ({ work, name, tasksPath, sourcePath }) => request(
 // Add a work to an origin.
 export const addWork = ({ name, origin, tasksPath, income }) => request("/api/work", json("POST", { name, origin, tasksPath, income }));
 
-// Set one work's name and income ({ monthly, once }, lists of { amount, currency }; null clears it).
-export const saveWork = (work, { name, income }) => request("/api/work", json("PUT", { work, name, income }));
+// Set one work's name, income ({ monthly, once }, lists of { amount, currency }; null clears it)
+// and whether it is hidden.
+export const saveWork = (work, { name, income, hidden }) => request("/api/work", json("PUT", { work, name, income, hidden }));
 
 // Set one origin's name and income, as saveWork does for a work.
 export const saveOrigin = (origin, { name, income }) => request("/api/origin", json("PUT", { origin, name, income }));

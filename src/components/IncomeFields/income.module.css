@@ -25,9 +25,25 @@
   align-self: flex-start;
 }
 
+/* Wide enough for a 3-letter code and the arrow. */
 .currency {
   flex: none;
-  width: 96px;
+  width: 64px;
+}
+
+/* The year and month a monthly item starts from, after its label. */
+.fromLabel {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.incomeRow .from {
+  flex: none;
+  width: 136px;
 }
 
 .choices {

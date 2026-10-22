@@ -12,9 +12,10 @@
 //           {
 //             "work": "gcc3.com",
 //             "income": {                         // optional, what the work pays
-//               "monthly": [{ "amount": 500000, "currency": "JPY" }],
+//               "monthly": [{ "amount": 500000, "currency": "JPY", "from": "2026-01" }],  // "from" optional
 //               "once": [{ "amount": 100000, "currency": "JPY" }]
 //             },
+//             "hidden": true,                     // optional, left out of the tree unless hidden works are shown
 //             "tasks_path": "~/gcc3",             // common tasks of this work
 //             "repositories": [
 //               {
@@ -92,14 +93,18 @@ function normalizeReward(r) {
   return { amount, currency, period: r.period };
 }
 
-// Validate one income item and return { amount, currency }.
-function normalizeIncomeItem(x) {
+// Validate one income item and return { amount, currency }, with "from" (the year and month a
+// monthly item starts, "2026-01") when it has one.
+function normalizeIncomeItem(x, period) {
   if (!x || typeof x !== 'object' || Array.isArray(x)) throw new Error('each item must be an object { amount, currency }.');
   const amount = typeof x.amount === 'string' ? Number(x.amount.replace(/,/g, '')) : x.amount;
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) throw new Error('"amount" must be a positive number.');
   const currency = typeof x.currency === 'string' ? x.currency.trim().toUpperCase() : '';
   if (!/^[A-Z]{3}$/.test(currency)) throw new Error('"currency" must be a 3-letter code such as JPY.');
-  return { amount, currency };
+  if (x.from === undefined || x.from === null || x.from === '') return { amount, currency };
+  if (period !== 'monthly') throw new Error('only a monthly item can have "from".');
+  if (typeof x.from !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(x.from)) throw new Error('"from" must be a year and month such as 2026-01.');
+  return { amount, currency, from: x.from };
 }
 
 // Validate an income { monthly: [...], once: [...] } and return it with both lists, or null when
@@ -117,7 +122,7 @@ function normalizeIncome(income, reward) {
     if (!Array.isArray(items)) throw new Error(`"${period}" must be an array.`);
     value[period] = items.map((x, i) => {
       try {
-        return normalizeIncomeItem(x);
+        return normalizeIncomeItem(x, period);
       } catch (e) {
         throw new Error(`${period}[${i}]: ${e.message}`);
       }
@@ -213,6 +218,8 @@ function normalizeWork(w, at, origin, seenWorks) {
     throw new Error(`${at}.${w.income === undefined ? 'reward' : 'income'} ("${work}"): ${e.message}`);
   }
 
+  if (w.hidden !== undefined && typeof w.hidden !== 'boolean') throw new Error(`${at}.hidden ("${work}") must be true or false.`);
+
   const seenRepositories = new Set();
   const repositories = (w.repositories === undefined ? [] : w.repositories);
   if (!Array.isArray(repositories)) throw new Error(`${at}.repositories ("${work}") must be an array.`);
@@ -220,6 +227,7 @@ function normalizeWork(w, at, origin, seenWorks) {
     work,
     origin,
     income,
+    hidden: w.hidden === true,
     root: path.resolve(expandHome(w.tasks_path.trim())),
     // The path as written in taskmgr.json (with "~" kept), for the UI to show.
     shownPath: w.tasks_path.trim(),
@@ -376,15 +384,19 @@ function resolveConfig(argv) {
     return out;
   }
 
-  // Set one work's name and income ({ monthly, once }; null removes it) and rewrite the file as
-  // 2-space indented JSON. Uniqueness and the "/" rule are checked by writeText.
-  function updateWork(work, { name, income }) {
+  // Set one work's name, income ({ monthly, once }; null removes it) and, when given, whether it is
+  // hidden (false removes the key), and rewrite the file as 2-space indented JSON. Uniqueness and
+  // the "/" rule are checked by writeText.
+  function updateWork(work, { name, income, hidden }) {
     const raw = readRaw();
     const { w, list } = findRawWork(raw, work);
     const newName = name.trim();
     if (!newName) throw new Error('The name must not be empty.');
     w.work = newName;
-    list[list.indexOf(w)] = withIncome(w, income);
+    const out = withIncome(w, income);
+    if (hidden === true) out.hidden = true;
+    else if (hidden === false) delete out.hidden;
+    list[list.indexOf(w)] = out;
     write(raw);
   }
 

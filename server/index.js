@@ -222,6 +222,7 @@ function listSpaces() {
     work: w.work,
     origin: w.origin,
     income: w.income,
+    hidden: w.hidden,
     shownPath: w.shownPath,
     ...describe(w.root),
     repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, shownPath: p.shownPath, ...describe(p.root) }))
@@ -312,12 +313,13 @@ app.post('/api/work', (req, res) => {
   res.status(201).json(spacesBody());
 });
 
-// Set the name and income (null clears it) of one work in taskmgr.json.
+// Set the name, income (null clears it) and, when given, whether it is hidden, of one work in taskmgr.json.
 app.put('/api/work', (req, res) => {
-  const { work, name, income } = req.body || {};
+  const { work, name, income, hidden } = req.body || {};
   if (typeof work !== 'string' || typeof name !== 'string' || income === undefined) throw new HttpError(400, 'Missing work, name or income.');
+  if (hidden !== undefined && typeof hidden !== 'boolean') throw new HttpError(400, '"hidden" must be true or false.');
   try {
-    config.updateWork(work, { name, income });
+    config.updateWork(work, { name, income, hidden });
   } catch (e) {
     throw new HttpError(400, e.message);
   }
