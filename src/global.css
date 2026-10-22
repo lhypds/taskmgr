@@ -152,21 +152,3 @@ p {
   line-height: 1;
   white-space: nowrap;
 }
-
-.tag.done {
-  color: var(--ok);
-  background: var(--ok-bg);
-  border-color: transparent;
-}
-
-.tag.pending {
-  color: var(--warn);
-  background: var(--warn-bg);
-  border-color: transparent;
-}
-
-.tag.todo {
-  color: var(--fg);
-  background: var(--bg-alt);
-  border-color: transparent;
-}
