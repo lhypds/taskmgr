@@ -47,10 +47,12 @@ const sha1 = (text) => crypto.createHash('sha1').update(text).digest('hex');
 const log = (...args) => console.log(...args);
 const warn = (...args) => console.error(...args);
 
-// One line per file sync attempt, success or failure, appended to logs/taskmgrd/taskmgrd.log.
+// One line per file sync attempt, appended to logs/taskmgrd/taskmgrd.log: SUCCESS, FAILED, or
+// WARNING for something left out on purpose (success is true, false or 'warning').
 const SYNC_LOG = path.join(__dirname, 'logs', 'taskmgrd', 'taskmgrd.log');
 function syncLog(success, message) {
-  const line = `${new Date().toISOString()} ${success ? 'SUCCESS' : 'FAILED '} ${message}\n`;
+  const level = success === 'warning' ? 'WARNING' : success ? 'SUCCESS' : 'FAILED ';
+  const line = `${new Date().toISOString()} ${level} ${message}\n`;
   try {
     fs.mkdirSync(path.dirname(SYNC_LOG), { recursive: true });
     fs.appendFileSync(SYNC_LOG, line);
@@ -172,13 +174,13 @@ function snapshot(root) {
       const entryRel = rel ? `${rel}/${name}` : name;
       if (stat.isDirectory()) {
         if (dirSize(abs, MAX_FOLDER_BYTES) > MAX_FOLDER_BYTES) {
-          syncLog(false, `skipped folder ${abs}: larger than 10 MB`);
+          syncLog('warning', `skipped folder ${abs}: larger than 10 MB`);
           continue;
         }
         walk(abs, entryRel);
       } else if (stat.isFile()) {
         if (stat.size > MAX_FILE_BYTES) {
-          syncLog(false, `skipped file ${abs}: larger than 5 MB`);
+          syncLog('warning', `skipped file ${abs}: larger than 5 MB`);
           continue;
         }
         if (name === TASK_FILE) {
