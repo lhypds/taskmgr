@@ -1163,8 +1163,8 @@ export default function Home({ all = false }) {
             <span className={`mono ${styles.path}`} title={data.remote ? footerMachine?.name || t("tree.remote") : data.absDir}>
               {data.remote ? (
                 <>
-                  <MachineDot machine={footerMachine} />
                   {footerMachine?.name || t("tree.remote")}
+                  <MachineDot machine={footerMachine} />
                 </>
               ) : (
                 data.absDir

@@ -48,7 +48,7 @@ function Top({ label, income, actions }) {
 
 // One space in the tree. `depth` is 0 for a work without an origin, 1 for a work under its origin
 // or a repository of a depth-0 work, and 2 for a repository of a work under an origin.
-// `machine` (see MachineDot) is the machine a remote folder was pushed from, shown as a dot before `root`.
+// `machine` (see MachineDot) is the machine a remote folder was pushed from, shown as a dot after `root`.
 function Row({ to, exists, hidden, depth, through = [], last, active, focused, label, root, machine, income, actions, onSelect }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -75,8 +75,8 @@ function Row({ to, exists, hidden, depth, through = [], last, active, focused, l
         {/* The line is right-to-left so a long path is cut at its start; this keeps the path itself
             left-to-right, or its leading "/" would show at the end. */}
         <bdi dir="ltr">
-          <MachineDot machine={machine} />
           {root}
+          <MachineDot machine={machine} />
         </bdi>
       </div>
     </div>

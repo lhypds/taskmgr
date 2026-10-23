@@ -169,15 +169,15 @@ p {
    within the last three minutes, grey otherwise. */
 .machine-dot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--faint);
-  margin-right: 5px;
+  margin-left: 5px;
   vertical-align: middle;
   position: relative;
   top: -1px;
 }
 .machine-dot[data-online="true"] {
-  background: var(--ok);
+  background: #6cd184; /* a light green: a status mark, not a success message */
 }
