@@ -10,7 +10,10 @@
 // repository here keeps its own tasks_path and source_path (the server's are folders on the server)
 // and takes the server's other fields; one only on the server is not pulled, nor its files; one only
 // here stays. Then the tasks folder of every work and repository here that the server also has is filled.
+// More threads for the file system calls, which go out side by side (see pullSpace), as in push.js.
+process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '32';
 const fs = require('fs');
+const fsp = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
 const syncState = require('./server/syncstate');
@@ -19,6 +22,7 @@ const { loadDotenv, parseConfig, upgradeRaw, DEFAULT_CONFIG_PATH } = require('./
 
 const REQUEST_TIMEOUT_MS = 30 * 1000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000;  // one attachment
+const DOWNLOADS_AT_ONCE = 8;
 
 loadDotenv();
 const SERVER = String(process.env.TASKMGRD_SERVER || '').trim().replace(/\/+$/, '');
@@ -32,6 +36,9 @@ function die(message) {
 if (!SERVER) die('TASKMGRD_SERVER is not set in .env (the tm server to pull from, e.g. https://tm.example.com).');
 if (!/^https?:\/\//.test(SERVER)) die(`TASKMGRD_SERVER must be an http(s) URL, not "${SERVER}".`);
 if (!TOKEN) die('TASKMGRD_TOKEN is not set in .env (the same value as in the remote server\'s .env).');
+// The sha1 of a file here, remembered by size and mtime in push's .tm-hash-cache.json, so an
+// attachment is only read again once it is modified. Required after the checks above: push.js has its own.
+const { fileHash, saveHashCache } = require('./push');
 
 // One GET; `raw` answers the body as a Buffer, otherwise the JSON.
 async function get(route, query, { raw = false, timeout = REQUEST_TIMEOUT_MS } = {}) {
@@ -96,15 +103,36 @@ function safeJoin(root, rel) {
   return abs;
 }
 
-function writeFileAtomic(abs, data) {
-  fs.mkdirSync(path.dirname(abs), { recursive: true });
+async function writeFileAtomic(abs, data) {
+  await fsp.mkdir(path.dirname(abs), { recursive: true });
   const tmp = `${abs}.${crypto.randomBytes(4).toString('hex')}.tmp`;
   try {
-    fs.writeFileSync(tmp, data);
-    fs.renameSync(tmp, abs);
+    await fsp.writeFile(tmp, data);
+    await fsp.rename(tmp, abs);
   } finally {
-    fs.rmSync(tmp, { force: true });
+    await fsp.rm(tmp, { force: true });
   }
+}
+
+const statOf = async (abs) => {
+  try {
+    return await fsp.stat(abs);
+  } catch (e) {
+    return null;
+  }
+};
+
+// `run` called with at most `n` of them running at once.
+function limiter(n) {
+  let running = 0;
+  const queue = [];
+  const next = () => {
+    if (running >= n || !queue.length) return;
+    running++;
+    const { run, resolve, reject } = queue.shift();
+    run().then(resolve, reject).finally(() => { running--; next(); });
+  };
+  return (run) => new Promise((resolve, reject) => { queue.push({ run, resolve, reject }); next(); });
 }
 
 const readIf = (abs) => {
@@ -115,16 +143,27 @@ const readIf = (abs) => {
   }
 };
 
+// Every file here is looked at side by side (on a Windows drive under WSL each call costs
+// milliseconds, most of it waiting), an attachment by its size first and then its cached sha1, and
+// the downloads go DOWNLOADS_AT_ONCE at a time.
 async function pullSpace(s, root, stats) {
   const query = { origin: s.origin, work: s.work, repository: s.repository };
   const key = spaceKey(s);
   const known = syncState.get(key) || {};  // what both sides had at the last push or pull
   const { entries } = await get('space', query);
   const onServer = syncState.manifestOf(entries);
-  const failedBefore = stats.failed;
   fs.mkdirSync(root, { recursive: true });
-  // A task the server has under another status folder than here is moved, not pulled as a second copy.
-  moveTasks(root, entries, {
+  // A task the server has under another status folder than here is moved, not pulled as a second copy;
+  // only a task.txt not here can be one.
+  const tasks = entries.filter(e => typeof e.content === 'string' && e.path.split('/').pop() === 'task.txt');
+  const here = await Promise.all(tasks.map(async (e) => {
+    try {
+      return await statOf(safeJoin(root, e.path));
+    } catch (err) {
+      return true;  // an invalid path: told below
+    }
+  }));
+  moveTasks(root, tasks.filter((e, i) => !here[i]), {
     onMove: () => { stats.updated++; },
     onError: (p, err) => { stats.failed++; console.error(`${label(s)}: ${p}: ${err.message}`); }
   });
@@ -155,33 +194,35 @@ async function pullSpace(s, root, stats) {
     }
   }
 
-  for (const e of entries) {
+  const download = limiter(DOWNLOADS_AT_ONCE);
+  await Promise.all(entries.map(async (e) => {
     try {
       const abs = safeJoin(root, e.path);
+      const stat = await statOf(abs);
       if (e.dir === true) {
-        if (!fs.existsSync(abs)) { fs.mkdirSync(abs, { recursive: true }); stats.added++; }
-        continue;
+        if (!stat) { await fsp.mkdir(abs, { recursive: true }); stats.added++; }
+        return;
       }
-      const have = readIf(abs);
+      const have = stat && stat.isFile();
       if (typeof e.content === 'string') {
-        if (have && have.toString('utf8') === e.content) continue;
-        writeFileAtomic(abs, e.content);
+        if (have && stat.size === Buffer.byteLength(e.content, 'utf8') && (await fsp.readFile(abs, 'utf8')) === e.content) return;
+        await writeFileAtomic(abs, e.content);
       } else if (typeof e.blob === 'string') {
-        if (have && sha1(have) === e.blob) continue;
-        const data = await get('file', { ...query, path: e.path }, { raw: true, timeout: DOWNLOAD_TIMEOUT_MS });
+        if (have && (typeof e.size !== 'number' || stat.size === e.size) && (await fileHash(abs, stat)) === e.blob) return;
+        const data = await download(() => get('file', { ...query, path: e.path }, { raw: true, timeout: DOWNLOAD_TIMEOUT_MS }));
         if (sha1(data) !== e.blob) throw new Error('the download does not match its sha1');
-        writeFileAtomic(abs, data);
+        await writeFileAtomic(abs, data);
       } else {
-        continue;
+        return;
       }
       stats[have ? 'updated' : 'added']++;
     } catch (err) {
       stats.failed++;
       console.error(`${label(s)}: ${e.path}: ${err.message}`);
     }
-  }
+  }));
   // Remembered only when the whole space went through; what was left out stays as it was known.
-  if (stats.failed === failedBefore) {
+  if (!stats.failed) {
     for (const p of Object.keys(known)) if (!(p in onServer) && fs.existsSync(safeJoin(root, p))) onServer[p] = known[p];  // kept here: still known
     syncState.set(key, onServer);
   }
@@ -236,26 +277,34 @@ async function pullSpace(s, root, stats) {
     console.log(`pulled taskmgr.json`);
   }
 
-  const stats = { added: 0, updated: 0, failed: 0 };
+  // The tasks folders are pulled side by side, those that share one folder one after the other.
+  const byRoot = new Map();
   for (const w of merged.works) {
     const spaces = [];
     if (w.root) spaces.push({ origin: w.origin || '', work: w.work, repository: '', root: w.root });
     for (const p of w.repositories) spaces.push({ origin: w.origin || '', work: w.work, repository: p.name, root: p.root });
     for (const s of spaces) {
       if (!serverSpaces.has([s.origin, s.work, s.repository].join('/'))) continue;
-      const before = { ...stats };
-      try {
-        await pullSpace(s, s.root, stats);
-      } catch (e) {
-        stats.failed++;
-        console.error(`${label(s)}: ${e.message}`);
-        continue;
-      }
-      const a = stats.added - before.added;
-      const u = stats.updated - before.updated;
-      if (a || u) console.log(`pulled ${label(s)} (${a} added, ${u} updated)`);
+      const key = path.resolve(s.root);
+      if (!byRoot.has(key)) byRoot.set(key, []);
+      byRoot.get(key).push(s);
     }
   }
+  const stats = { added: 0, updated: 0, failed: 0 };
+  await Promise.all([...byRoot.values()].map(async (spaces) => {
+    for (const s of spaces) {
+      const mine = { added: 0, updated: 0, failed: 0 };
+      try {
+        await pullSpace(s, s.root, mine);
+      } catch (e) {
+        mine.failed++;
+        console.error(`${label(s)}: ${e.message}`);
+      }
+      for (const k of Object.keys(stats)) stats[k] += mine[k];
+      if (mine.added || mine.updated) console.log(`pulled ${label(s)} (${mine.added} added, ${mine.updated} updated)`);
+    }
+  }));
+  saveHashCache();
   console.log(stats.added || stats.updated || changed ? `done: ${stats.added} added, ${stats.updated} updated${changed ? ', taskmgr.json merged' : ''}` : 'nothing to pull, everything is up to date');
   if (stats.failed) die(`${stats.failed} file${stats.failed === 1 ? '' : 's'} could not be pulled (see above)`);
 })().catch((e) => die(e.message));
