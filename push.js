@@ -17,7 +17,11 @@
 // copy is the folder as it is here, and a renamed, moved or deleted task or attachment is mirrored
 // too. Only .DS_Store files are left out, and files over 5 MB and folders over 10 MB (never the tasks
 // folder itself) are not pushed. A tasks folder that does not exist is left as it is on the server.
+// More threads for the file system calls, which go out side by side (see snapshot); must be set
+// before the first one.
+process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '32';
 const fs = require('fs');
+const fsp = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
 const { loadDotenv, parseConfig, DEFAULT_CONFIG_PATH } = require('./server/config');
@@ -123,17 +127,11 @@ function saveHashCache() {
   }
 }
 
-function fileHash(abs, stat) {
+async function fileHash(abs, stat) {
   const c = hashCache.get(abs);
   if (c && c.size === stat.size && c.mtimeMs === stat.mtimeMs) return c.sha1;
   const hash = crypto.createHash('sha1');
-  const fd = fs.openSync(abs, 'r');
-  try {
-    const buf = Buffer.alloc(1024 * 1024);
-    for (let n = fs.readSync(fd, buf); n > 0; n = fs.readSync(fd, buf)) hash.update(buf.subarray(0, n));
-  } finally {
-    fs.closeSync(fd);
-  }
+  for await (const chunk of fs.createReadStream(abs, { highWaterMark: 1024 * 1024 })) hash.update(chunk);
   const sha = hash.digest('hex');
   hashCache.set(abs, { size: stat.size, mtimeMs: stat.mtimeMs, sha1: sha });
   hashCacheDirty = true;
@@ -146,16 +144,17 @@ function fileHash(abs, stat) {
 // folder. Symbolic links are followed; .DS_Store files are left out. Sorted, so the same folder
 // always gives the same hash. `blobs` maps each sha1 to one file that has it, for the upload.
 //
-// The folder is read in one pass, each folder listed once and only files (and links) stat'ed: on a
-// Windows drive under WSL every file system call costs milliseconds. A folder's size comes from
-// that same pass, and files are read (task.txt) or hashed only once they are known to be kept.
-function snapshot(root) {
+// The folder is read in one pass, each folder listed once and only files (and links) stat'ed, and
+// the calls go out side by side: on a Windows drive under WSL every one costs milliseconds, most of
+// it waiting. A folder's size comes from that same pass, and files are read (task.txt) or hashed only
+// once they are known to be kept.
+async function snapshot(root) {
   // { files: [{ rel, abs, stat }], dirs: [rel], warnings: [message], size, isTask }, or null when
   // `dir` cannot be listed.
-  const walk = (dir, rel, inTask) => {
+  const walk = async (dir, rel, inTask) => {
     let dirents;
     try {
-      dirents = fs.readdirSync(dir, { withFileTypes: true });
+      dirents = await fsp.readdir(dir, { withFileTypes: true });
     } catch (e) {
       return null;
     }
@@ -164,9 +163,9 @@ function snapshot(root) {
     // pending/ and the like around it) always goes, minus whatever is too large in it.
     inTask = inTask || isTask;
     const out = { files: [], dirs: [], warnings: [], size: 0, isTask };
-    let count = 0;
-    for (const d of dirents) {
-      if (SKIPPED_FILES.has(d.name)) continue;
+    // Each entry looked at side by side: { sub } for a folder, { file } for a file, null for none.
+    const found = await Promise.all(dirents.map(async (d) => {
+      if (SKIPPED_FILES.has(d.name)) return null;
       const abs = path.join(dir, d.name);
       const entryRel = rel ? `${rel}/${d.name}` : d.name;
       let stat = null;
@@ -174,38 +173,44 @@ function snapshot(root) {
       let isFile = d.isFile();
       if (d.isSymbolicLink()) {
         try {
-          stat = fs.statSync(abs);  // through the link
+          stat = await fsp.stat(abs);  // through the link
         } catch (e) {
-          continue;  // a broken link
+          return null;  // a broken link
         }
         isFolder = stat.isDirectory();
         isFile = stat.isFile();
       }
       if (isFolder) {
-        const sub = walk(abs, entryRel, inTask);
-        if (!sub) continue;
-        out.size += sub.size;
-        if (inTask && !sub.isTask && sub.size > MAX_FOLDER_BYTES) {
-          out.warnings.push(`skipped folder ${abs}: larger than 10 MB`);
+        const sub = await walk(abs, entryRel, inTask);
+        return sub && { abs, sub };
+      }
+      if (!isFile) return null;  // a socket, a device: not a file to mirror
+      try {
+        stat = stat || await fsp.stat(abs);
+      } catch (e) {
+        return null;  // gone meanwhile
+      }
+      return { abs, file: { rel: entryRel, abs, stat } };
+    }));
+    let count = 0;
+    for (const f of found) {
+      if (!f) continue;
+      if (f.sub) {
+        out.size += f.sub.size;
+        if (inTask && !f.sub.isTask && f.sub.size > MAX_FOLDER_BYTES) {
+          out.warnings.push(`skipped folder ${f.abs}: larger than 10 MB`);
           continue;
         }
-        out.files.push(...sub.files);
-        out.dirs.push(...sub.dirs);
-        out.warnings.push(...sub.warnings);
-      } else if (isFile) {
-        try {
-          stat = stat || fs.statSync(abs);
-        } catch (e) {
-          continue;  // gone meanwhile
-        }
-        out.size += stat.size;
-        if (stat.size > MAX_FILE_BYTES) {
-          out.warnings.push(`skipped file ${abs}: larger than 5 MB`);
-          continue;
-        }
-        out.files.push({ rel: entryRel, abs, stat });
+        out.files.push(...f.sub.files);
+        out.dirs.push(...f.sub.dirs);
+        out.warnings.push(...f.sub.warnings);
       } else {
-        continue;  // a socket, a device: not a file to mirror
+        out.size += f.file.stat.size;
+        if (f.file.stat.size > MAX_FILE_BYTES) {
+          out.warnings.push(`skipped file ${f.abs}: larger than 5 MB`);
+          continue;
+        }
+        out.files.push(f.file);
       }
       count++;
     }
@@ -213,27 +218,28 @@ function snapshot(root) {
     return out;
   };
 
-  const found = walk(root, '', false) || { files: [], dirs: [], warnings: [] };
+  const found = (await walk(root, '', false)) || { files: [], dirs: [], warnings: [] };
   for (const w of found.warnings) syncLog('warning', w);
   const entries = found.dirs.map(rel => ({ path: rel, dir: true }));
   const blobs = new Map();
   const seen = new Set();
-  for (const f of found.files) {
-    if (path.basename(f.abs) === TASK_FILE) {
-      try {
-        entries.push({ path: f.rel, content: fs.readFileSync(f.abs, 'utf8') });
-      } catch (e) { /* gone meanwhile */ }
-      continue;
-    }
-    let sha;
+  const read = await Promise.all(found.files.map(async (f) => {
     try {
-      sha = fileHash(f.abs, f.stat);
+      if (path.basename(f.abs) === TASK_FILE) return { path: f.rel, content: await fsp.readFile(f.abs, 'utf8') };
+      return { path: f.rel, blob: await fileHash(f.abs, f.stat), abs: f.abs };
     } catch (e) {
+      return null;  // gone meanwhile
+    }
+  }));
+  for (const e of read) {
+    if (!e) continue;
+    if (e.content !== undefined) {
+      entries.push(e);
       continue;
     }
-    seen.add(f.abs);
-    entries.push({ path: f.rel, blob: sha });
-    if (!blobs.has(sha)) blobs.set(sha, f.abs);
+    seen.add(e.abs);
+    entries.push({ path: e.path, blob: e.blob });
+    if (!blobs.has(e.blob)) blobs.set(e.blob, e.abs);
   }
   for (const abs of hashCache.keys()) {
     if (!seen.has(abs) && abs.startsWith(root + path.sep)) {
@@ -376,7 +382,7 @@ async function main() {
       warn(`${root}: folder not found (${spaces.map(label).join(', ')})`);
       continue;
     }
-    const snap = snapshot(root);
+    const snap = await snapshot(root);
     for (const s of spaces) {
       if (state.spaces[spaceKey(s)] === snap.hash) continue;
       await push(label(s), () => pushSpace(s, snap));

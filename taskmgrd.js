@@ -88,7 +88,7 @@ const roots = new Map();   // tasks folder -> { root, spaces, watcher, timer, po
 
 // Compare a tasks folder with what the server has and queue the spaces that differ. A folder that
 // is not there is looked for from time to time instead.
-function scanRoot(root) {
+async function scanRoot(root) {
   const r = roots.get(root);
   if (!r) return;
   if (!isDir(root)) {
@@ -105,7 +105,18 @@ function scanRoot(root) {
     r.missing = false;
   }
   if (!r.watcher) watchRoot(r);
-  const { entries, blobs, hash } = snapshot(root);
+  // A newer scan of the same folder started meanwhile, or the folder was dropped: this one's result
+  // is left out.
+  const seq = r.scanSeq = (r.scanSeq || 0) + 1;
+  let snap;
+  try {
+    snap = await snapshot(root);
+  } catch (e) {
+    warn(`${root}: ${e.message}`);
+    return;
+  }
+  if (roots.get(root) !== r || r.scanSeq !== seq) return;
+  const { entries, blobs, hash } = snap;
   for (const s of r.spaces) {
     const key = spaceKey(s);
     if (onServer.spaces[key] !== hash) enqueue({ key, space: s, entries, blobs, hash });
