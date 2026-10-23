@@ -32,6 +32,7 @@ const { loadDotenv, parseConfig, DEFAULT_CONFIG_PATH } = require('./server/confi
 const { spaceKey } = require('./server/sync');
 const syncState = require('./server/syncstate');
 const { TASK_FILE } = require('./utils/taskUtils');
+const { appendLog } = require('./utils/logfile');
 
 const REQUEST_TIMEOUT_MS = 30 * 1000;
 const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;  // one attachment
@@ -61,8 +62,7 @@ function syncLog(success, message) {
   const level = success === 'warning' ? 'WARNING' : success === 'info' ? 'INFO   ' : success ? 'SUCCESS' : 'FAILED ';
   const line = `${new Date().toISOString()} ${level} ${message}\n`;
   try {
-    fs.mkdirSync(path.dirname(SYNC_LOG), { recursive: true });
-    fs.appendFileSync(SYNC_LOG, line);
+    appendLog(SYNC_LOG, line);  // kept under 10 MB (see utils/logfile.js)
   } catch (e) {
     console.error(`cannot write ${SYNC_LOG}: ${e.message}`);
   }

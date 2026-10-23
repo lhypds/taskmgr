@@ -32,6 +32,7 @@ const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig } = require('./config');
 const { createAuthApp } = require('./auth');
 const { createSyncApp, isMirrored, spaceKey } = require('./sync');
+const { trimLogs } = require('../utils/logfile');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
@@ -318,6 +319,9 @@ app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next
 // Pushes from taskmgrd on another machine (see server/sync.js): authorized by a shared token, not a
 // login, and larger than the UI's requests, so mounted before the body limit and the login guard.
 const syncToken = process.env.SYNC_SERVER_TOKEN;
+// Every log in logs/ is kept under 10 MB (see utils/logfile.js): the ones written here are trimmed as
+// they grow, the others once, now.
+trimLogs(path.join(PROJECT_ROOT, 'logs'));
 const syncApp = createSyncApp({ dataDir: config.dataDir, logsDir: path.join(PROJECT_ROOT, 'logs'), token: syncToken, readConfig: config.readText, writeConfig: config.writeText });
 app.use(syncApp);
 

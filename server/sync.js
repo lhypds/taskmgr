@@ -62,6 +62,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const { parseConfig, upgradeRaw } = require('./config');
+const { appendLog } = require('../utils/logfile');
 
 const ORIGINS_DIR = 'origins';
 const NO_ORIGIN_DIR = '_';
@@ -450,6 +451,7 @@ function createSyncApp({ dataDir, logsDir = path.join(dataDir, '..', 'logs'), to
 
   // One line to logs/<MACHINE_ID>.log, the log of what that machine pushes and polls here, in the form
   // of the daemon's own log (see syncLog in push.js): the time, SUCCESS / FAILED / INFO, the message.
+  // Like the daemon's log, it is kept under 10 MB (its oldest 2 MB dropped when it grows past that).
   // Nothing is logged for a request without a machine id.
   function machineLog(req, level, message) {
     const name = logFileName(req.machine);
@@ -457,8 +459,7 @@ function createSyncApp({ dataDir, logsDir = path.join(dataDir, '..', 'logs'), to
     const file = path.join(logsDir, `${name}.log`);
     const tag = level === 'info' ? 'INFO   ' : level === 'failed' ? 'FAILED ' : 'SUCCESS';
     try {
-      fs.mkdirSync(logsDir, { recursive: true });
-      fs.appendFileSync(file, `${new Date().toISOString()} ${tag} ${message}\n`);
+      appendLog(file, `${new Date().toISOString()} ${tag} ${message}\n`);  // kept under 10 MB (see utils/logfile.js)
     } catch (e) {
       console.error(`cannot write ${file}: ${e.message}`);
     }

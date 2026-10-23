@@ -25,6 +25,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { spaceKey } = require('./server/sync');
 const { loadDotenv } = require('./server/config');
+const { trimLogs } = require('./utils/logfile');
 
 // What .env turns on, looked at before push.js is loaded (it exits with an error when the server is
 // not set): whether the daemon pushes (on unless PUSHING is 0), whether it pulls too (off unless
@@ -46,6 +47,7 @@ const { SERVER, MACHINE_ID, CONFIG_PATH, log, warn, die, syncLog, logTo, readCon
 // `tm pull`: logs/taskmgr.log).
 const DAEMON_LOG = path.join(__dirname, 'logs', 'taskmgrd.log');
 logTo(DAEMON_LOG);
+trimLogs(path.dirname(DAEMON_LOG));  // every log in logs/ kept under 10 MB (see utils/logfile.js)
 
 const DEBOUNCE_MS = 10 * 1000;          // a change waits this long, and each new one restarts the wait
 const RESCAN_MS = 5 * 60 * 1000;        // how often the server is asked what it has, and everything compared
