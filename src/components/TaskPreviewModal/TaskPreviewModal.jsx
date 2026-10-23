@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "@ui";
 import { fileUrl } from "@utils/api";
-import { formatSize } from "@utils/task";
+import { formatSize, previewKind } from "@utils/task";
 import styles from "./taskPreview.module.css";
 
 // task.txt as the terminal's space preview shows it: blank lines at the ends dropped, each line trimmed.
@@ -56,8 +56,8 @@ function Editor({ task, textRef, onSave, onEndEdit }) {
 }
 
 // Look at a task's task.txt, with its attachments under it (`files`, the one at
-// `selectedRel` marked; Home moves it with j / k and opens it with enter; esc calls onUnselect first; double click or `onEdit` starts the edit; with `editing`, e / i in Home, the text is a textarea saved by onSave), opened with space and closed with space, q, enter or escape.
-export default function TaskPreviewModal({ task, files, selectedRel, onUnselect, editing, onEdit, onEndEdit, onSave, onClose }) {
+// `selectedRel` marked; Home moves it with j / k and opens it with enter; esc calls onUnselect first; double click or `onEdit` starts the edit; with `editing`, e / i in Home, the text is a textarea saved by onSave), a click on a file (or enter) opens it through `onOpenFile`, which previews a PDF, image or text file instead of downloading it; opened with space and closed with space, q, enter or escape.
+export default function TaskPreviewModal({ task, files, selectedRel, onUnselect, editing, onEdit, onEndEdit, onSave, onOpenFile, onClose }) {
   const { t } = useTranslation();
   const textRef = useRef(null);
   const onEscape = editing ? () => textRef.current?.blur() : selectedRel ? onUnselect : undefined;
@@ -80,7 +80,16 @@ export default function TaskPreviewModal({ task, files, selectedRel, onUnselect,
                   {f.isDir ? (
                     <span>{f.name}/</span>
                   ) : (
-                    <a href={fileUrl(task.space, f.rel)} target="_blank" rel="noreferrer">
+                    <a
+                      href={fileUrl(task.space, f.rel)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => {
+                        if (!onOpenFile || !previewKind(f.name)) return;
+                        e.preventDefault();
+                        onOpenFile(f);
+                      }}
+                    >
                       {f.name}
                     </a>
                   )}

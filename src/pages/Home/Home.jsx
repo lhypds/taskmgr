@@ -311,16 +311,12 @@ export default function Home({ all = false }) {
   const peekFiles = peekAttachments.files.filter((f) => !f.isDir);
   const [peekFileRel, setPeekFileRel] = useState(null);
   const peekFile = peekFiles.find((f) => f.rel === peekFileRel) || null;
-  // d on a file asks by saying so; d again deletes it and moves the highlight to its neighbour.
-  // Any other key takes the question back.
-  const armedRef = useRef(null);
-  const deleteFile = async (hook, list, file, setRel) => {
-    if (armedRef.current !== file.rel) {
-      armedRef.current = file.rel;
-      showToast(t("attach.deleteAgain", { name: file.name }), 4000);
-      return;
-    }
-    armedRef.current = null;
+  // d on a file asks in a popup; confirming (d again, or the button) deletes it and moves the highlight to its neighbour.
+  const [removingFile, setRemovingFile] = useState(null); // { hook, list, file, setRel }
+  const deleteFile = (hook, list, file, setRel) => setRemovingFile({ hook, list, file, setRel });
+  const confirmDeleteFile = async () => {
+    const { hook, list, file, setRel } = removingFile;
+    setRemovingFile(null);
     const i = list.indexOf(file);
     if (await hook.remove(file, false)) setRel((list[i + 1] || list[i - 1] || null)?.rel ?? null);
   };
@@ -612,10 +608,10 @@ export default function Home({ all = false }) {
 
   // The terminal's key bindings (see cli.js); :h lists them.
   useShortcuts((name) => {
-    if (name !== "d") armedRef.current = null;
     if (
       creating ||
       confirm ||
+      removingFile ||
       configOpen ||
       editingWork ||
       editingOrigin ||
@@ -1184,10 +1180,18 @@ export default function Home({ all = false }) {
         onPreview={(file) => setPreview({ ...file, space })}
       />
 
-      <TaskPreviewModal task={peekTask} editing={peekEditing} onEdit={() => setPeekEditing(true)} onEndEdit={() => setPeekEditing(false)} onSave={saveText} files={peekFiles} selectedRel={peekFile?.rel} onUnselect={() => setPeekFileRel(null)} onClose={() => { setPeek(null); setPeekFileRel(null); setPeekEditing(false); }} />
+      <TaskPreviewModal task={peekTask} editing={peekEditing} onEdit={() => setPeekEditing(true)} onEndEdit={() => setPeekEditing(false)} onSave={saveText} onOpenFile={(file) => openFile(file, peek)} files={peekFiles} selectedRel={peekFile?.rel} onUnselect={() => setPeekFileRel(null)} onClose={() => { setPeek(null); setPeekFileRel(null); setPeekEditing(false); }} />
 
       {/* after the task preview, so it stacks in front of it */}
       <FilePreviewModal space={preview?.space} file={preview} onClose={() => setPreview(null)} />
+
+      <ConfirmModal
+        isOpen={!!removingFile}
+        title={t("attach.deleteTitle")}
+        message={removingFile ? t("attach.deleteConfirm", { name: removingFile.file.name }) : ""}
+        onCancel={() => setRemovingFile(null)}
+        onConfirm={confirmDeleteFile}
+      />
 
       <ConfirmModal
         isOpen={!!confirm}

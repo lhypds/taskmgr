@@ -90,7 +90,7 @@
     "folder": "folder",
     "remove": "Remove {{name}}",
     "deleteConfirm": "Delete {{name}}?",
-    "deleteAgain": "Press d again to delete {{name}}",
+    "deleteTitle": "Delete file",
     "uploading": "Uploading…",
     "drop": "Drop files here or",
     "choose": "choose files"
