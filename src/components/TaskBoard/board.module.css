@@ -45,9 +45,24 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  padding: 0 8px 8px;
   overflow-y: auto;
+  scrollbar-width: none; /* the wheel moves the selection, which scrolls into view, so no bar */
+}
+
+.cards::-webkit-scrollbar {
+  display: none;
+}
+
+/* A card in its row. A subtask's card is indented 20px per level under its task's, with the tree
+   lines (TreeLines) before it, level 0 at 8px. The 8px between cards is the row's top padding,
+   not a gap, so the lines run on through it from the card above; the elbow points at the middle
+   of the card's first line: that 8px, the border, the card's 8px padding and half of 16px. */
+.cardRow {
+  position: relative;
+  padding: 8px 0 0 calc(20px * var(--depth, 0));
+  --tree-left: 8px;
+  --tree-mid: 25px;
 }
 
 .card {
@@ -70,6 +85,12 @@
 
 .card[data-dragging="true"] {
   opacity: 0.4;
+}
+
+/* A subtask whose own status is not the column's (its task's): in grey, as in the list. */
+.card[data-off="true"] .cardTitle,
+.card[data-off="true"] .cardStamp {
+  color: var(--muted);
 }
 
 /* The repository (in a list of several), the task's name and its details, one inline flow as in
@@ -110,11 +131,6 @@
   word-break: break-all;
 }
 
-.cardFoot {
-  display: flex;
-  align-items: center;
-  height: 20px;
-}
 
 /* The edit / open folder / delete buttons float at the bottom right on hover, beside the created
    time, so they take no row of their own. */
@@ -128,30 +144,6 @@
   visibility: visible;
 }
 
-.enterButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: var(--line) solid var(--border);
-  background: var(--bg);
-}
-
-.enterButton:hover {
-  background: var(--border);
-  color: var(--bg);
-}
-
-.enterButton svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 
 @media (max-width: 860px) {
   .board {

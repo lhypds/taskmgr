@@ -77,8 +77,7 @@
   },
   "list": {
     "markTodo": "Mark as todo",
-    "markDone": "Mark as done",
-    "openSubtasks": "Open subtasks"
+    "markDone": "Mark as done"
   },
   "panel": {
     "heading": "Task",

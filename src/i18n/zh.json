@@ -77,8 +77,7 @@
   },
   "list": {
     "markTodo": "标为待办",
-    "markDone": "标为完成",
-    "openSubtasks": "打开子任务"
+    "markDone": "标为完成"
   },
   "panel": {
     "heading": "任务",

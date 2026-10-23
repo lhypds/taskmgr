@@ -38,7 +38,7 @@ import * as api from "@utils/api";
 import { ALL_MONTHS, taskMonth, taskMonths, monthLabel, previewKind, flattenTasks, filterTasks } from "@utils/task";
 import { groupWorksByOrigin } from "@utils/works";
 import { useTaskFiles } from "@components/Attachments";
-import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
+import { useShortcuts, moveIndex } from "@utils/keys";
 import styles from "./home.module.css";
 
 const EMPTY_DIR = {
@@ -299,13 +299,13 @@ export default function Home({ all = false }) {
       (monthKey === ALL_MONTHS || taskMonth(t) === monthKey) &&
       (!q || t.title.toLowerCase().includes(q) || t.id.includes(q) || t.from.toLowerCase().includes(q)) &&
       (view === "board" || showDone || t.status !== "done");
-    // The list shows every task under its parent, which stays when a subtask of it is kept, and
-    // leaves the done tasks out unless they are shown. The board shows the tasks at the top (a
-    // card's subtasks open on their own), always with its done column; on it, j / k go down a
-    // column and on into the next one.
-    if (view !== "board") return flattenTasks(filterTasks(tree, keep));
-    const shown = tree.filter(keep);
-    return BOARD_STATUSES.flatMap((s) => shown.filter((t) => boardStatus(t) === s));
+    // Both views show every task under its parent, which stays when a subtask of it is kept. The
+    // list leaves the done tasks out unless they are shown. The board always has its done column;
+    // a task at the top sits in the column of its status with its subtasks under it, whatever
+    // theirs (`column` says which), and on it j / k go down a column and on into the next one.
+    const kept = filterTasks(tree, keep);
+    if (view !== "board") return flattenTasks(kept);
+    return BOARD_STATUSES.flatMap((s) => flattenTasks(kept.filter((t) => boardStatus(t) === s)).map((r) => ({ ...r, column: s })));
   }, [tree, query, view, showDone, monthKey]);
 
   // No row is selected until one is chosen, or when the selected task is not in this list (a new
@@ -341,14 +341,6 @@ export default function Home({ all = false }) {
     else window.open(api.fileUrl(task.space, file.rel), "_blank", "noreferrer");
   };
 
-  // The wheel over the task list moves the selection, which scrolls itself into view.
-  const [scrollEl, setScrollEl] = useState(null);
-  useWheelSteps(scrollEl, (dir) => {
-    const move = moveIndex(dir > 0 ? "down" : "up", selectedIndex, visible.length);
-    if (move >= 0) setSelectedKey(visible[move].key);
-    setPane("tasks");
-  });
-
   // Edit a task in the panel: select it, show the panel and put the caret in its text.
   const openEditor = (task) => {
     setSelectedKey(task.key);
@@ -371,12 +363,6 @@ export default function Home({ all = false }) {
   const togglePending = (task) => setStatus(task, task.status === "pending" ? "todo" : "pending");
 
   const goTo = (rel) => setSearchParams(rel ? { dir: rel } : {});
-  // Into a task's subtasks, in the space the task lives in.
-  const enterFolder = (task) =>
-    navigate({
-      pathname: api.spacePath(task.space.origin, task.space.work, task.space.repository),
-      search: `?${new URLSearchParams({ dir: task.rel })}`,
-    });
 
   // Up one folder, selecting the task we came out of; at the top, over to the tree.
   function goUp() {
@@ -838,7 +824,6 @@ export default function Home({ all = false }) {
         onOpen={openEditor}
         onOpenFolder={openFolder}
         onDelete={setConfirm}
-        onEnter={enterFolder}
         onMove={setStatus}
       />
     );
@@ -868,7 +853,7 @@ export default function Home({ all = false }) {
     );
   } else {
     content = (
-      <div className={styles.scroll} ref={setScrollEl}>
+      <div className={styles.scroll}>
         <TaskList
           tasks={visible}
           selectedKey={selected?.key}
