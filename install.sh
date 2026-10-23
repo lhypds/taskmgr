@@ -18,6 +18,14 @@ pnpm_bin_dir_args() {
   esac
 }
 
+# pnpm needs a global bin dir on PATH. Without PNPM_HOME (a shell opened before "pnpm setup",
+# or pnpm never set up) use its default one, running "pnpm setup" first when it does not exist yet.
+if [ -z "$PNPM_HOME" ] && [ -z "$(pnpm config get global-bin-dir 2>/dev/null | grep -v '^undefined$')" ]; then
+  export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
+  [ -d "$PNPM_HOME" ] || pnpm setup
+  export PATH="$PNPM_HOME:$PATH"
+fi
+
 echo "Installing taskmgr globally..."
 pnpm add --global "link:$PWD" $(pnpm_bin_dir_args)
 

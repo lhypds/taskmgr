@@ -16,6 +16,12 @@ pnpm_bin_dir_args() {
   esac
 }
 
+# Same as install.sh: a shell without PNPM_HOME still finds pnpm's default global bin dir.
+if [ -z "$PNPM_HOME" ] && [ -z "$(pnpm config get global-bin-dir 2>/dev/null | grep -v '^undefined$')" ]; then
+  export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
+  export PATH="$PNPM_HOME:$PATH"
+fi
+
 echo "Uninstalling taskmgr..."
 pnpm unlink $(pnpm_bin_dir_args)
 
