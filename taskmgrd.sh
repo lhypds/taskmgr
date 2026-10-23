@@ -27,8 +27,7 @@ env_var() {
   grep "^$1=" "$ROOT/.env" 2>/dev/null | head -n 1 | cut -d= -f2- | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
 }
 
-PM2_NAME="$(env_var TASKMGRD_PM2_NAME)"
-PM2_NAME="${PM2_NAME:-taskmgrd}"
+PM2_NAME=taskmgrd
 
 # What the daemon itself needs; checked here so a wrong .env is one message, not a pm2 restart loop.
 check_setup() {
