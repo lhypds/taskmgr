@@ -4,7 +4,7 @@
 // deleted unless it is a task the server deleted since the last sync (see server/syncstate.js): a file or folder
 // that exists is updated when it differs, one that does not is added.
 //
-//   node pull.js      (what `tm pull` runs; TASKMGRD_SERVER and TASKMGRD_TOKEN in .env, as for taskmgrd)
+//   node pull.js      (what `tm pull` runs; REMOTE_SERVER and REMOTE_SERVER_TOKEN in .env, as for taskmgrd)
 //
 // taskmgr.json is merged, not replaced, and only for what is already here: an origin, work or
 // repository here keeps its own tasks_path and source_path (the server's are folders on the server)
@@ -25,17 +25,17 @@ const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000;  // one attachment
 const DOWNLOADS_AT_ONCE = 8;
 
 loadDotenv();
-const SERVER = String(process.env.TASKMGRD_SERVER || '').trim().replace(/\/+$/, '');
-const TOKEN = String(process.env.TASKMGRD_TOKEN || '').trim();
+const SERVER = String(process.env.REMOTE_SERVER || '').trim().replace(/\/+$/, '');
+const TOKEN = String(process.env.REMOTE_SERVER_TOKEN || '').trim();
 
 function die(message) {
   console.error(`Error: ${message}`);
   process.exit(1);
 }
 
-if (!SERVER) die('TASKMGRD_SERVER is not set in .env (the tm server to pull from, e.g. https://tm.example.com).');
-if (!/^https?:\/\//.test(SERVER)) die(`TASKMGRD_SERVER must be an http(s) URL, not "${SERVER}".`);
-if (!TOKEN) die('TASKMGRD_TOKEN is not set in .env (the same value as in the remote server\'s .env).');
+if (!SERVER) die('REMOTE_SERVER is not set in .env (the tm server to pull from, e.g. https://tm.example.com).');
+if (!/^https?:\/\//.test(SERVER)) die(`REMOTE_SERVER must be an http(s) URL, not "${SERVER}".`);
+if (!TOKEN) die('REMOTE_SERVER_TOKEN is not set in .env (the same value as in the remote server\'s .env).');
 // The sha1 of a file here, remembered by size and mtime in push's .tm-hash-cache.json, so an
 // attachment is only read again once it is modified. Required after the checks above: push.js has its own.
 // syncLog is the sync log of a run by hand, logs/taskmgr.log: the start and the end of the pull go there,

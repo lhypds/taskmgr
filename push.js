@@ -7,8 +7,8 @@
 //   node push.js      (what `tm push` runs)
 //
 // .env (next to this file):
-//   TASKMGRD_SERVER=https://tm.example.com   the server to push to: the URL of its web UI
-//   TASKMGRD_TOKEN=...                        the same value as TASKMGRD_TOKEN in that server's .env
+//   REMOTE_SERVER=https://tm.example.com   the server to push to: the URL of its web UI
+//   REMOTE_SERVER_TOKEN=...                 the same value as REMOTE_SERVER_TOKEN in that server's .env
 //
 // taskmgr.json is pushed whole; an invalid one is not pushed. A tasks folder is pushed as a snapshot
 // of everything in it: every file (task.txt files as text, the others, attachments included, by the
@@ -36,8 +36,8 @@ const MAX_FOLDER_BYTES = 10 * 1024 * 1024;  // a folder (inside a tasks folder) 
 const SKIPPED_FILES = new Set(['.DS_Store']);  // never pushed: Finder rewrites it all the time
 
 loadDotenv();
-const SERVER = String(process.env.TASKMGRD_SERVER || '').trim().replace(/\/+$/, '');
-const TOKEN = String(process.env.TASKMGRD_TOKEN || '').trim();
+const SERVER = String(process.env.REMOTE_SERVER || '').trim().replace(/\/+$/, '');
+const TOKEN = String(process.env.REMOTE_SERVER_TOKEN || '').trim();
 const CONFIG_PATH = DEFAULT_CONFIG_PATH;
 
 const sha1 = (text) => crypto.createHash('sha1').update(text).digest('hex');
@@ -67,9 +67,9 @@ function die(message) {
   process.exit(1);
 }
 
-if (!SERVER) die('TASKMGRD_SERVER is not set in .env (the tm server to push to, e.g. https://tm.example.com).');
-if (!/^https?:\/\//.test(SERVER)) die(`TASKMGRD_SERVER must be an http(s) URL, not "${SERVER}".`);
-if (!TOKEN) die('TASKMGRD_TOKEN is not set in .env (the same value as in the remote server\'s .env).');
+if (!SERVER) die('REMOTE_SERVER is not set in .env (the tm server to push to, e.g. https://tm.example.com).');
+if (!/^https?:\/\//.test(SERVER)) die(`REMOTE_SERVER must be an http(s) URL, not "${SERVER}".`);
+if (!TOKEN) die('REMOTE_SERVER_TOKEN is not set in .env (the same value as in the remote server\'s .env).');
 
 // ---------- what to push ----------
 

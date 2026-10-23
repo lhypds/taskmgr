@@ -12,9 +12,11 @@
 // change missed by the file system, or a server that lost its data, is put right. A push that fails
 // is retried, with growing waits, until the server answers again.
 //
-// With TASKMGRD_POLLING=1 in .env the daemon also pulls: once when it starts, before its first push,
-// and then every TASKMGRD_POLLING_INTERVAL seconds (600, ten minutes, when not set), it runs pull.js
-// as `tm pull` does, so a change made on the server, or pushed to it by another machine, comes here.
+// .env says what the daemon does. PUSHING=1 (the default) is all of the above; PUSHING=0 turns it
+// off. With POLLING=1 the daemon also pulls: once when it starts, before its first push, and then
+// every POLLING_INTERVAL seconds (600, ten minutes, when not set), it runs pull.js as `tm pull`
+// does, so a change made on the server, or pushed to it by another machine, comes here. With both
+// off it has nothing to do and exits.
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -31,14 +33,18 @@ const RESCAN_MS = 5 * 60 * 1000;        // how often the server is asked what it
 const MISSING_POLL_MS = 30 * 1000;      // how often a missing tasks folder is looked for
 const RETRY_MS = [5000, 15000, 60000];  // waits before retrying after a failed push, the last one repeating
 
-// Polling, from .env (see the top): whether the daemon pulls too, and how often, in seconds.
-const POLLING = /^(1|true|yes|on)$/i.test(String(process.env.TASKMGRD_POLLING || '').trim());
+// From .env (see the top): whether the daemon pushes (on unless PUSHING is 0), whether it pulls too
+// (off unless POLLING is 1), and how often, in seconds.
+const isOn = (v) => /^(1|true|yes|on)$/i.test(String(v || '').trim());
+const PUSHING = process.env.PUSHING === undefined || String(process.env.PUSHING).trim() === '' || isOn(process.env.PUSHING);
+const POLLING = isOn(process.env.POLLING);
 const POLLING_INTERVAL_S = POLLING ? pollingInterval() : 0;
+if (!PUSHING && !POLLING) die('PUSHING=0 and POLLING=0 in .env: nothing for taskmgrd to do (set PUSHING=1, POLLING=1 or both).');
 function pollingInterval() {
-  const raw = String(process.env.TASKMGRD_POLLING_INTERVAL || '').trim();
+  const raw = String(process.env.POLLING_INTERVAL || '').trim();
   if (!raw) return 600;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1) die(`TASKMGRD_POLLING_INTERVAL in .env must be a whole number of seconds, 1 or more, not "${raw}".`);
+  if (!Number.isInteger(n) || n < 1) die(`POLLING_INTERVAL in .env must be a whole number of seconds, 1 or more, not "${raw}".`);
   return n;
 }
 
@@ -307,7 +313,7 @@ async function poll() {
     syncLog(false, `polling: ${failed}`);
   }
   pollTimer = setTimeout(poll, POLLING_INTERVAL_S * 1000);
-  await rescan();
+  if (PUSHING) await rescan();
 }
 
 // ---------- main ----------
@@ -316,19 +322,21 @@ log('taskmgrd');
 syncLog('info', `taskmgrd started (server ${SERVER})`);
 log(`  config     : ${CONFIG_PATH}`);
 log(`  server     : ${SERVER}`);
-log(`  polling    : ${POLLING ? `tm pull every ${POLLING_INTERVAL_S % 60 === 0 ? `${POLLING_INTERVAL_S / 60} min` : `${POLLING_INTERVAL_S}s`}` : 'off (TASKMGRD_POLLING=1 in .env turns it on)'}`);
+log(`  pushing    : ${PUSHING ? 'on' : 'off (PUSHING=0 in .env)'}`);
+log(`  polling    : ${POLLING ? `tm pull every ${POLLING_INTERVAL_S % 60 === 0 ? `${POLLING_INTERVAL_S / 60} min` : `${POLLING_INTERVAL_S}s`}` : 'off (POLLING=1 in .env turns it on)'}`);
 
 const first = readConfig();
 if (!first) die(`${CONFIG_PATH} could not be read, or is invalid (see above).`);
 current = first;
 for (const s of spacesOf(first.works)) log(`  ${s.repository ? 'repository' : 'work      '} : ${label(s)}  ${s.root}`);
 
-watchConfig();
-// With polling on, the first pull comes before the first push: what the server has (another
+// With pushing off, nothing is watched and the server is never asked what it has: the daemon only
+// polls. With polling on, the first pull comes before the first push: what the server has (another
 // machine's changes, say) is taken in first, and the push that follows sends the folders as merged.
+if (PUSHING) watchConfig();
 if (POLLING) poll();
 else rescan();
-setInterval(rescan, RESCAN_MS);
+if (PUSHING) setInterval(rescan, RESCAN_MS);
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {

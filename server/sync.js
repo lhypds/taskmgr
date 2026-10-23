@@ -16,8 +16,8 @@
 //             <repository>/           the repository's tasks (its tasks_path, or the "tasks" folder of its source)
 //               202508142200 Fix mail/task.txt
 //
-// Every request carries `Authorization: Bearer <TASKMGRD_TOKEN>`: the same secret is TASKMGRD_TOKEN
-// in both .env files. Without TASKMGRD_TOKEN in this server's .env, pushes are refused (503).
+// Every request carries `Authorization: Bearer <REMOTE_SERVER_TOKEN>`: the same secret is REMOTE_SERVER_TOKEN
+// in both .env files. Without REMOTE_SERVER_TOKEN in this server's .env, pushes are refused (503).
 //
 //   GET /api/sync                                            -> { ok, config, spaces }
 //       what is here: the sha1 of the last pushed config, and of each space's last snapshot
@@ -354,7 +354,7 @@ function tokensMatch(a, b) {
 }
 
 // Mounts the sync routes. Mount it before the login guard: a push is authorized by the token, not a
-// session. `token` is TASKMGRD_TOKEN; with none, every push is refused. `readConfig` and
+// session. `token` is REMOTE_SERVER_TOKEN; with none, every push is refused. `readConfig` and
 // `writeConfig` read and replace this server's taskmgr.json (see server/config.js).
 function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
   const app = express();
@@ -408,7 +408,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
   }
 
   app.use('/api/sync', (req, res, next) => {
-    if (!enabled) return res.status(503).json({ error: 'Sync is off on this server: set TASKMGRD_TOKEN in its .env.', code: 'SYNC_OFF' });
+    if (!enabled) return res.status(503).json({ error: 'Sync is off on this server: set REMOTE_SERVER_TOKEN in its .env.', code: 'SYNC_OFF' });
     const m = /^Bearer\s+(.+)$/.exec(String(req.headers.authorization || ''));
     if (!m || !tokensMatch(m[1].trim(), token.trim())) return res.status(401).json({ error: 'Wrong sync token.', code: 'INVALID_TOKEN' });
     next();
