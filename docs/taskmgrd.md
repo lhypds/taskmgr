@@ -54,6 +54,7 @@ answers at, e.g. `https://tm.example.com`) and `TASKMGRD_TOKEN` the same secret.
 `./taskmgrd.sh status` says whether it runs  
 `./taskmgrd.sh logs` follows its log  
 `tm push` pushes once, by hand, and exits: `taskmgr.json` and every tasks folder that differs from the server's copy, whether or not the daemon runs (it exits with an error when the server cannot be reached or refuses)  
+`tm pull` is the other direction, once: it fetches `taskmgr.json`, the task files and the other files from the server and adds or updates them here, never deleting a local file or folder (see the README)  
 `./taskmgrd.sh fg` runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
 
 The pm2 process is named `taskmgrd` (see `taskmgrd.config.cjs`); `pm2 startup` then `pm2 save` make it start with the machine. After  

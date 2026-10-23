@@ -35,6 +35,11 @@
 //       files (text), [{ path, blob: sha1 }] for every other file, taken from the blob store, and
 //       [{ path, dir: true }] for an empty folder, paths relative to the space's folder. When a blob
 //       is not in the store, nothing is written and the answer is 409 MISSING_BLOBS { missing }.
+//   GET /api/sync/pull/config                                -> { ok, text }
+//   GET /api/sync/pull/space?origin=&work=&repository=       -> { ok, entries }
+//   GET /api/sync/pull/file?origin=&work=&repository=&path=  -> the raw file
+//       what `tm pull` reads: this server's taskmgr.json, a space's folder listed like a push
+//       (task files as text, the others by sha1 and size), and one file of it. Nothing is changed.
 //
 // Attachments go through the blob store, data/.sync-blobs/<sha1>, so that a file the server already
 // has (unchanged since the last push, or the same file under a renamed task) is never sent again:
@@ -422,6 +427,93 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     writeState(state);
     pruneBlobs(state);
     res.json({ ok: true, files, dirs });
+  });
+
+  // ---------- pull: what `tm pull` reads ----------
+
+  // The folder of a space as this server's taskmgr.json has it (a copy of a pushed folder, or a folder
+  // of its own), or a 404 when the config does not list it or it has no tasks folder.
+  function rootOf(q) {
+    const { works } = parseConfig(readConfig(), 'taskmgr.json');
+    const origin = String(q.origin || '').trim();
+    const work = String(q.work || '').trim();
+    const repository = String(q.repository || '').trim();
+    const w = works.find(x => x.work === work && (x.origin || '') === origin);
+    const root = w && (repository ? (w.repositories.find(p => p.name === repository) || {}).root : w.root);
+    if (!root) throw new SyncError(404, `No tasks folder for "${[origin, work, repository].filter(Boolean).join(' / ')}" here.`);
+    return root;
+  }
+
+  // The server's taskmgr.json as it is.
+  app.get('/api/sync/pull/config', (req, res) => {
+    res.json({ ok: true, text: readConfig() });
+  });
+
+  // Everything in a space's folder, in the form of a push: { path, content } for a task file, { path,
+  // blob: sha1, size } for any other file (fetched with /pull/file), { path, dir: true } for an empty folder.
+  app.get('/api/sync/pull/space', (req, res) => {
+    const root = rootOf(req.query);
+    const entries = [];
+    const walk = (dir, rel) => {
+      let names;
+      try {
+        names = fs.readdirSync(dir);
+      } catch (e) {
+        return;
+      }
+      let count = 0;
+      for (const name of names) {
+        if (name === '.DS_Store') continue;
+        const abs = path.join(dir, name);
+        let stat;
+        try {
+          stat = fs.statSync(abs);
+        } catch (e) {
+          continue;
+        }
+        const entryRel = rel ? `${rel}/${name}` : name;
+        if (stat.isDirectory()) {
+          walk(abs, entryRel);
+        } else if (stat.isFile()) {
+          try {
+            if (name === 'task.txt') {
+              entries.push({ path: entryRel, content: fs.readFileSync(abs, 'utf8') });
+            } else {
+              entries.push({ path: entryRel, blob: crypto.createHash('sha1').update(fs.readFileSync(abs)).digest('hex'), size: stat.size });
+            }
+          } catch (e) {
+            continue;
+          }
+        } else {
+          continue;
+        }
+        count++;
+      }
+      if (!count && rel) entries.push({ path: rel, dir: true });
+    };
+    walk(root, '');
+    entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    res.json({ ok: true, entries });
+  });
+
+  // One file of a space, raw. `path` is relative to the space's folder.
+  app.get('/api/sync/pull/file', (req, res) => {
+    const root = path.resolve(rootOf(req.query));
+    const rel = String(req.query.path || '');
+    const parts = rel.split('/');
+    if (!rel || parts.some(s => !s || s === '.' || s === '..' || s.includes('\0'))) throw new SyncError(400, `Invalid path "${rel}".`);
+    const abs = path.resolve(root, ...parts);
+    if (!inside(root, abs)) throw new SyncError(400, 'The path leaves the folder.');
+    let stat;
+    try {
+      stat = fs.statSync(abs);
+    } catch (e) {
+      throw new SyncError(404, `No file "${rel}".`);
+    }
+    if (!stat.isFile()) throw new SyncError(404, `No file "${rel}".`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', stat.size);
+    fs.createReadStream(abs).on('error', () => res.destroy()).pipe(res);
   });
 
   // A refused request answers with its code (and, for MISSING_BLOBS, the blobs to upload).

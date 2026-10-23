@@ -183,6 +183,15 @@ Which of these files (sha1 hashes of their content) the server does not have yet
 `PUT /api/sync/blob/<sha1>` (the raw file as the body, up to 1 GB)  
 Store one file in the blob store, `data/.sync-blobs/<sha1>`. 400 when the content does not hash to `<sha1>`. `{ ok }`.  
 
+`GET /api/sync/pull/config`  
+The server's `taskmgr.json` as it is: `{ ok, text }`. Used by `tm pull`.  
+
+`GET /api/sync/pull/space?origin=&work=&repository=`  
+A space's folder listed like a push: `{ ok, entries }` with `{ path, content }` for a task file, `{ path, blob: sha1, size }` for any other file and `{ path, dir: true }` for an empty folder. 404 when the server has no tasks folder for it.  
+
+`GET /api/sync/pull/file?origin=&work=&repository=&path=`  
+One file of a space, raw. Nothing on the server is changed by the pull routes.  
+
 `PUT /api/sync/space` `{ origin, work, repository, entries }`  
 Replace one tasks folder with the snapshot: `entries` are `{ path, content }` for task files (text),  
 `{ path, blob: sha1 }` for every other file (attachments included), taken from the blob store, and  

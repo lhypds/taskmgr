@@ -1085,15 +1085,16 @@ function createTaskView(screen, onBack) {
   return { open, close };
 }
 
-const USAGE = `Usage: tm [<folder> | config | push | help]
+const USAGE = `Usage: tm [<folder> | config | push | pull | help]
 
   tm              pick a work and a repository from taskmgr.json, then open its tasks
   tm <folder>     open that folder as a task list (e.g. tm . or tm ~/tasks)
   tm config       open taskmgr.json in the editor (created from taskmgr.json.example if missing)
   tm push         push taskmgr.json and the tasks folders to the server of taskmgrd now (TASKMGRD_SERVER in .env)
+  tm pull         fetch taskmgr.json, the tasks and their files from the server, adding and updating but never deleting
   tm help         show this help (also -h, --help)
 
-To open a folder named "config", "push" or "help", prefix it: tm ./config
+To open a folder named "config", "push", "pull" or "help", prefix it: tm ./config
 
 The editor is EDITOR (or VISUAL) from .env / the environment; default: ${process.platform === 'win32' ? 'notepad' : 'vim'}.
 Config file: ${DEFAULT_CONFIG_PATH}.
@@ -1130,6 +1131,13 @@ function pushNow() {
   process.exit(result.status === null ? 1 : result.status);
 }
 
+// `tm pull`: the other way round: fetch from the server, adding and updating local files, deleting none.
+function pullNow() {
+  const { spawnSync } = require('child_process');
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'pull.js')], { stdio: 'inherit' });
+  process.exit(result.status === null ? 1 : result.status);
+}
+
 function main() {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -1144,6 +1152,10 @@ function main() {
   }
   if (command === 'push') {
     pushNow();
+    return;
+  }
+  if (command === 'pull') {
+    pullNow();
     return;
   }
 
