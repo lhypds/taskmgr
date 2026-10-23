@@ -125,11 +125,16 @@ function moveTasks(root, entries, stats) {
       if (fs.existsSync(target)) continue;
       const taskName = parts.pop();
       if (STATUS_DIRS.includes(parts[parts.length - 1])) parts.pop();
+      const id = taskName.split(/\s/)[0];
       for (const dir of [null, ...STATUS_DIRS]) {
-        const from = path.resolve(root, ...parts, ...(dir ? [dir] : []), taskName);
-        if (from === target || !fs.existsSync(path.join(from, 'task.txt'))) continue;
+        const base = path.resolve(root, ...parts, ...(dir ? [dir] : []));
+        let names = [];
+        try { names = fs.readdirSync(base); } catch (err) { continue; }
+        // Same task id, whatever the rest of the folder name is.
+        const found = names.find(n => (n === taskName || n.split(/\s/)[0] === id) && fs.existsSync(path.join(base, n, 'task.txt')));
+        if (!found) continue;
         fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.renameSync(from, target);
+        fs.renameSync(path.join(base, found), target);
         stats.updated++;
         break;
       }
