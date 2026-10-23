@@ -44,11 +44,14 @@ const sha1 = (text) => crypto.createHash('sha1').update(text).digest('hex');
 const log = (...args) => console.log(...args);
 const warn = (...args) => console.error(...args);
 
-// One line per file sync attempt, appended to logs/taskmgrd/taskmgrd.log: SUCCESS, FAILED, or
-// WARNING for something left out on purpose (success is true, false or 'warning').
-const SYNC_LOG = path.join(__dirname, 'logs', 'taskmgrd', 'taskmgrd.log');
+// One line per sync event, appended to the sync log: SUCCESS or FAILED for a push (or pull) of a file
+// or folder, WARNING for something left out on purpose, INFO for a run starting and ending (success is
+// true, false, 'warning' or 'info'). A run by hand (`tm push`, `tm pull`) logs to logs/taskmgr.log; the
+// daemon, taskmgrd.js, switches to its own logs/taskmgrd.log with logTo(), so the two are told apart.
+let SYNC_LOG = path.join(__dirname, 'logs', 'taskmgr.log');
+const logTo = (file) => { SYNC_LOG = file; };
 function syncLog(success, message) {
-  const level = success === 'warning' ? 'WARNING' : success ? 'SUCCESS' : 'FAILED ';
+  const level = success === 'warning' ? 'WARNING' : success === 'info' ? 'INFO   ' : success ? 'SUCCESS' : 'FAILED ';
   const line = `${new Date().toISOString()} ${level} ${message}\n`;
   try {
     fs.mkdirSync(path.dirname(SYNC_LOG), { recursive: true });
@@ -338,27 +341,28 @@ async function pushSpace(space, { entries, blobs }) {
   return `pushed ${label(space)} (${n(files, 'file')}${dirs ? `, ${n(dirs, 'empty folder')}` : ''}${uploaded ? `, ${n(uploaded, 'attachment')} uploaded` : ''})`;
 }
 
-module.exports = { SERVER, CONFIG_PATH, log, warn, die, syncLog, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace, fileHash, saveHashCache };
+module.exports = { SERVER, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace, fileHash, saveHashCache };
 
 // ---------- tm push ----------
 
 // Push taskmgr.json, then every tasks folder, whatever the server says it has: a change made on the
 // server since the last push leaves it a folder that is not the one pushed, which only a push
 // mends (the attachments it has are not sent again). Exit with an error at the first push that fails.
+// The start and the end of the run go to the sync log, as does each folder pushed (see syncLog).
 async function main() {
   log('tm push');
   log(`  config     : ${CONFIG_PATH}`);
   log(`  server     : ${SERVER}`);
+  syncLog('info', `tm push started (server ${SERVER})`);
   const config = readConfig();
-  if (!config) die(`${CONFIG_PATH} could not be read, or is invalid (see above).`);
+  if (!config) fail(`${CONFIG_PATH} could not be read, or is invalid (see above).`);
   const push = async (what, run) => {
     try {
       const done = await run();
       log(done);
       syncLog(true, done);
     } catch (e) {
-      syncLog(false, `${what}: ${e.message}`);
-      die(`${what}: ${e.message}`);
+      fail(`${what}: ${e.message}`);
     }
   };
   // taskmgr.json goes first: the server prunes by it.
@@ -377,6 +381,13 @@ async function main() {
     for (const s of spaces) await push(label(s), () => pushSpace(s, snap));
   }
   log('done');
+  syncLog('info', 'tm push finished');
 }
 
-if (require.main === module) main().catch((e) => die(e.message));
+// Exit with an error, logged as the end of the run.
+function fail(message) {
+  syncLog(false, `tm push failed: ${message}`);
+  die(message);
+}
+
+if (require.main === module) main().catch((e) => fail(e.message));

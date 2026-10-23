@@ -22,7 +22,7 @@ dist/
 /data/.sync-state.json
 /data/.sync-blobs/
 
-# taskmgrd file sync log
-/logs/taskmgrd/*.log
+# sync logs: the daemon's, and the one of tm push / tm pull by hand
+/logs/*.log
 /.tm-sync-state.json
 /.tm-hash-cache.json

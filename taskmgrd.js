@@ -14,7 +14,10 @@
 const fs = require('fs');
 const path = require('path');
 const { spaceKey } = require('./server/sync');
-const { SERVER, CONFIG_PATH, log, warn, die, syncLog, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace } = require('./push');
+const { SERVER, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace } = require('./push');
+
+// The daemon's pushes are logged apart from those made by hand (`tm push`, `tm pull`: logs/taskmgr.log).
+logTo(path.join(__dirname, 'logs', 'taskmgrd.log'));
 
 const DEBOUNCE_MS = 10 * 1000;          // a change waits this long, and each new one restarts the wait
 const RESCAN_MS = 5 * 60 * 1000;        // how often the server is asked what it has, and everything compared
@@ -56,7 +59,10 @@ async function drain() {
   if (draining) return;
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   draining = true;
+  const name = (job) => (job.key === 'config' ? 'taskmgr.json' : label(job.space));
+  let pushed = 0;
   try {
+    if (queue.size) syncLog('info', `pushing ${[...queue.values()].map(name).join(', ')}`);
     while (queue.size) {
       const job = queue.has('config') ? queue.get('config') : queue.values().next().value;
       let done;
@@ -65,8 +71,8 @@ async function drain() {
       } catch (e) {
         failures++;
         const wait = RETRY_MS[Math.min(failures - 1, RETRY_MS.length - 1)];
-        syncLog(false, `${job.key === 'config' ? 'taskmgr.json' : label(job.space)}: ${e.message}`);
-        warn(`${job.key === 'config' ? 'taskmgr.json' : label(job.space)}: ${e.message}; trying again in ${wait / 1000}s`);
+        syncLog(false, `${name(job)}: ${e.message}; trying again in ${wait / 1000}s`);
+        warn(`${name(job)}: ${e.message}; trying again in ${wait / 1000}s`);
         retryTimer = setTimeout(() => { retryTimer = null; drain(); }, wait);
         return;
       }
@@ -74,8 +80,10 @@ async function drain() {
       failures = 0;
       log(done);
       syncLog(true, done);
+      pushed++;
       if (queue.get(job.key) === job) queue.delete(job.key);  // a newer one may have replaced it meanwhile
     }
+    if (pushed) syncLog('info', 'push finished');
   } finally {
     draining = false;
   }
@@ -117,10 +125,12 @@ async function scanRoot(root) {
   }
   if (roots.get(root) !== r || r.scanSeq !== seq) return;
   const { entries, blobs, hash } = snap;
+  let queued = 0;
   for (const s of r.spaces) {
     const key = spaceKey(s);
-    if (onServer.spaces[key] !== hash) enqueue({ key, space: s, entries, blobs, hash });
+    if (onServer.spaces[key] !== hash) { enqueue({ key, space: s, entries, blobs, hash }); queued++; }
   }
+  syncLog('info', `checked ${root}: ${queued ? `${queued === r.spaces.length ? '' : `${queued} of ${r.spaces.length} `}to push` : 'same as on the server'}`);
   drain();
 }
 
@@ -204,15 +214,18 @@ function watchConfig() {
 // The first time, taskmgr.json is pushed whatever the server has.
 let startup = true;
 async function rescan() {
+  syncLog('info', `polling ${SERVER}`);
   try {
     const state = await serverState();
     onServer = { config: startup ? null : state.config, spaces: state.spaces };
     startup = false;
     if (failures) log(`${SERVER} answers again`);
     failures = 0;
+    syncLog('info', `polled ${SERVER}: ${Object.keys(state.spaces).length} tasks folder${Object.keys(state.spaces).length === 1 ? '' : 's'} there`);
   } catch (e) {
     failures++;
     const wait = RETRY_MS[Math.min(failures - 1, RETRY_MS.length - 1)];
+    syncLog(false, `${e.message}; trying again in ${wait / 1000}s`);
     warn(`${e.message}; trying again in ${wait / 1000}s`);
     setTimeout(rescan, wait);
     return;
@@ -223,6 +236,7 @@ async function rescan() {
 // ---------- main ----------
 
 log('taskmgrd');
+syncLog('info', `taskmgrd started (server ${SERVER})`);
 log(`  config     : ${CONFIG_PATH}`);
 log(`  server     : ${SERVER}`);
 
@@ -239,6 +253,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     for (const r of [...roots.values()]) forgetRoot(r);
     log('taskmgrd stopped');
+    syncLog('info', 'taskmgrd stopped');
     process.exit(0);
   });
 }

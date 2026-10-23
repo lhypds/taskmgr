@@ -38,7 +38,21 @@ if (!/^https?:\/\//.test(SERVER)) die(`TASKMGRD_SERVER must be an http(s) URL, n
 if (!TOKEN) die('TASKMGRD_TOKEN is not set in .env (the same value as in the remote server\'s .env).');
 // The sha1 of a file here, remembered by size and mtime in push's .tm-hash-cache.json, so an
 // attachment is only read again once it is modified. Required after the checks above: push.js has its own.
-const { fileHash, saveHashCache } = require('./push');
+// syncLog is the sync log of a run by hand, logs/taskmgr.log: the start and the end of the pull go there,
+// and each file that could not be pulled.
+const { fileHash, saveHashCache, syncLog } = require('./push');
+
+// Exit with an error, logged as the end of the run.
+function fail(message) {
+  syncLog(false, `tm pull failed: ${message}`);
+  die(message);
+}
+
+// A file that could not be pulled: told, and logged.
+function report(message) {
+  console.error(message);
+  syncLog(false, message);
+}
 
 // One GET; `raw` answers the body as a Buffer, otherwise the JSON.
 async function get(route, query, { raw = false, timeout = REQUEST_TIMEOUT_MS } = {}) {
@@ -165,7 +179,7 @@ async function pullSpace(s, root, stats) {
   }));
   moveTasks(root, tasks.filter((e, i) => !here[i]), {
     onMove: () => { stats.updated++; },
-    onError: (p, err) => { stats.failed++; console.error(`${label(s)}: ${p}: ${err.message}`); }
+    onError: (p, err) => { stats.failed++; report(`${label(s)}: ${p}: ${err.message}`); }
   });
 
   // A task deleted on the server since the last sync (its task.txt known, now gone there) is deleted
@@ -181,6 +195,7 @@ async function pullSpace(s, root, stats) {
       if (!have) continue;
       if (sha1(have) !== known[p]) {
         console.error(`${label(s)}: ${p}: deleted on the server but changed here, kept`);
+        syncLog('warning', `${label(s)}: ${p}: deleted on the server but changed here, kept`);
         continue;
       }
       const dir = path.dirname(abs);
@@ -190,7 +205,7 @@ async function pullSpace(s, root, stats) {
       stats.updated++;
     } catch (err) {
       stats.failed++;
-      console.error(`${label(s)}: ${p}: ${err.message}`);
+      report(`${label(s)}: ${p}: ${err.message}`);
     }
   }
 
@@ -218,7 +233,7 @@ async function pullSpace(s, root, stats) {
       stats[have ? 'updated' : 'added']++;
     } catch (err) {
       stats.failed++;
-      console.error(`${label(s)}: ${e.path}: ${err.message}`);
+      report(`${label(s)}: ${e.path}: ${err.message}`);
     }
   }));
   // Remembered only when the whole space went through; what was left out stays as it was known.
@@ -231,11 +246,12 @@ async function pullSpace(s, root, stats) {
 (async () => {
   console.log('tm pull');
   console.log(`  server     : ${SERVER}`);
+  syncLog('info', `tm pull started (server ${SERVER})`);
   let serverText;
   try {
     serverText = (await get('config')).text;
   } catch (e) {
-    die(e.message);
+    fail(e.message);
   }
   let serverRaw;
   let serverWorks;
@@ -243,7 +259,7 @@ async function pullSpace(s, root, stats) {
     serverWorks = parseConfig(serverText, 'the server\'s taskmgr.json').works;
     serverRaw = upgradeRaw(JSON.parse(serverText));
   } catch (e) {
-    die(e.message);
+    fail(e.message);
   }
   const serverSpaces = new Set();
   for (const w of serverWorks) {
@@ -256,25 +272,26 @@ async function pullSpace(s, root, stats) {
   try {
     hereText = fs.readFileSync(DEFAULT_CONFIG_PATH, 'utf8');
   } catch (e) {
-    die(e.code === 'ENOENT' ? `${DEFAULT_CONFIG_PATH} does not exist: tm pull only updates the origins, works and repositories listed there.` : `could not read ${DEFAULT_CONFIG_PATH}: ${e.message}`);
+    fail(e.code === 'ENOENT' ? `${DEFAULT_CONFIG_PATH} does not exist: tm pull only updates the origins, works and repositories listed there.` : `could not read ${DEFAULT_CONFIG_PATH}: ${e.message}`);
   }
   try {
     parseConfig(hereText, DEFAULT_CONFIG_PATH);
     here = upgradeRaw(JSON.parse(hereText));
   } catch (e) {
-    die(`${e.message} (fix it first; nothing was pulled)`);
+    fail(`${e.message} (fix it first; nothing was pulled)`);
   }
   const mergedText = JSON.stringify(mergeFromServer(here, serverRaw), null, 2) + '\n';
   let merged;
   try {
     merged = parseConfig(mergedText, 'the merged taskmgr.json');
   } catch (e) {
-    die(`cannot merge the server's taskmgr.json with the one here: ${e.message}`);
+    fail(`cannot merge the server's taskmgr.json with the one here: ${e.message}`);
   }
   const changed = JSON.stringify(JSON.parse(hereText)) !== JSON.stringify(JSON.parse(mergedText));
   if (changed) {
     fs.writeFileSync(DEFAULT_CONFIG_PATH, mergedText);
     console.log(`pulled taskmgr.json`);
+    syncLog(true, 'pulled taskmgr.json');
   }
 
   // The tasks folders are pulled side by side, those that share one folder one after the other.
@@ -298,13 +315,18 @@ async function pullSpace(s, root, stats) {
         await pullSpace(s, s.root, mine);
       } catch (e) {
         mine.failed++;
-        console.error(`${label(s)}: ${e.message}`);
+        report(`${label(s)}: ${e.message}`);
       }
       for (const k of Object.keys(stats)) stats[k] += mine[k];
-      if (mine.added || mine.updated) console.log(`pulled ${label(s)} (${mine.added} added, ${mine.updated} updated)`);
+      if (mine.added || mine.updated) {
+        console.log(`pulled ${label(s)} (${mine.added} added, ${mine.updated} updated)`);
+        syncLog(true, `pulled ${label(s)} (${mine.added} added, ${mine.updated} updated)`);
+      }
     }
   }));
   saveHashCache();
-  console.log(stats.added || stats.updated || changed ? `done: ${stats.added} added, ${stats.updated} updated${changed ? ', taskmgr.json merged' : ''}` : 'nothing to pull, everything is up to date');
-  if (stats.failed) die(`${stats.failed} file${stats.failed === 1 ? '' : 's'} could not be pulled (see above)`);
-})().catch((e) => die(e.message));
+  const summary = stats.added || stats.updated || changed ? `${stats.added} added, ${stats.updated} updated${changed ? ', taskmgr.json merged' : ''}` : 'nothing to pull, everything is up to date';
+  console.log(stats.added || stats.updated || changed ? `done: ${summary}` : summary);
+  if (stats.failed) fail(`${stats.failed} file${stats.failed === 1 ? '' : 's'} could not be pulled (see above)`);
+  syncLog('info', `tm pull finished (${summary})`);
+})().catch((e) => fail(e.message));
