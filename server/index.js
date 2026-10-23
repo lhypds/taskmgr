@@ -221,11 +221,19 @@ function workSpaces(w) {
 // The works/repositories list with, for each folder, whether it exists and whether it is a copy
 // pushed by taskmgrd (remote). A work without a tasks folder of its own (root "") is not missing one.
 function listSpaces() {
-  const describe = (root) => ({
-    root,
-    exists: !root || (fs.existsSync(root) && fs.statSync(root).isDirectory()),
-    remote: isMirrored(config.dataDir, root)
-  });
+  const describe = (root) => {
+    const remote = isMirrored(config.dataDir, root);
+    // A mirror folder is ours to make (nothing has been pushed into it yet), so it is created
+    // here instead of asking the user to.
+    if (remote && !fs.existsSync(root)) {
+      try { fs.mkdirSync(root, { recursive: true }); } catch (e) { /* shown as missing below */ }
+    }
+    return {
+      root,
+      exists: !root || (fs.existsSync(root) && fs.statSync(root).isDirectory()),
+      remote
+    };
+  };
   return config.getWorks().map(w => ({
     work: w.work,
     origin: w.origin,
