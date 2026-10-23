@@ -6,6 +6,7 @@
 //
 // The works and repositories (each a folder of tasks) come from taskmgr.json, see server/config.js.
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 const express = require('express');
 
@@ -611,10 +612,18 @@ app.use('/api', (req, res) => { throw new HttpError(404, 'Unknown API route.'); 
 
 // Frontend. Dev: Vite runs in middleware mode so the API and the app share one port.
 // Prod: the prebuilt dist/ is served as static files.
+// Dev: the hot reload socket rides on the app's own server (and port), not a port of its own,
+// so the browser needs nothing but the page's address to receive it.
+const httpServer = http.createServer(app);
+
 async function mountFrontend() {
   if (DEV) {
     const { createServer } = await import('vite');
-    const vite = await createServer({ root: PROJECT_ROOT, server: { middlewareMode: true }, appType: 'custom' });
+    const vite = await createServer({
+      root: PROJECT_ROOT,
+      server: { middlewareMode: true, ws: { server: httpServer } },
+      appType: 'custom'
+    });
     app.use(vite.middlewares);
     app.use(asyncRoute(async (req, res, next) => {
       if (req.method !== 'GET' || req.path.startsWith('/api/')) return next();
@@ -647,7 +656,7 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 });
 
 mountFrontend().then(() => {
-  const server = app.listen(config.port, config.host, () => {
+  const server = httpServer.listen(config.port, config.host, () => {
     console.log('taskmgr web UI' + (DEV ? ' (dev)' : ''));
     console.log(`  config     : ${config.configPath}`);
     console.log(`  users      : ${config.usersPath}`);

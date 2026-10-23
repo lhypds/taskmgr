@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { RedoIcon, TrashIcon, UndoIcon } from "@components/icons";
-import Attachments, { useTaskFiles } from "@components/Attachments";
+import Attachments from "@components/Attachments";
 import styles from "./panel.module.css";
 
 // The selected task beside the list: its task.txt as written, editable in place. It is saved
@@ -9,12 +9,11 @@ import styles from "./panel.module.css";
 // writes it. When `focusKey` is the task's key, its text takes the focus and onFocused is called.
 // Under a head like the tree's: "Task", with undo, redo and delete at its right; onDelete(task)
 // asks before deleting. Under the text, the task's attachments; files dropped anywhere on the
-// panel are uploaded into the task folder (`version` reloads the list when it changes; onPreview(file)
-// opens one).
-export default function TaskPanel({ task, focused, focusKey, onFocused, onSave, onDelete, onPreview, version }) {
+// panel are uploaded into the task folder (`attachments` is the task's useTaskFiles; onPreview(file)
+// opens one; `selectedFile` is the rel of the one the keyboard is on).
+export default function TaskPanel({ task, focused, focusKey, onFocused, onSave, onDelete, onPreview, attachments, selectedFile }) {
   const { t } = useTranslation();
   const textRef = useRef(null);
-  const attachments = useTaskFiles(task?.space, task?.rel, version);
   const [over, setOver] = useState(false);
   const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
 
@@ -101,6 +100,7 @@ export default function TaskPanel({ task, focused, focusKey, onFocused, onSave, 
             className={styles.files}
             space={task.space}
             files={attachments.files}
+            selectedRel={selectedFile}
             busy={attachments.uploading}
             onAdd={attachments.add}
             onRemove={attachments.remove}

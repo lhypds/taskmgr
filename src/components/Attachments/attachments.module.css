@@ -49,6 +49,10 @@
   min-width: 0;
 }
 
+.files li[data-selected="true"] {
+  background: var(--bg-hover);
+}
+
 .fileName {
   min-width: 0;
   overflow: hidden;

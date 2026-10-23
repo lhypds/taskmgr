@@ -6,7 +6,7 @@ import styles from "./modal.module.css";
 // opened from a detail view goes before the detail view under it.
 const openStack = [];
 
-const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, className, headerActions }) => {
+const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, className, headerActions, onEscape }) => {
   const { t } = useTranslation();
   // A click only counts as "outside" when it both starts and ends on the overlay. A drag that
   // begins inside the dialog (selecting text in a field) and is released over the backdrop
@@ -15,8 +15,11 @@ const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, classN
   // The latest onClose, read at key time, so a new callback each render does not re-register
   // the dialog and move it to the top of the stack.
   const onCloseRef = useRef(onClose);
+  // What Escape does instead of closing, when given (e.g. let go of a selection first).
+  const onEscapeRef = useRef(onEscape);
   useEffect(() => {
     onCloseRef.current = onClose;
+    onEscapeRef.current = onEscape;
   });
 
   useEffect(() => {
@@ -27,7 +30,7 @@ const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, classN
       if (e.key !== "Escape" || openStack.at(-1) !== token) return;
       e.preventDefault();
       e.stopPropagation();
-      onCloseRef.current?.();
+      (onEscapeRef.current || onCloseRef.current)?.();
     };
     document.addEventListener("keydown", handleKeyDown, true);
     return () => {

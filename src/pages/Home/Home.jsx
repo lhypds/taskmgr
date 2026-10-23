@@ -35,8 +35,9 @@ import { BOARD_STATUSES, boardStatus } from "@components/TaskBoard";
 import { showToast, Checkbox } from "@ui";
 import { useAuth } from "@store";
 import * as api from "@utils/api";
-import { ALL_MONTHS, taskMonth, taskMonths, monthLabel } from "@utils/task";
+import { ALL_MONTHS, taskMonth, taskMonths, monthLabel, previewKind } from "@utils/task";
 import { groupWorksByOrigin } from "@utils/works";
+import { useTaskFiles } from "@components/Attachments";
 import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
 import styles from "./home.module.css";
 
@@ -296,6 +297,24 @@ export default function Home({ all = false }) {
   const selectedIndex = visible.findIndex((t) => t.key === selectedKey);
   const selected = visible[selectedIndex] || null;
 
+  // The selected task's attachments; on the Task panel j / k walk them and space opens one.
+  const attachments = useTaskFiles(selected?.space, selected?.rel, data);
+  const [fileRel, setFileRel] = useState(null);
+  const fileList = attachments.files.filter((f) => !f.isDir);
+  const fileIndex = fileList.findIndex((f) => f.rel === fileRel);
+  const selectedFile = fileList[fileIndex] || null;
+  // The same for the task preview opened with space: j / k pick a file, enter opens it.
+  // peek holds the key; the task itself is read fresh, so a saved edit shows at once
+  const peekTask = tasks.find((task) => task.key === peek?.key) || peek;
+  const [peekEditing, setPeekEditing] = useState(false); // the preview's text is being edited
+  const peekFiles = useTaskFiles(peekTask?.space, peekTask?.rel, data).files.filter((f) => !f.isDir);
+  const [peekFileRel, setPeekFileRel] = useState(null);
+  const peekFile = peekFiles.find((f) => f.rel === peekFileRel) || null;
+  const openFile = (file, task = selected) => {
+    if (previewKind(file.name)) setPreview({ ...file, space: task.space });
+    else window.open(api.fileUrl(task.space, file.rel), "_blank", "noreferrer");
+  };
+
   // The wheel over the task list moves the selection, which scrolls itself into view.
   const [scrollEl, setScrollEl] = useState(null);
   useWheelSteps(scrollEl, (dir) => {
@@ -350,7 +369,10 @@ export default function Home({ all = false }) {
       const {
         task: { rel },
       } = await api.saveTaskText(task.space, task.rel, text);
-      setSelectedKey((k) => (k === task.key ? keyOf(task.space, rel) : k));
+      const key = keyOf(task.space, rel);
+      setSelectedKey((k) => (k === task.key ? key : k));
+      // the first line names the folder, so a preview of this task follows the rename
+      setPeek((p) => (p && p.key === task.key ? { ...p, key, rel, details: text } : p));
       await reload();
       showToast(t("toast.saved"));
     } catch (e) {
@@ -589,12 +611,37 @@ export default function Home({ all = false }) {
     )
       return false;
     if (preview) {
+      // j / k step to the next / previous file of the task the preview came from
+      const list = (peek ? peekFiles : fileList).filter((f) => previewKind(f.name));
+      const move = moveIndex(name, list.findIndex((f) => f.rel === preview.rel), list.length);
+      if (move !== null) {
+        if (move >= 0 && list[move].rel !== preview.rel) {
+          const file = list[move];
+          setPreview({ ...file, space: preview.space });
+          (peek ? setPeekFileRel : setFileRel)(file.rel);
+        }
+        return true;
+      }
       if (!["q", "enter", "space"].includes(name)) return false;
       setPreview(null);
       return true;
     }
     if (peek) {
+      if (["e", "i"].includes(name)) {
+        setPeekEditing(true);
+        return true;
+      }
+      const move = moveIndex(name, peekFiles.indexOf(peekFile), peekFiles.length);
+      if (move !== null) {
+        if (move >= 0) setPeekFileRel(peekFiles[move].rel);
+        return true;
+      }
+      if (["enter", "space"].includes(name) && peekFile) {
+        openFile(peekFile, peek);
+        return true;
+      }
       if (!["q", "enter", "space"].includes(name)) return false;
+      setPeekFileRel(null);
       setPeek(null);
       return true;
     }
@@ -639,6 +686,18 @@ export default function Home({ all = false }) {
       return true;
     }
     if (pane === "tree") return treeKey(name);
+
+    if (pane === "detail") {
+      const move = moveIndex(name, fileIndex, fileList.length);
+      if (move !== null) {
+        if (move >= 0) setFileRel(fileList[move].rel);
+        return true;
+      }
+      if (["space", "enter"].includes(name)) {
+        if (selectedFile) openFile(selectedFile);
+        return true;
+      }
+    }
 
     if (view === "board" && ["h", "left", "l", "right"].includes(name)) {
       moveBoardColumn(["h", "left"].includes(name) ? -1 : 1);
@@ -973,7 +1032,8 @@ export default function Home({ all = false }) {
               onSave={saveText}
               onDelete={setConfirm}
               onPreview={(file) => selected && setPreview({ ...file, space: selected.space })}
-              version={data}
+              attachments={attachments}
+              selectedFile={selectedFile?.rel}
             />
           )}
         </aside>
@@ -1097,9 +1157,10 @@ export default function Home({ all = false }) {
         onPreview={(file) => setPreview({ ...file, space })}
       />
 
-      <FilePreviewModal space={preview?.space} file={preview} onClose={() => setPreview(null)} />
+      <TaskPreviewModal task={peekTask} editing={peekEditing} onEdit={() => setPeekEditing(true)} onEndEdit={() => setPeekEditing(false)} onSave={saveText} files={peekFiles} selectedRel={peekFile?.rel} onUnselect={() => setPeekFileRel(null)} onClose={() => { setPeek(null); setPeekFileRel(null); setPeekEditing(false); }} />
 
-      <TaskPreviewModal task={peek} onClose={() => setPeek(null)} />
+      {/* after the task preview, so it stacks in front of it */}
+      <FilePreviewModal space={preview?.space} file={preview} onClose={() => setPreview(null)} />
 
       <ConfirmModal
         isOpen={!!confirm}

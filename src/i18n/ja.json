@@ -150,6 +150,10 @@
       "keys": "space",
       "desc": "task.txt をプレビュー"
     },
+    "files": {
+      "keys": "Task で j / k, space",
+      "desc": "添付ファイルを選択してプレビュー"
+    },
     "pending": {
       "keys": "p",
       "desc": "保留 / 未着手を切り替え"

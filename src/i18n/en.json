@@ -150,6 +150,10 @@
       "keys": "space",
       "desc": "preview task.txt"
     },
+    "files": {
+      "keys": "j / k, space on Task",
+      "desc": "select an attachment, open its preview"
+    },
     "pending": {
       "keys": "p",
       "desc": "mark pending / todo"

@@ -150,6 +150,10 @@
       "keys": "space",
       "desc": "预览 task.txt"
     },
+    "files": {
+      "keys": "在 Task 中 j / k, space",
+      "desc": "选择附件并预览"
+    },
     "pending": {
       "keys": "p",
       "desc": "标为搁置 / 待办"

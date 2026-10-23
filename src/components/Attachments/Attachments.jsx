@@ -9,7 +9,7 @@ import styles from "./attachments.module.css";
 // ({ name, rel, size, isDir }) and link to the file; `pending` are File objects not uploaded yet
 // (a new task gets its files once it is created). A PDF, image or text file opens in onPreview;
 // any other file opens in a new tab.
-export default function Attachments({ className, space, files, pending = [], busy, onAdd, onRemove, onRemovePending, onPreview }) {
+export default function Attachments({ className, space, files, pending = [], busy, selectedRel, onAdd, onRemove, onRemovePending, onPreview }) {
   const { t } = useTranslation();
   const inputRef = useRef(null);
   const [over, setOver] = useState(false);
@@ -39,7 +39,7 @@ export default function Attachments({ className, space, files, pending = [], bus
         {files.length + pending.length > 0 && (
           <ul className={styles.files}>
             {files.map((f) => (
-              <li key={f.rel}>
+              <li key={f.rel} data-selected={f.rel === selectedRel}>
                 {f.isDir ? (
                   <span className={styles.fileName}>{f.name}/</span>
                 ) : (

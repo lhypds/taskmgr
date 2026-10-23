@@ -4,8 +4,38 @@
   height: 70vh;
 }
 
-.text {
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   height: 100%;
+}
+
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+  max-height: 25%;
+  overflow: auto;
+}
+
+.files ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.files a {
+  text-decoration: underline;
+}
+
+.text {
+  flex: 1;
+  min-height: 0;
   margin: 0;
   padding: 8px;
   overflow: auto;
@@ -22,4 +52,15 @@
   line-height: 18px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+textarea.text {
+  width: 100%;
+  resize: none;
+  outline: none;
+  color: inherit;
+}
+
+.files li[data-selected="true"] {
+  background: var(--bg-hover);
 }
