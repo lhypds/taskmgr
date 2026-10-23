@@ -16,7 +16,7 @@ const path = require('path');
 const { spaceKey } = require('./server/sync');
 const { SERVER, CONFIG_PATH, log, warn, die, syncLog, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace } = require('./push');
 
-const DEBOUNCE_MS = 1500;               // changes within this window go out together
+const DEBOUNCE_MS = 10 * 1000;          // a change waits this long, and each new one restarts the wait
 const RESCAN_MS = 5 * 60 * 1000;        // how often the server is asked what it has, and everything compared
 const MISSING_POLL_MS = 30 * 1000;      // how often a missing tasks folder is looked for
 const RETRY_MS = [5000, 15000, 60000];  // waits before retrying after a failed push, the last one repeating

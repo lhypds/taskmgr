@@ -37,7 +37,7 @@ merged file, the `tasks_path` of every pushed work (that has common tasks) and r
 copy under `data/origins/`, and a repository's `source_path` is left out, so the server's web UI  
 shows the pushed tasks. A tasks  
 folder that does not exist is left as it is on the server and looked for every 30 seconds. Changes  
-go out about 1.5 seconds after they happen; at startup the daemon pushes `taskmgr.json` once, and  
+go out 10 seconds after the last of them; at startup the daemon pushes `taskmgr.json` once, and  
 at startup and every 5 minutes it asks the server what it has and pushes what differs, and a push  
 that fails (the server is down) is retried, with growing waits, until it goes through.  
 
