@@ -62,3 +62,33 @@ export function moveIndex(name, index, length) {
   if (length === 0) return -1;
   return down ? Math.min(length - 1, index + 1) : Math.max(0, index - 1);
 }
+
+// Mouse wheel over `el` moves the selection instead of scrolling, as in the terminal UI:
+// onStep(1) per notch down, onStep(-1) per notch up. Trackpads send many small deltas, so they
+// are summed until they add up to one notch.
+const WHEEL_STEP = 50;
+
+export function useWheelSteps(el, onStep) {
+  const ref = useRef(onStep);
+  useEffect(() => {
+    ref.current = onStep;
+  });
+
+  useEffect(() => {
+    if (!el) return;
+    let sum = 0;
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.deltaY === 0) return; // ctrl+wheel zooms
+      e.preventDefault();
+      // deltaMode 1 is lines (Firefox), 0 is pixels
+      sum += e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY;
+      while (Math.abs(sum) >= WHEEL_STEP) {
+        const dir = Math.sign(sum);
+        sum -= dir * WHEEL_STEP;
+        ref.current(dir);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [el]);
+}

@@ -38,7 +38,7 @@ import * as api from "@utils/api";
 import { ALL_MONTHS, taskMonth, taskMonths, monthLabel, previewKind, flattenTasks, filterTasks } from "@utils/task";
 import { groupWorksByOrigin } from "@utils/works";
 import { useTaskFiles } from "@components/Attachments";
-import { useShortcuts, moveIndex } from "@utils/keys";
+import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
 import styles from "./home.module.css";
 
 const EMPTY_DIR = {
@@ -134,11 +134,13 @@ export default function Home({ all = false }) {
   const [view, setView] = useState(readView);
   const [month, setMonth] = useState(ALL_MONTHS); // the month the tasks were created in, or all
   const [showDone, setShowDone] = useState(() => readFlag("tasks.showDone", true)); // the list shows done tasks too
+  const [showPending, setShowPending] = useState(() => readFlag("tasks.showPending", true)); // and pending ones
 
   useEffect(() => writeFlag("panel.tree", treeOpen), [treeOpen]);
   useEffect(() => writeFlag("panel.detail", detailOpen), [detailOpen]);
   useEffect(() => writeFlag("tree.showHidden", showHidden), [showHidden]);
   useEffect(() => writeFlag("tasks.showDone", showDone), [showDone]);
+  useEffect(() => writeFlag("tasks.showPending", showPending), [showPending]);
   useEffect(() => {
     try {
       localStorage.setItem("tasks.view", view);
@@ -298,15 +300,15 @@ export default function Home({ all = false }) {
     const keep = (t) =>
       (monthKey === ALL_MONTHS || taskMonth(t) === monthKey) &&
       (!q || t.title.toLowerCase().includes(q) || t.id.includes(q) || t.from.toLowerCase().includes(q)) &&
-      (view === "board" || showDone || t.status !== "done");
+      (view === "board" || ((showDone || t.status !== "done") && (showPending || t.status !== "pending")));
     // Both views show every task under its parent, which stays when a subtask of it is kept. The
-    // list leaves the done tasks out unless they are shown. The board always has its done column;
+    // list leaves the done and the pending tasks out unless they are shown. The board always has its columns;
     // a task at the top sits in the column of its status with its subtasks under it, whatever
     // theirs (`column` says which), and on it j / k go down a column and on into the next one.
     const kept = filterTasks(tree, keep);
     if (view !== "board") return flattenTasks(kept);
     return BOARD_STATUSES.flatMap((s) => flattenTasks(kept.filter((t) => boardStatus(t) === s)).map((r) => ({ ...r, column: s })));
-  }, [tree, query, view, showDone, monthKey]);
+  }, [tree, query, view, showDone, showPending, monthKey]);
 
   // No row is selected until one is chosen, or when the selected task is not in this list (a new
   // folder, a filter, a deleted task); j / k then start from the first row.
@@ -340,6 +342,15 @@ export default function Home({ all = false }) {
     if (previewKind(file.name)) setPreview({ ...file, space: task.space });
     else window.open(api.fileUrl(task.space, file.rel), "_blank", "noreferrer");
   };
+
+  // The wheel over the task list moves the selection, which scrolls itself into view. (The board
+  // scrolls as usual.)
+  const [scrollEl, setScrollEl] = useState(null);
+  useWheelSteps(scrollEl, (dir) => {
+    const move = moveIndex(dir > 0 ? "down" : "up", selectedIndex, visible.length);
+    if (move >= 0) setSelectedKey(visible[move].key);
+    setPane("tasks");
+  });
 
   // Edit a task in the panel: select it, show the panel and put the caret in its text.
   const openEditor = (task) => {
@@ -848,12 +859,16 @@ export default function Home({ all = false }) {
   } else if (visible.length === 0) {
     content = (
       <div className={styles.state}>
-        <p className="muted">{query.trim() ? t("home.noMatch", { query }) : t("home.onlyDone")}</p>
+        <p className="muted">
+          {query.trim()
+            ? t("home.noMatch", { query })
+            : t(!showDone && !showPending ? "home.onlyHidden" : !showPending ? "home.onlyPending" : "home.onlyDone")}
+        </p>
       </div>
     );
   } else {
     content = (
-      <div className={styles.scroll}>
+      <div className={styles.scroll} ref={setScrollEl}>
         <TaskList
           tasks={visible}
           selectedKey={selected?.key}
@@ -1033,9 +1048,14 @@ export default function Home({ all = false }) {
             <div className={styles.listBar}>
               <MonthPicker months={months} index={monthIndex} label={(m) => monthLabel(m.key, t)} onChange={setMonth} />
               {view !== "board" && (
-                <Checkbox className={styles.showDone} checked={showDone} onChange={setShowDone}>
-                  {t("header.showDone")}
-                </Checkbox>
+                <>
+                  <Checkbox className={styles.showDone} checked={showDone} onChange={setShowDone}>
+                    {t("header.showDone")}
+                  </Checkbox>
+                  <Checkbox className={styles.showDone} checked={showPending} onChange={setShowPending}>
+                    {t("header.showPending")}
+                  </Checkbox>
+                </>
               )}
               <button
                 type="button"

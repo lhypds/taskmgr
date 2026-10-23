@@ -21,7 +21,8 @@
     "task": "任务"
   },
   "header": {
-    "showDone": "显示已完成",
+    "showDone": "已完成",
+    "showPending": "搁置",
     "filter": "搜索任务...",
     "filterLabel": "筛选任务",
     "clearFilter": "清除筛选",
@@ -46,6 +47,8 @@
   },
   "home": {
     "onlyDone": "这里的任务都已完成。",
+    "onlyPending": "这里的任务都已搁置。",
+    "onlyHidden": "这里的任务都已完成或搁置。",
     "pickSpace": "请在左侧选择一个工作或仓库。",
     "noTasks": "还没有任务。",
     "noSubtasks": "此任务没有子任务。",

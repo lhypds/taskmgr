@@ -21,7 +21,8 @@
     "task": "task"
   },
   "header": {
-    "showDone": "Show done tasks",
+    "showDone": "done",
+    "showPending": "pending",
     "filter": "Search task...",
     "filterLabel": "Filter tasks",
     "clearFilter": "Clear filter",
@@ -46,6 +47,8 @@
   },
   "home": {
     "onlyDone": "Every task here is done.",
+    "onlyPending": "Every task here is pending.",
+    "onlyHidden": "Every task here is done or pending.",
     "pickSpace": "Pick a work or repository on the left.",
     "noTasks": "No tasks yet.",
     "noSubtasks": "No subtasks in this task.",

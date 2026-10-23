@@ -92,9 +92,12 @@
   color: var(--muted);
 }
 
-/* A done row keeps its date and its from label in the normal colour; the rest of it is grey. */
+/* A done or pending row keeps its date and its from label (the work or repository it is in) in
+   the normal colour; the rest of the row is grey. */
 .row[data-status="done"] > :global(.mono),
-.row[data-status="done"] .title > :global(.tag) {
+.row[data-status="pending"] > :global(.mono),
+.row[data-status="done"] .titleLines > :global(.tag),
+.row[data-status="pending"] .titleLines > :global(.tag) {
   color: var(--fg);
 }
 
