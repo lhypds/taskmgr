@@ -4,29 +4,13 @@
       "origin": "gcc3",
       "works": [
         {
-          "work": "gcc3.com",
-          "income": { "monthly": [{ "amount": 500000, "currency": "JPY" }], "once": [{ "amount": 100000, "currency": "JPY" }] },
-          "tasks_path": "~/gcc3/tasks",
+          "work": "taskmgr",
           "repositories": [
             {
-              "repository": "repository a",
-              "source_path": "~/gcc3/repository-a"
-            },
-            {
-              "repository": "repository b",
-              "source_path": "~/gcc3/repository-b",
-              "tasks_path": "~/gcc3/repository-b/tasks"
+              "repository": "tm",
+              "source_path": "~/code/tm"
             }
           ]
-        }
-      ]
-    },
-    {
-      "works": [
-        {
-          "work": "personal",
-          "tasks_path": "~/tasks",
-          "repositories": []
         }
       ]
     }
