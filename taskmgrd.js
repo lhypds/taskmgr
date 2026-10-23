@@ -154,13 +154,16 @@ function snapshot(root) {
   const entries = [];
   const blobs = new Map();
   const seen = new Set();
-  const walk = (dir, rel) => {
+  const walk = (dir, rel, inTask) => {
     let names;
     try {
       names = fs.readdirSync(dir);
     } catch (e) {
       return;
     }
+    // Only a folder inside a task can be skipped for its size; the task's own folder (and done/,
+    // pending/ and the like around it) always goes, minus whatever is too large in it.
+    inTask = inTask || names.includes(TASK_FILE);
     let count = 0;
     for (const name of names) {
       if (SKIPPED_FILES.has(name)) continue;
@@ -173,11 +176,11 @@ function snapshot(root) {
       }
       const entryRel = rel ? `${rel}/${name}` : name;
       if (stat.isDirectory()) {
-        if (dirSize(abs, MAX_FOLDER_BYTES) > MAX_FOLDER_BYTES) {
+        if (inTask && !fs.existsSync(path.join(abs, TASK_FILE)) && dirSize(abs, MAX_FOLDER_BYTES) > MAX_FOLDER_BYTES) {
           syncLog('warning', `skipped folder ${abs}: larger than 10 MB`);
           continue;
         }
-        walk(abs, entryRel);
+        walk(abs, entryRel, inTask);
       } else if (stat.isFile()) {
         if (stat.size > MAX_FILE_BYTES) {
           syncLog('warning', `skipped file ${abs}: larger than 5 MB`);
@@ -207,7 +210,7 @@ function snapshot(root) {
     }
     if (!count && rel) entries.push({ path: rel, dir: true });
   };
-  walk(root, '');
+  walk(root, '', false);
   for (const abs of hashCache.keys()) if (!seen.has(abs) && abs.startsWith(root + path.sep)) hashCache.delete(abs);
   entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return { entries, blobs, hash: sha1(JSON.stringify(entries)) };
