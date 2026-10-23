@@ -78,8 +78,7 @@
   "list": {
     "markTodo": "ToDoにする",
     "markDone": "完了にする",
-    "openSubtasks": "サブタスクを開く",
-    "addSubtask": "サブタスクを追加"
+    "openSubtasks": "サブタスクを開く"
   },
   "panel": {
     "heading": "タスク",

@@ -876,8 +876,6 @@ export default function Home({ all = false }) {
           onSelect={(t) => setSelectedKey(t.key)}
           onOpenFolder={openFolder}
           onToggleDone={toggleDone}
-          onAddSubtask={(t) => openCreator("todo", t)}
-          onEnter={enterFolder}
         />
       </div>
     );

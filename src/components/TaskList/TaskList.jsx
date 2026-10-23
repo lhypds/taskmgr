@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
-import { ChevronRightIcon, EditIcon, FolderIcon, PlusIcon, TrashIcon } from "@components/icons";
+import { EditIcon, FolderIcon, TrashIcon } from "@components/icons";
 import TreeLines from "@components/TreeLines";
 import { describe, formatStamp } from "@utils/task";
 import styles from "./tasklist.module.css";
@@ -72,10 +72,8 @@ export function TaskActions({ task, className = "", onOpen, onOpenFolder, onDele
 // its task with its `depth`, `through` and `last` (see flattenTasks), drawn with tree lines before
 // its title. `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into
 // view. A task's `from` (the work or repository it lives in, in a list of several) shows before
-// its title; its subtasks are from the same place, so they do not repeat it. The + at the right
-// end of a row (while hovered) adds a subtask to it (onAddSubtask); the > on a task with subtasks
-// opens them on their own (onEnter).
-export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpenFolder, onToggleDone, onAddSubtask, onEnter }) {
+// its title; its subtasks are from the same place, so they do not repeat it.
+export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpenFolder, onToggleDone }) {
   const { t: tr } = useTranslation();
   const selectedRef = useRef(null);
   useEffect(() => {
@@ -122,26 +120,6 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
                   {detail && <span className={styles.detail}>{detail}</span>}
                 </span>
               </div>
-            </div>
-            <div className={styles.rowEnd}>
-              <RowButton className={styles.addSubtask} label={tr("list.addSubtask")} onClick={() => onAddSubtask(t)}>
-                <PlusIcon />
-              </RowButton>
-              {t.hasSubtask ? (
-                <button
-                  type="button"
-                  className={styles.enterButton}
-                  title={tr("list.openSubtasks")}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEnter(t);
-                  }}
-                >
-                  <ChevronRightIcon />
-                </button>
-              ) : (
-                <span className={styles.enterGap} aria-hidden="true" />
-              )}
             </div>
           </div>
         );

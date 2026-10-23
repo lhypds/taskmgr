@@ -1,6 +1,6 @@
 .table {
-  /* check | created | task (a tree) | add a subtask, open the subtasks */
-  --cols: 32px 132px minmax(160px, 1fr) auto;
+  /* check | created | task (a tree) */
+  --cols: 32px 132px minmax(160px, 1fr);
   min-width: 360px;
   padding-bottom: 12px;
 }
@@ -203,56 +203,6 @@
   margin-left: 8px;
   word-break: break-all;
   color: var(--muted);
-}
-
-/* The right end of a row: the + that adds a subtask, shown while the row is hovered, then the >
-   that opens the subtasks on their own, or its place on a task without any, so the + stays put. */
-.rowEnd {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 0 8px 0 0 !important;
-  overflow: visible;
-}
-
-.addSubtask {
-  visibility: hidden;
-}
-
-.row:hover .addSubtask {
-  visibility: visible;
-}
-
-.enterGap {
-  flex: none;
-  width: 20px;
-  height: 20px;
-}
-
-.enterButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: var(--line) solid var(--border);
-  background: var(--bg);
-}
-
-.enterButton:hover {
-  background: var(--border);
-  color: var(--bg);
-}
-
-.enterButton svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 /* Checkbox: the native control stays for keyboard access but is not drawn. */
