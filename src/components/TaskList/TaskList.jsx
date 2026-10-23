@@ -72,8 +72,9 @@ export function TaskActions({ task, className = "", onOpen, onOpenFolder, onDele
 // its task with its `depth`, `through` and `last` (see flattenTasks), drawn with tree lines before
 // its title. `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into
 // view. A task's `from` (the work or repository it lives in, in a list of several) shows before
-// its title; its subtasks are from the same place, so they do not repeat it.
-export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpenFolder, onToggleDone }) {
+// its title; its subtasks are from the same place, so they do not repeat it. With no rows the
+// column header still shows, and `empty` (the "no tasks" message) sits centred under it.
+export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpenFolder, onToggleDone, empty }) {
   const { t: tr } = useTranslation();
   const selectedRef = useRef(null);
   useEffect(() => {
@@ -81,7 +82,7 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
   }, [selectedKey]);
 
   return (
-    <div className={styles.table} role="table">
+    <div className={styles.table} role="table" data-empty={tasks.length === 0}>
       <div className={`${styles.row} ${styles.head}`} data-focused={focused} role="row">
         <div />
         <div>{tr("field.created")}</div>
@@ -124,6 +125,7 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
           </div>
         );
       })}
+      {tasks.length === 0 && empty && <div className={styles.empty}>{empty}</div>}
     </div>
   );
 }

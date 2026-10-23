@@ -838,35 +838,33 @@ export default function Home({ all = false }) {
         onMove={setStatus}
       />
     );
-  } else if (data.tasks.length === 0) {
-    content = (
-      <div className={styles.state}>
-        {loading ? (
-          <p className="muted">{t("common.loading")}</p>
-        ) : (
-          <>
-            <p className="muted">{data.isRoot ? t("home.noTasks") : t("home.noSubtasks")}</p>
-            {canAdd && (
-              <button type="button" className="btn" onClick={() => openCreator()}>
-                <PlusIcon />
-                {t("header.newTask")}
-              </button>
-            )}
-          </>
-        )}
-      </div>
-    );
-  } else if (visible.length === 0) {
-    content = (
-      <div className={styles.state}>
+  } else {
+    // The list keeps its column header even with no tasks (or none matching); the message for
+    // that sits under the header.
+    let empty = null;
+    if (data.tasks.length === 0) {
+      empty = loading ? (
+        <p className="muted">{t("common.loading")}</p>
+      ) : (
+        <>
+          <p className="muted">{data.isRoot ? t("home.noTasks") : t("home.noSubtasks")}</p>
+          {canAdd && (
+            <button type="button" className="btn" onClick={() => openCreator()}>
+              <PlusIcon />
+              {t("header.newTask")}
+            </button>
+          )}
+        </>
+      );
+    } else if (visible.length === 0) {
+      empty = (
         <p className="muted">
           {query.trim()
             ? t("home.noMatch", { query })
             : t(!showDone && !showPending ? "home.onlyHidden" : !showPending ? "home.onlyPending" : "home.onlyDone")}
         </p>
-      </div>
-    );
-  } else {
+      );
+    }
     content = (
       <div className={styles.scroll} ref={setScrollEl}>
         <TaskList
@@ -876,6 +874,7 @@ export default function Home({ all = false }) {
           onSelect={(t) => setSelectedKey(t.key)}
           onOpenFolder={openFolder}
           onToggleDone={toggleDone}
+          empty={empty}
         />
       </div>
     );
