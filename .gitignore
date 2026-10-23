@@ -25,3 +25,4 @@ dist/
 # taskmgrd file sync log
 /logs/taskmgrd/*.log
 /.tm-sync-state.json
+/.tm-hash-cache.json

@@ -95,9 +95,34 @@ function spacesOf(works) {
 
 const label = (s) => `${s.origin ? `${s.origin} / ` : ''}${s.work}${s.repository ? ` / ${s.repository}` : ''}`;
 
-// The sha1 of a file's content, read in chunks; remembered by size and mtime, so the attachments
-// are not read again at every scan.
+// The sha1 of a file's content, read in chunks; remembered by size and mtime, so a file is only read
+// again once it is modified. Kept in .tm-hash-cache.json next to taskmgr.json, so that `tm push`, a
+// new process each time, does not read every attachment at every run either.
+const HASH_CACHE_PATH = path.join(path.dirname(CONFIG_PATH), '.tm-hash-cache.json');
 const hashCache = new Map();  // abs -> { size, mtimeMs, sha1 }
+let hashCacheDirty = false;
+try {
+  for (const [abs, [size, mtimeMs, sha]] of Object.entries(JSON.parse(fs.readFileSync(HASH_CACHE_PATH, 'utf8')))) {
+    hashCache.set(abs, { size, mtimeMs, sha1: sha });
+  }
+} catch (e) { /* none yet, or unreadable: every file is hashed once more */ }
+
+function saveHashCache() {
+  if (!hashCacheDirty) return;
+  const data = {};
+  for (const [abs, c] of hashCache) data[abs] = [c.size, c.mtimeMs, c.sha1];
+  const tmp = `${HASH_CACHE_PATH}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(data));
+    fs.renameSync(tmp, HASH_CACHE_PATH);
+    hashCacheDirty = false;
+  } catch (e) {
+    warn(`could not write ${HASH_CACHE_PATH}: ${e.message}`);
+  } finally {
+    fs.rmSync(tmp, { force: true });
+  }
+}
+
 function fileHash(abs, stat) {
   const c = hashCache.get(abs);
   if (c && c.size === stat.size && c.mtimeMs === stat.mtimeMs) return c.sha1;
@@ -111,31 +136,8 @@ function fileHash(abs, stat) {
   }
   const sha = hash.digest('hex');
   hashCache.set(abs, { size: stat.size, mtimeMs: stat.mtimeMs, sha1: sha });
+  hashCacheDirty = true;
   return sha;
-}
-
-// The total size of the files under a folder, links followed; stops counting once past `limit`.
-function dirSize(dir, limit) {
-  let total = 0;
-  let names;
-  try {
-    names = fs.readdirSync(dir);
-  } catch (e) {
-    return 0;
-  }
-  for (const name of names) {
-    if (SKIPPED_FILES.has(name)) continue;
-    let stat;
-    try {
-      stat = fs.statSync(path.join(dir, name));
-    } catch (e) {
-      continue;
-    }
-    if (stat.isDirectory()) total += dirSize(path.join(dir, name), limit - total);
-    else if (stat.isFile()) total += stat.size;
-    if (total > limit) break;
-  }
-  return total;
 }
 
 // Everything under a tasks folder, as the server mirrors it: every file, relative to the folder, a
@@ -143,68 +145,103 @@ function dirSize(dir, limit) {
 // content, which the server fetches from its blob store (see pushSpace); an empty folder as a bare
 // folder. Symbolic links are followed; .DS_Store files are left out. Sorted, so the same folder
 // always gives the same hash. `blobs` maps each sha1 to one file that has it, for the upload.
+//
+// The folder is read in one pass, each folder listed once and only files (and links) stat'ed: on a
+// Windows drive under WSL every file system call costs milliseconds. A folder's size comes from
+// that same pass, and files are read (task.txt) or hashed only once they are known to be kept.
 function snapshot(root) {
-  const entries = [];
-  const blobs = new Map();
-  const seen = new Set();
+  // { files: [{ rel, abs, stat }], dirs: [rel], warnings: [message], size, isTask }, or null when
+  // `dir` cannot be listed.
   const walk = (dir, rel, inTask) => {
-    let names;
+    let dirents;
     try {
-      names = fs.readdirSync(dir);
+      dirents = fs.readdirSync(dir, { withFileTypes: true });
     } catch (e) {
-      return;
+      return null;
     }
+    const isTask = dirents.some(d => d.name === TASK_FILE);
     // Only a folder inside a task can be skipped for its size; the task's own folder (and done/,
     // pending/ and the like around it) always goes, minus whatever is too large in it.
-    inTask = inTask || names.includes(TASK_FILE);
+    inTask = inTask || isTask;
+    const out = { files: [], dirs: [], warnings: [], size: 0, isTask };
     let count = 0;
-    for (const name of names) {
-      if (SKIPPED_FILES.has(name)) continue;
-      const abs = path.join(dir, name);
-      let stat;
-      try {
-        stat = fs.statSync(abs);  // through a symbolic link
-      } catch (e) {
-        continue;  // a broken link, or gone meanwhile
+    for (const d of dirents) {
+      if (SKIPPED_FILES.has(d.name)) continue;
+      const abs = path.join(dir, d.name);
+      const entryRel = rel ? `${rel}/${d.name}` : d.name;
+      let stat = null;
+      let isFolder = d.isDirectory();
+      let isFile = d.isFile();
+      if (d.isSymbolicLink()) {
+        try {
+          stat = fs.statSync(abs);  // through the link
+        } catch (e) {
+          continue;  // a broken link
+        }
+        isFolder = stat.isDirectory();
+        isFile = stat.isFile();
       }
-      const entryRel = rel ? `${rel}/${name}` : name;
-      if (stat.isDirectory()) {
-        if (inTask && !fs.existsSync(path.join(abs, TASK_FILE)) && dirSize(abs, MAX_FOLDER_BYTES) > MAX_FOLDER_BYTES) {
-          syncLog('warning', `skipped folder ${abs}: larger than 10 MB`);
+      if (isFolder) {
+        const sub = walk(abs, entryRel, inTask);
+        if (!sub) continue;
+        out.size += sub.size;
+        if (inTask && !sub.isTask && sub.size > MAX_FOLDER_BYTES) {
+          out.warnings.push(`skipped folder ${abs}: larger than 10 MB`);
           continue;
         }
-        walk(abs, entryRel, inTask);
-      } else if (stat.isFile()) {
+        out.files.push(...sub.files);
+        out.dirs.push(...sub.dirs);
+        out.warnings.push(...sub.warnings);
+      } else if (isFile) {
+        try {
+          stat = stat || fs.statSync(abs);
+        } catch (e) {
+          continue;  // gone meanwhile
+        }
+        out.size += stat.size;
         if (stat.size > MAX_FILE_BYTES) {
-          syncLog('warning', `skipped file ${abs}: larger than 5 MB`);
+          out.warnings.push(`skipped file ${abs}: larger than 5 MB`);
           continue;
         }
-        if (name === TASK_FILE) {
-          try {
-            entries.push({ path: entryRel, content: fs.readFileSync(abs, 'utf8') });
-          } catch (e) {
-            continue;
-          }
-        } else {
-          let sha;
-          try {
-            sha = fileHash(abs, stat);
-          } catch (e) {
-            continue;
-          }
-          seen.add(abs);
-          entries.push({ path: entryRel, blob: sha });
-          if (!blobs.has(sha)) blobs.set(sha, abs);
-        }
+        out.files.push({ rel: entryRel, abs, stat });
       } else {
         continue;  // a socket, a device: not a file to mirror
       }
       count++;
     }
-    if (!count && rel) entries.push({ path: rel, dir: true });
+    if (!count && rel) out.dirs.push(rel);
+    return out;
   };
-  walk(root, '', false);
-  for (const abs of hashCache.keys()) if (!seen.has(abs) && abs.startsWith(root + path.sep)) hashCache.delete(abs);
+
+  const found = walk(root, '', false) || { files: [], dirs: [], warnings: [] };
+  for (const w of found.warnings) syncLog('warning', w);
+  const entries = found.dirs.map(rel => ({ path: rel, dir: true }));
+  const blobs = new Map();
+  const seen = new Set();
+  for (const f of found.files) {
+    if (path.basename(f.abs) === TASK_FILE) {
+      try {
+        entries.push({ path: f.rel, content: fs.readFileSync(f.abs, 'utf8') });
+      } catch (e) { /* gone meanwhile */ }
+      continue;
+    }
+    let sha;
+    try {
+      sha = fileHash(f.abs, f.stat);
+    } catch (e) {
+      continue;
+    }
+    seen.add(f.abs);
+    entries.push({ path: f.rel, blob: sha });
+    if (!blobs.has(sha)) blobs.set(sha, f.abs);
+  }
+  for (const abs of hashCache.keys()) {
+    if (!seen.has(abs) && abs.startsWith(root + path.sep)) {
+      hashCache.delete(abs);
+      hashCacheDirty = true;
+    }
+  }
+  saveHashCache();
   entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return { entries, blobs, hash: sha1(JSON.stringify(entries)) };
 }
@@ -324,9 +361,11 @@ async function main() {
     }
   };
   let pushed = 0;
-  // taskmgr.json always goes first: the server prunes by it.
-  await push('taskmgr.json', () => pushConfig(config.text));
-  pushed++;
+  // taskmgr.json goes first, unless the server has it already: the server prunes by it.
+  if (state.config !== config.hash) {
+    await push('taskmgr.json', () => pushConfig(config.text));
+    pushed++;
+  }
   const byRoot = new Map();
   for (const s of spacesOf(config.works)) {
     if (!byRoot.has(s.root)) byRoot.set(s.root, []);
@@ -344,7 +383,7 @@ async function main() {
       pushed++;
     }
   }
-  log(pushed > 1 ? 'done' : 'done: every tasks folder was already up to date');
+  log(pushed ? 'done' : 'done: every tasks folder was already up to date');
 }
 
 if (require.main === module) main().catch((e) => die(e.message));
