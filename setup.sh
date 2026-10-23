@@ -30,7 +30,11 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 
 echo "Installing dependencies..."
-pnpm install
+case "$PWD" in
+  # Windows drives mounted in WSL reject pnpm's default rename-based import (EACCES)
+  /mnt/[a-z]/*) pnpm install --package-import-method=copy --child-concurrency=1 ;;
+  *) pnpm install ;;
+esac
 
 if ! command -v pm2 >/dev/null 2>&1; then
   echo "Installing pm2..."
