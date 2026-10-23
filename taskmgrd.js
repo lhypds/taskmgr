@@ -15,7 +15,7 @@
 // server asked first which of them it does not have yet and those uploaded) and every empty folder,
 // whenever anything in it changes; the server replaces its copy with the snapshot, so after a push
 // its copy is the folder as it is here, and a renamed, moved or deleted task or attachment is
-// mirrored too. Only .DS_Store files are left out. A tasks folder that does not exist is left as it
+// mirrored too. Only .DS_Store files are left out, and files over 5 MB and folders over 10 MB (never the tasks folder itself) are not pushed. A tasks folder that does not exist is left as it
 // is on the server and looked for until it appears. At startup taskmgr.json is pushed once; then, and every few minutes after that, the daemon
 // asks the server what it has and pushes what differs; so a change missed by the file system, or a
 // server that lost its data, is put right. A push that fails is retried, with growing waits, until the server answers again.
@@ -32,6 +32,8 @@ const MISSING_POLL_MS = 30 * 1000;      // how often a missing tasks folder is l
 const RETRY_MS = [5000, 15000, 60000];  // waits before retrying after a failed push, the last one repeating
 const REQUEST_TIMEOUT_MS = 30 * 1000;
 const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;  // one attachment
+const MAX_FILE_BYTES = 5 * 1024 * 1024;     // a larger file is not pushed
+const MAX_FOLDER_BYTES = 10 * 1024 * 1024;  // a folder (inside a tasks folder) whose content is larger is not pushed
 const SKIPPED_FILES = new Set(['.DS_Store']);  // never pushed: Finder rewrites it all the time
 
 loadDotenv();
@@ -42,6 +44,18 @@ const CONFIG_PATH = DEFAULT_CONFIG_PATH;
 const sha1 = (text) => crypto.createHash('sha1').update(text).digest('hex');
 const log = (...args) => console.log(...args);
 const warn = (...args) => console.error(...args);
+
+// One line per file sync attempt, success or failure, appended to logs/taskmgrd/taskmgrd.log.
+const SYNC_LOG = path.join(__dirname, 'logs', 'taskmgrd', 'taskmgrd.log');
+function syncLog(success, message) {
+  const line = `${new Date().toISOString()} ${success ? 'SUCCESS' : 'FAILED '} ${message}\n`;
+  try {
+    fs.mkdirSync(path.dirname(SYNC_LOG), { recursive: true });
+    fs.appendFileSync(SYNC_LOG, line);
+  } catch (e) {
+    console.error(`cannot write ${SYNC_LOG}: ${e.message}`);
+  }
+}
 
 function die(message) {
   console.error(`Error: ${message}`);
@@ -103,6 +117,30 @@ function fileHash(abs, stat) {
   return sha;
 }
 
+// The total size of the files under a folder, links followed; stops counting once past `limit`.
+function dirSize(dir, limit) {
+  let total = 0;
+  let names;
+  try {
+    names = fs.readdirSync(dir);
+  } catch (e) {
+    return 0;
+  }
+  for (const name of names) {
+    if (SKIPPED_FILES.has(name)) continue;
+    let stat;
+    try {
+      stat = fs.statSync(path.join(dir, name));
+    } catch (e) {
+      continue;
+    }
+    if (stat.isDirectory()) total += dirSize(path.join(dir, name), limit - total);
+    else if (stat.isFile()) total += stat.size;
+    if (total > limit) break;
+  }
+  return total;
+}
+
 // Everything under a tasks folder, as the server mirrors it: every file, relative to the folder, a
 // task.txt as text and any other file (attachments, whatever else is there) by the sha1 of its
 // content, which the server fetches from its blob store (see pushJob); an empty folder as a bare
@@ -131,8 +169,16 @@ function snapshot(root) {
       }
       const entryRel = rel ? `${rel}/${name}` : name;
       if (stat.isDirectory()) {
+        if (dirSize(abs, MAX_FOLDER_BYTES) > MAX_FOLDER_BYTES) {
+          syncLog(false, `skipped folder ${abs}: larger than 10 MB`);
+          continue;
+        }
         walk(abs, entryRel);
       } else if (stat.isFile()) {
+        if (stat.size > MAX_FILE_BYTES) {
+          syncLog(false, `skipped file ${abs}: larger than 5 MB`);
+          continue;
+        }
         if (name === TASK_FILE) {
           try {
             entries.push({ path: entryRel, content: fs.readFileSync(abs, 'utf8') });
@@ -274,6 +320,7 @@ async function drain() {
       } catch (e) {
         failures++;
         const wait = RETRY_MS[Math.min(failures - 1, RETRY_MS.length - 1)];
+        syncLog(false, `${job.key === 'config' ? 'taskmgr.json' : label(job.space)}: ${e.message}`);
         warn(`${job.key === 'config' ? 'taskmgr.json' : label(job.space)}: ${e.message}; trying again in ${wait / 1000}s`);
         retryTimer = setTimeout(() => { retryTimer = null; drain(); }, wait);
         return;
@@ -281,6 +328,7 @@ async function drain() {
       if (failures) log(`${SERVER} answers again`);
       failures = 0;
       log(done);
+      syncLog(true, done);
       if (queue.get(job.key) === job) queue.delete(job.key);  // a newer one may have replaced it meanwhile
     }
   } finally {

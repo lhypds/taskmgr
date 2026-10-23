@@ -21,3 +21,6 @@ dist/
 /data/.sync-tmp/
 /data/.sync-state.json
 /data/.sync-blobs/
+
+# taskmgrd file sync log
+/logs/taskmgrd/*.log
