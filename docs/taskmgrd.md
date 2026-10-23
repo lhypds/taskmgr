@@ -53,6 +53,7 @@ answers at, e.g. `https://tm.example.com`) and `TASKMGRD_TOKEN` the same secret.
 `./taskmgrd.sh stop` stops it  
 `./taskmgrd.sh status` says whether it runs  
 `./taskmgrd.sh logs` follows its log  
+`tm push` pushes once, by hand, and exits: `taskmgr.json` and every tasks folder that differs from the server's copy, whether or not the daemon runs (it exits with an error when the server cannot be reached or refuses)  
 `./taskmgrd.sh fg` runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
 
 The pm2 process is named `taskmgrd` (see `taskmgrd.config.cjs`); `pm2 startup` then `pm2 save` make it start with the machine. After  

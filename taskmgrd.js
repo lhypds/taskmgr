@@ -4,6 +4,7 @@
 // its data/ folder laid out like the origins tree (server/sync.js has the layout and the API).
 //
 //   node taskmgrd.js          ./taskmgrd.sh runs it under pm2
+//   node taskmgrd.js --once   push what differs once and exit (what `tm push` runs)
 //
 // .env (next to this file):
 //   TASKMGRD_SERVER=https://tm.example.com   the server to push to: the URL of its web UI
@@ -37,6 +38,7 @@ const MAX_FOLDER_BYTES = 10 * 1024 * 1024;  // a folder (inside a tasks folder) 
 const SKIPPED_FILES = new Set(['.DS_Store']);  // never pushed: Finder rewrites it all the time
 
 loadDotenv();
+const ONCE = process.argv.includes('--once');  // push once and exit: no watching, no retrying
 const SERVER = String(process.env.TASKMGRD_SERVER || '').trim().replace(/\/+$/, '');
 const TOKEN = String(process.env.TASKMGRD_TOKEN || '').trim();
 const CONFIG_PATH = DEFAULT_CONFIG_PATH;
@@ -256,6 +258,7 @@ let onServer = { config: null, spaces: {} };
 // queue waits and tries again from the start.
 const queue = new Map();
 let draining = false;
+let pushed = 0;  // jobs pushed so far
 let failures = 0;
 let retryTimer = null;
 
@@ -321,6 +324,7 @@ async function drain() {
         failures++;
         const wait = RETRY_MS[Math.min(failures - 1, RETRY_MS.length - 1)];
         syncLog(false, `${job.key === 'config' ? 'taskmgr.json' : label(job.space)}: ${e.message}`);
+        if (ONCE) die(`${job.key === 'config' ? 'taskmgr.json' : label(job.space)}: ${e.message}`);
         warn(`${job.key === 'config' ? 'taskmgr.json' : label(job.space)}: ${e.message}; trying again in ${wait / 1000}s`);
         retryTimer = setTimeout(() => { retryTimer = null; drain(); }, wait);
         return;
@@ -328,6 +332,7 @@ async function drain() {
       if (failures) log(`${SERVER} answers again`);
       failures = 0;
       log(done);
+      pushed++;
       syncLog(true, done);
       if (queue.get(job.key) === job) queue.delete(job.key);  // a newer one may have replaced it meanwhile
     }
@@ -348,9 +353,10 @@ function scanRoot(root) {
   if (!r) return;
   if (!isDir(root)) {
     if (!r.missing) {
-      warn(`${root}: folder not found (${r.spaces.map(label).join(', ')}); waiting for it`);
+      warn(`${root}: folder not found (${r.spaces.map(label).join(', ')})${ONCE ? '' : '; waiting for it'}`);
       r.missing = true;
     }
+    if (ONCE) return;
     stopWatching(r);
     if (!r.pollTimer) r.pollTimer = setTimeout(() => { r.pollTimer = null; scanRoot(root); }, MISSING_POLL_MS);
     return;
@@ -359,7 +365,7 @@ function scanRoot(root) {
     log(`${root}: folder found`);
     r.missing = false;
   }
-  if (!r.watcher) watchRoot(r);
+  if (!ONCE && !r.watcher) watchRoot(r);
   const { entries, blobs, hash } = snapshot(root);
   for (const s of r.spaces) {
     const key = spaceKey(s);
@@ -455,6 +461,7 @@ async function rescan() {
     if (failures) log(`${SERVER} answers again`);
     failures = 0;
   } catch (e) {
+    if (ONCE) die(e.message);
     failures++;
     const wait = RETRY_MS[Math.min(failures - 1, RETRY_MS.length - 1)];
     warn(`${e.message}; trying again in ${wait / 1000}s`);
@@ -475,9 +482,19 @@ if (!first) die(`${CONFIG_PATH} could not be read, or is invalid (see above).`);
 current = first;
 for (const s of spacesOf(first.works)) log(`  ${s.repository ? 'repository' : 'work      '} : ${label(s)}  ${s.root}`);
 
-watchConfig();
-rescan();
-setInterval(rescan, RESCAN_MS);
+if (ONCE) {
+  // Compare everything with the server, push what differs, and leave when it is all gone out.
+  (async () => {
+    await rescan();
+    while (draining || queue.size) await new Promise((resolve) => setTimeout(resolve, 100));
+    log(pushed ? 'done' : 'nothing to push, the server is up to date');
+    process.exit(0);
+  })();
+} else {
+  watchConfig();
+  rescan();
+  setInterval(rescan, RESCAN_MS);
+}
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {

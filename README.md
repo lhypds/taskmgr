@@ -105,8 +105,11 @@ a repository row opens that repository. `h` at the top of a task list goes back 
 Opens `taskmgr.json` in the editor (`EDITOR` in `.env`, see above). If the file does not exist yet,  
 it is created from `taskmgr.json.example` first.  
 
+`tm push`  
+Pushes `taskmgr.json` and the tasks folders to the remote server once, by hand, the same push the sync daemon does (see [docs/taskmgrd.md](docs/taskmgrd.md); `TASKMGRD_SERVER` and `TASKMGRD_TOKEN` in `.env`). It prints what it pushed and exits, with an error when the server cannot be reached.  
+
 `tm help` (or `tm -h`, `tm --help`)  
-Prints the commands above. To open a folder named `config` or `help`, prefix it: `tm ./config`.  
+Prints the commands above. To open a folder named `config`, `push` or `help`, prefix it: `tm ./config`.  
 
 
 Task files
