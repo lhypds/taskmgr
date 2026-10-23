@@ -58,8 +58,8 @@ Setup (installs dependencies, creates `.env`, `taskmgr.json` and `data/users.jso
 `./setup.sh`  
 
 Run as a background service with pm2 (`pnpm add -g pm2`):  
-`./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, rebuild and restart. Each does the same to taskmgrd, the sync daemon, when `REMOTE_SERVER` is set in `.env` (see [taskmgrd.md](taskmgrd.md)); leave it empty to run the web UI alone.  
-On Windows: `setup.bat` once, then `start.bat`, `stop.bat`, `restart.bat` (taskmgrd too, when `REMOTE_SERVER` is set in `.env`); `install.bat` / `uninstall.bat` add or remove the global commands. Paths in `taskmgr.json` are then Windows paths (`C:\code\...` or `C:/code/...`).  
+`./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, rebuild and restart. Each does the same to taskmgrd, the sync daemon, when `SYNC_SERVER` is set in `.env` (see [taskmgrd.md](taskmgrd.md)); leave it empty to run the web UI alone.  
+On Windows: `setup.bat` once, then `start.bat`, `stop.bat`, `restart.bat` (taskmgrd too, when `SYNC_SERVER` is set in `.env`); `install.bat` / `uninstall.bat` add or remove the global commands. Paths in `taskmgr.json` are then Windows paths (`C:\code\...` or `C:/code/...`).  
 Then open the printed URL (default `http://127.0.0.1:3456/`).  
 The pm2 apps are in `ecosystem.config.cjs`: the web UI, named `PM2_NAME` in `.env` (default `taskmgr`), and `taskmgrd`.  
 

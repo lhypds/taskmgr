@@ -293,7 +293,7 @@ app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next
 
 // Pushes from taskmgrd on another machine (see server/sync.js): authorized by a shared token, not a
 // login, and larger than the UI's requests, so mounted before the body limit and the login guard.
-const syncToken = process.env.REMOTE_SERVER_TOKEN;
+const syncToken = process.env.SYNC_SERVER_TOKEN;
 const syncApp = createSyncApp({ dataDir: config.dataDir, token: syncToken, readConfig: config.readText, writeConfig: config.writeText });
 app.use(syncApp);
 
@@ -677,7 +677,7 @@ mountFrontend().then(() => {
     console.log('taskmgr web UI' + (DEV ? ' (dev)' : ''));
     console.log(`  config     : ${config.configPath}`);
     console.log(`  users      : ${config.usersPath}`);
-    console.log(`  sync       : ${syncToken && syncToken.trim() ? `receiving from taskmgrd into ${path.join(config.dataDir, 'origins')}` : 'off (set REMOTE_SERVER_TOKEN in .env to receive pushes from taskmgrd)'}`);
+    console.log(`  sync       : ${syncToken && syncToken.trim() ? `receiving from taskmgrd into ${path.join(config.dataDir, 'origins')}` : 'off (set SYNC_SERVER_TOKEN in .env to receive pushes from taskmgrd)'}`);
     for (const w of config.getWorks()) {
       console.log(`  work       : ${w.work}${w.origin ? ` (${w.origin})` : ''}  ${w.root || '(no tasks folder)'}`);
       for (const p of w.repositories) console.log(`    repository : ${p.name}  ${p.root}${p.sourcePath ? `  (source: ${p.sourcePath})` : ''}`);

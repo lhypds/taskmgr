@@ -13,4 +13,4 @@ git pull --ff-only
 "$ROOT/setup.sh"
 
 "$ROOT/stop.sh"
-"$ROOT/start.sh"   # the sync daemon too, when REMOTE_SERVER is set in .env
+"$ROOT/start.sh"   # the sync daemon too, when SYNC_SERVER is set in .env

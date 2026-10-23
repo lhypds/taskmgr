@@ -163,7 +163,7 @@ Sync
 ----
 
 Defined in `server/sync.js`, used by `taskmgrd` (see [taskmgrd.md](taskmgrd.md)). No login: every request needs  
-`Authorization: Bearer <REMOTE_SERVER_TOKEN>`; 503 `SYNC_OFF` when the server has no `REMOTE_SERVER_TOKEN`,  
+`Authorization: Bearer <SYNC_SERVER_TOKEN>`; 503 `SYNC_OFF` when the server has no `SYNC_SERVER_TOKEN`,  
 401 `INVALID_TOKEN` for a wrong one.  
 
 `GET /api/sync`  

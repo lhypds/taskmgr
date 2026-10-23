@@ -1,6 +1,6 @@
 // pm2 apps, started together by ./start.sh (`pm2 start ecosystem.config.cjs`): the web UI, named
-// PM2_NAME in .env, and taskmgrd, the sync daemon (taskmgrd.js), when REMOTE_SERVER is set there.
-// With REMOTE_SERVER empty (a machine that only runs the web UI, or does not sync) the daemon is left
+// PM2_NAME in .env, and taskmgrd, the sync daemon (taskmgrd.js), when SYNC_SERVER is set there.
+// With SYNC_SERVER empty (a machine that only runs the web UI, or does not sync) the daemon is left
 // out. What it does once started is PUSHING and POLLING in .env; with both off it stops itself.
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +22,7 @@ function getEnvVar(key, defaultValue) {
 
 const PORT = getEnvVar('PORT', '3456');
 const PM2_NAME = getEnvVar('PM2_NAME', 'taskmgr');
-const REMOTE_SERVER = getEnvVar('REMOTE_SERVER', '');
+const SYNC_SERVER = getEnvVar('SYNC_SERVER', '');
 
 const webui = {
   name: PM2_NAME,
@@ -47,5 +47,5 @@ const taskmgrd = {
 };
 
 module.exports = {
-  apps: REMOTE_SERVER ? [webui, taskmgrd] : [webui],
+  apps: SYNC_SERVER ? [webui, taskmgrd] : [webui],
 };

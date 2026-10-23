@@ -4,7 +4,7 @@
 // runs once by hand; it has the .env settings and what a push sends).
 //
 //   node taskmgrd.js          ./start.sh runs it under pm2 with the web UI (ecosystem.config.cjs),
-//                             when REMOTE_SERVER is set in .env; pm2 logs taskmgrd follows its log
+//                             when SYNC_SERVER is set in .env; pm2 logs taskmgrd follows its log
 //
 // taskmgr.json is pushed when it changes; an invalid one is not pushed, and the folders of the last
 // good one stay watched. A tasks folder is pushed whenever anything in it changes. A tasks folder that
@@ -17,7 +17,7 @@
 // off. With POLLING=1 the daemon also pulls: once when it starts, before its first push, and then
 // every POLLING_INTERVAL seconds (600, ten minutes, when not set), it runs pull.js as `tm pull`
 // does, so a change made on the server, or pushed to it by another machine, comes here. With both
-// off, or without REMOTE_SERVER, it has nothing to do, and with a POLLING_INTERVAL that is not a
+// off, or without SYNC_SERVER, it has nothing to do, and with a POLLING_INTERVAL that is not a
 // number of seconds it cannot poll: it says so and exits with 0 (pm2 then leaves it stopped rather
 // than starting it again and again, see ecosystem.config.cjs).
 const fs = require('fs');
@@ -37,7 +37,7 @@ function notRunning(why) {
   console.log(`taskmgrd: ${why}; not running.`);
   process.exit(0);
 }
-if (!String(process.env.REMOTE_SERVER || '').trim()) notRunning('REMOTE_SERVER is not set in .env, no server to sync with');
+if (!String(process.env.SYNC_SERVER || '').trim()) notRunning('SYNC_SERVER is not set in .env, no server to sync with');
 if (!PUSHING && !POLLING) notRunning('PUSHING=0 and POLLING=0 in .env, nothing to do');
 
 const { SERVER, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace } = require('./push');
