@@ -92,6 +92,12 @@
   color: var(--muted);
 }
 
+/* A done row keeps its date and its from label in the normal colour; the rest of it is grey. */
+.row[data-status="done"] > :global(.mono),
+.row[data-status="done"] .title > :global(.tag) {
+  color: var(--fg);
+}
+
 /* The `from` tag, the title and the details after it are one inline flow, so the tag sits at the
    start of the first line and the text wraps after it: a task with more details makes a taller
    row, up to three lines. */

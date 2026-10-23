@@ -152,7 +152,7 @@
 }
 
 .showDone {
-  color: var(--muted);
+  color: var(--fg);
 }
 
 .addTask {
