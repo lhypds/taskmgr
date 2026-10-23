@@ -48,11 +48,7 @@
   align-items: center;
   justify-content: center;
   border: var(--line) solid var(--border);
-  background-color: var(--bg-alt);
-  background-image:
-    linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size: 16px 16px;
+  background: var(--bg-alt);
   cursor: zoom-in;
 }
 

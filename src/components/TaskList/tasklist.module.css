@@ -43,7 +43,7 @@
 }
 
 .row[role="button"]:focus-visible {
-  box-shadow: inset 0 0 0 var(--line) var(--focus);
+  outline: none; /* the selected row's grey already marks it, also behind the space preview */
 }
 
 /* The column header as in fin: small muted labels on the page background. */

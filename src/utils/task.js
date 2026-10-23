@@ -9,6 +9,14 @@ export function splitDetails(details) {
   return { title: lines[i].trim(), body: body.join("\n") };
 }
 
+// The description is the line right after the title; a blank line there means there is none, and
+// whatever follows is only notes.
+export function describe(details) {
+  const lines = (details || "").replace(/\r\n/g, "\n").split("\n");
+  const i = lines.findIndex((l) => l.trim() !== "");
+  return i === -1 ? "" : (lines[i + 1] || "").trim();
+}
+
 export function joinDetails(title, body) {
   const t = (title || "").trim();
   const b = (body || "").replace(/\r\n/g, "\n").trim();

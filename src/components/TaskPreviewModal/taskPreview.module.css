@@ -10,7 +10,13 @@
   padding: 8px;
   overflow: auto;
   border: var(--line) solid var(--border);
-  background: var(--bg-alt);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px), linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 2ch 18px;
+  background-repeat: repeat; /* ress turns it off everywhere */
+  background-origin: content-box;
+  background-attachment: local;
   font-family: var(--font);
   font-size: 12px;
   line-height: 18px;

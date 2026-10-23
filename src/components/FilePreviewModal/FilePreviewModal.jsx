@@ -33,18 +33,6 @@ export default function FilePreviewModal({ space, file, onClose }) {
   const [zoom, setZoom] = useState(false);
   useEffect(() => setZoom(false), [file]);
 
-  // Space closes the preview, as in a file manager's quick look.
-  useEffect(() => {
-    if (!file) return;
-    const onKey = (e) => {
-      if (e.key !== " " || e.target.closest?.("input, textarea, button, a, [contenteditable]")) return;
-      e.preventDefault();
-      onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [file, onClose]);
-
   const kind = file ? previewKind(file.name) : null;
   const url = file ? fileUrl(space, file.rel) : "";
 

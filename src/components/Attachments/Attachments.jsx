@@ -48,11 +48,6 @@ export default function Attachments({ className, space, files, pending = [], bus
                     href={fileUrl(space, f.rel)}
                     target="_blank"
                     rel="noreferrer"
-                    onKeyDown={(e) => {
-                      if (e.key !== " " || !onPreview || !previewKind(f.name)) return;
-                      e.preventDefault();
-                      onPreview(f);
-                    }}
                     onClick={(e) => {
                       if (!onPreview || !previewKind(f.name)) return;
                       e.preventDefault();

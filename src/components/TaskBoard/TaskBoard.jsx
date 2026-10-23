@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { ChevronRightIcon } from "@components/icons";
 import { FromTag, TaskActions } from "@components/TaskList";
-import { formatStamp, splitDetails } from "@utils/task";
+import { describe, formatStamp } from "@utils/task";
 import styles from "./board.module.css";
 
 export const BOARD_STATUSES = ["todo", "done", "pending"];
@@ -67,7 +67,7 @@ export default function TaskBoard({
             </header>
             <div className={styles.cards}>
               {cards.map((t) => {
-                const detail = splitDetails(t.details).body.replace(/\s+/g, " ").trim();
+                const detail = describe(t.details);
                 return (
                   <div
                     key={t.key}

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
 import { ChevronRightIcon, EditIcon, FolderIcon, TrashIcon } from "@components/icons";
-import { formatStamp, splitDetails } from "@utils/task";
+import { describe, formatStamp } from "@utils/task";
 import styles from "./tasklist.module.css";
 
 function DoneBox({ checked, pending, onChange, title }) {
@@ -84,7 +84,7 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
         <div>{tr("field.task")}</div>
       </div>
       {tasks.map((t) => {
-        const detail = splitDetails(t.details).body.split("\n")[0];
+        const detail = describe(t.details);
         return (
           <div
             key={t.key}
