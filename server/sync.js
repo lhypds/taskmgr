@@ -595,6 +595,16 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}), ...(err.missing ? { missing: err.missing } : {}) });
   });
 
+  // Forget the hashes of the pushed snapshots, so the next push sends every space whole: to be called
+  // when the tasks are changed here (the web UI), which leaves the copies no longer what was pushed.
+  // The blobs each space refers to are kept, so none is uploaded again.
+  app.forgetPushed = () => {
+    const state = readState();
+    if (!Object.keys(state.spaces).length) return;
+    state.spaces = {};
+    writeState(state);
+  };
+
   return app;
 }
 

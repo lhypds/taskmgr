@@ -294,12 +294,21 @@ app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next
 // Pushes from taskmgrd on another machine (see server/sync.js): authorized by a shared token, not a
 // login, and larger than the UI's requests, so mounted before the body limit and the login guard.
 const syncToken = process.env.TASKMGRD_TOKEN;
-app.use(createSyncApp({ dataDir: config.dataDir, token: syncToken, readConfig: config.readText, writeConfig: config.writeText }));
+const syncApp = createSyncApp({ dataDir: config.dataDir, token: syncToken, readConfig: config.readText, writeConfig: config.writeText });
+app.use(syncApp);
 
 app.use(express.json({ limit: '10mb' }));
 
 // Login first: everything under /api below needs a session (see server/auth.js).
 app.use(createAuthApp({ usersPath: config.usersPath }));
+
+// A change made here (a task moved, edited, deleted, a file added...) leaves the pushed copies no
+// longer what taskmgrd pushed: the hashes of its snapshots are forgotten, or the next push, finding
+// its folder the same as at the last one, would send nothing and leave the change here in place.
+app.use('/api', (req, res, next) => {
+  if (req.method !== 'GET') res.on('finish', () => { if (res.statusCode < 400) syncApp.forgetPushed(); });
+  next();
+});
 
 app.get('/api/settings', (req, res) => {
   res.json({ configPath: config.configPath, editor: getEditor() });

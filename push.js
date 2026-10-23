@@ -342,20 +342,15 @@ module.exports = { SERVER, CONFIG_PATH, log, warn, die, syncLog, readConfig, spa
 
 // ---------- tm push ----------
 
-// Push taskmgr.json, then every tasks folder whose snapshot the server does not have; exit with an
-// error at the first push that fails.
+// Push taskmgr.json, then every tasks folder, whatever the server says it has: a change made on the
+// server since the last push leaves it a folder that is not the one pushed, which only a push
+// mends (the attachments it has are not sent again). Exit with an error at the first push that fails.
 async function main() {
   log('tm push');
   log(`  config     : ${CONFIG_PATH}`);
   log(`  server     : ${SERVER}`);
   const config = readConfig();
   if (!config) die(`${CONFIG_PATH} could not be read, or is invalid (see above).`);
-  let state;
-  try {
-    state = await serverState();
-  } catch (e) {
-    die(e.message);
-  }
   const push = async (what, run) => {
     try {
       const done = await run();
@@ -366,12 +361,8 @@ async function main() {
       die(`${what}: ${e.message}`);
     }
   };
-  let pushed = 0;
-  // taskmgr.json goes first, unless the server has it already: the server prunes by it.
-  if (state.config !== config.hash) {
-    await push('taskmgr.json', () => pushConfig(config.text));
-    pushed++;
-  }
+  // taskmgr.json goes first: the server prunes by it.
+  await push('taskmgr.json', () => pushConfig(config.text));
   const byRoot = new Map();
   for (const s of spacesOf(config.works)) {
     if (!byRoot.has(s.root)) byRoot.set(s.root, []);
@@ -383,13 +374,9 @@ async function main() {
       continue;
     }
     const snap = await snapshot(root);
-    for (const s of spaces) {
-      if (state.spaces[spaceKey(s)] === snap.hash) continue;
-      await push(label(s), () => pushSpace(s, snap));
-      pushed++;
-    }
+    for (const s of spaces) await push(label(s), () => pushSpace(s, snap));
   }
-  log(pushed ? 'done' : 'done: every tasks folder was already up to date');
+  log('done');
 }
 
 if (require.main === module) main().catch((e) => die(e.message));
