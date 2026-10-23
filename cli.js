@@ -1127,7 +1127,7 @@ function editConfig() {
 // server, report it, and exit (non-zero when the push failed).
 function pushNow() {
   const { spawnSync } = require('child_process');
-  const result = spawnSync(process.execPath, [path.join(__dirname, 'taskmgrd.js'), '--once'], { stdio: 'inherit' });
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'push.js')], { stdio: 'inherit' });
   process.exit(result.status === null ? 1 : result.status);
 }
 
