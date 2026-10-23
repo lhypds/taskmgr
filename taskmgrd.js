@@ -166,6 +166,7 @@ async function scanRoot(root, why = 'changed') {
     return;
   }
   if (roots.get(root) !== r || r.scanSeq !== seq) return;
+  if (pulling) return;  // a pull began while the snapshot was taken: it is of the folder before the pull
   const { entries, blobs, hash } = snap;
   let queued = 0;
   for (const s of r.spaces) {
@@ -320,6 +321,9 @@ async function poll() {
     failed = await runPull();
   } finally {
     pulling = false;
+    // Whatever was queued was snapshotted before the pull and would send the old files back; the
+    // rescan below queues again what still differs.
+    queue.clear();
   }
   if (failed) {
     warn(`polling: ${failed}`);
