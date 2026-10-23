@@ -112,10 +112,39 @@ const readIf = (abs) => {
   }
 };
 
+const STATUS_DIRS = ['done', 'pending'];
+
+// A task the server has under another status folder than here (marked done or pending there, or back
+// to todo) is moved here too, with everything in it, instead of being pulled again as a second copy.
+function moveTasks(root, entries, stats) {
+  for (const e of entries) {
+    const parts = String(e.path).split('/');
+    if (parts.pop() !== 'task.txt' || parts.length < 1) continue;
+    try {
+      const target = safeJoin(root, parts.join('/'));
+      if (fs.existsSync(target)) continue;
+      const taskName = parts.pop();
+      if (STATUS_DIRS.includes(parts[parts.length - 1])) parts.pop();
+      for (const dir of [null, ...STATUS_DIRS]) {
+        const from = path.resolve(root, ...parts, ...(dir ? [dir] : []), taskName);
+        if (from === target || !fs.existsSync(path.join(from, 'task.txt'))) continue;
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.renameSync(from, target);
+        stats.updated++;
+        break;
+      }
+    } catch (err) {
+      stats.failed++;
+      console.error(`${e.path}: ${err.message}`);
+    }
+  }
+}
+
 async function pullSpace(s, root, stats) {
   const query = { origin: s.origin, work: s.work, repository: s.repository };
   const { entries } = await get('space', query);
   fs.mkdirSync(root, { recursive: true });
+  moveTasks(root, entries, stats);
   for (const e of entries) {
     try {
       const abs = safeJoin(root, e.path);
