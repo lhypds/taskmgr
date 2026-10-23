@@ -95,8 +95,9 @@ let current = null;        // the last good config: { text, hash, works }
 const roots = new Map();   // tasks folder -> { root, spaces, watcher, timer, pollTimer, missing }
 
 // Compare a tasks folder with what the server has and queue the spaces that differ. A folder that
-// is not there is looked for from time to time instead.
-async function scanRoot(root) {
+// is not there is looked for from time to time instead. `why` says what brought it on, for the log:
+// 'changed' (something in the folder did) or 'rescan' (the server was polled).
+async function scanRoot(root, why = 'changed') {
   const r = roots.get(root);
   if (!r) return;
   if (!isDir(root)) {
@@ -105,7 +106,7 @@ async function scanRoot(root) {
       r.missing = true;
     }
     stopWatching(r);
-    if (!r.pollTimer) r.pollTimer = setTimeout(() => { r.pollTimer = null; scanRoot(root); }, MISSING_POLL_MS);
+    if (!r.pollTimer) r.pollTimer = setTimeout(() => { r.pollTimer = null; scanRoot(root, why); }, MISSING_POLL_MS);
     return;
   }
   if (r.missing) {
@@ -113,6 +114,7 @@ async function scanRoot(root) {
     r.missing = false;
   }
   if (!r.watcher) watchRoot(r);
+  syncLog('info', why === 'changed' ? `${root} changed: checking it` : `checking ${root}`);
   // A newer scan of the same folder started meanwhile, or the folder was dropped: this one's result
   // is left out.
   const seq = r.scanSeq = (r.scanSeq || 0) + 1;
@@ -193,7 +195,7 @@ function reconcile() {
   // Spaces no longer in the file are pruned by the server when the config arrives.
   const keys = new Set([...byRoot.values()].flat().map(spaceKey));
   for (const k of Object.keys(onServer.spaces)) if (!keys.has(k)) delete onServer.spaces[k];
-  for (const root of byRoot.keys()) scanRoot(root);
+  for (const root of byRoot.keys()) scanRoot(root, 'rescan');
   drain();
 }
 
