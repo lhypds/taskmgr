@@ -337,6 +337,7 @@ export default function Home({ all = false }) {
   const openEditor = (task) => {
     setSelectedKey(task.key);
     setDetailOpen(true);
+    setPane("detail");
     setFocusKey(task.key);
   };
 
@@ -1045,7 +1046,7 @@ export default function Home({ all = false }) {
         >
           {detailOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
         </button>
-        <aside className={styles.detail} data-open={detailOpen} onMouseDown={() => setPane("detail")}>
+        <aside className={styles.detail} data-open={detailOpen} onMouseDown={() => setPane("detail")} onFocus={() => setPane("detail")}>
           {spaceTo && (
             <TaskPanel
               task={selected}
