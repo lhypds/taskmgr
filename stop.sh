@@ -12,10 +12,13 @@ echo "Stopping..."
 PM2_NAME=$(grep '^PM2_NAME=' "$ROOT/.env" 2>/dev/null | cut -d= -f2)
 PM2_NAME="${PM2_NAME:-taskmgr}"
 
-if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  pm2 stop "$PM2_NAME"
-else
-  echo "$PM2_NAME was not running"
-fi
+# The web UI and taskmgrd, the sync daemon (started together by start.sh).
+for name in "$PM2_NAME" taskmgrd; do
+  if pm2 describe "$name" >/dev/null 2>&1; then
+    pm2 stop "$name"
+  else
+    echo "$name was not running"
+  fi
+done
 
 echo "Stopped."

@@ -54,7 +54,7 @@ when it starts, before its first push, so what the server has is taken in first 
 sends the folders as merged; after that a pull comes `POLLING_INTERVAL` seconds after the last  
 one ended. Before a pull, what is waiting to be pushed goes out; while it runs nothing is pushed; after it  
 the server is asked what it has and every folder compared, as at a rescan. The pull's lines go to the  
-daemon's `logs/taskmgrd.log`, and a pull that fails is only told there (and in `./taskmgrd.sh logs`):  
+daemon's `logs/taskmgrd.log`, and a pull that fails is only told there (and in `pm2 logs taskmgrd`):  
 the next one comes at the next interval. With `POLLING=0`, or unset, the daemon only pushes,  
 and `tm pull` is the way to fetch from the server.  
 
@@ -65,17 +65,20 @@ changed in the copy only: the next push of its folder overwrites it.
 
 On the machine with the tasks: in `.env`, `REMOTE_SERVER` is the server's URL (the one its web UI  
 answers at, e.g. `https://tm.example.com`) and `REMOTE_SERVER_TOKEN` the same secret; `PUSHING`  
-(default 1), `POLLING` (default 0) and `POLLING_INTERVAL` (seconds, default 600) say what it does (see above). Then:  
+(default 1), `POLLING` (default 0) and `POLLING_INTERVAL` (seconds, default 600) say what it does (see above).  
+`./start.sh` (Windows: `start.bat`) then starts the daemon under pm2 together with the web UI, and `./stop.sh`  
+stops both: the two are the apps of `ecosystem.config.cjs`, the daemon only when `REMOTE_SERVER` is set, so  
+an empty `REMOTE_SERVER` is how a machine runs the web UI without the daemon. `start.sh` prints one line on  
+what the daemon does; a `.env` that gives it nothing to do (no server, `PUSHING=0` and `POLLING=0`, or a  
+`POLLING_INTERVAL` that is not a number of seconds) makes it say so in its log and stop, and pm2 leaves it  
+stopped until the next `./start.sh`. The daemon alone, with pm2's own commands (its process is named `taskmgrd`):  
 
-`./taskmgrd.sh` starts the daemon under pm2 (and restarts it when it already runs, picking up a changed `.env`)  
-`./taskmgrd.sh stop` stops it  
-`./taskmgrd.sh status` says whether it runs  
-`./taskmgrd.sh logs` follows its log  
+`pm2 logs taskmgrd` follows its log  
+`pm2 describe taskmgrd` says whether it runs  
+`pm2 stop taskmgrd` / `pm2 restart taskmgrd` stop it, or restart it alone (a changed `.env` is read again; `./start.sh` for one that empties or sets `REMOTE_SERVER`)  
+`pm2 startup` then `pm2 save` make it start with the machine, as the web UI  
+`pnpm run daemon` (or `taskmgrd` after `./install.sh`, Windows: `install.bat`) runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
 `tm push` pushes once, by hand, and exits: `taskmgr.json` and every tasks folder that differs from the server's copy, whether or not the daemon runs (it exits with an error when the server cannot be reached or refuses)  
 `tm pull` is the other direction, once: it fetches `taskmgr.json`, the task files and the other files from the server and adds or updates them here, and deletes the tasks the server deleted since the last sync, but no other file (see the README)  
-`./taskmgrd.sh fg` runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
-
-The pm2 process is named `taskmgrd` (see `taskmgrd.config.cjs`); `pm2 startup` then `pm2 save` make it start with the machine. After  
-`./install.sh` (Windows: `install.bat`), `taskmgrd` runs it in the foreground too (also `pnpm run daemon`).  
 
 For the API the daemon uses, see [Server.md](Server.md).  

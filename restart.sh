@@ -13,9 +13,4 @@ git pull --ff-only
 "$ROOT/setup.sh"
 
 "$ROOT/stop.sh"
-"$ROOT/start.sh"
-
-# The sync daemon too, when this machine pushes to a server.
-if grep -q '^REMOTE_SERVER=[[:space:]]*[^[:space:]]' "$ROOT/.env" 2>/dev/null; then
-  "$ROOT/taskmgrd.sh" restart
-fi
+"$ROOT/start.sh"   # the sync daemon too, when REMOTE_SERVER is set in .env

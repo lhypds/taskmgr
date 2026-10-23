@@ -3,7 +3,8 @@
 // repository listed there, and pushes what changes to a remote tm server with push.js (what `tm push`
 // runs once by hand; it has the .env settings and what a push sends).
 //
-//   node taskmgrd.js          ./taskmgrd.sh runs it under pm2
+//   node taskmgrd.js          ./start.sh runs it under pm2 with the web UI (ecosystem.config.cjs),
+//                             when REMOTE_SERVER is set in .env; pm2 logs taskmgrd follows its log
 //
 // taskmgr.json is pushed when it changes; an invalid one is not pushed, and the folders of the last
 // good one stay watched. A tasks folder is pushed whenever anything in it changes. A tasks folder that
@@ -16,11 +17,29 @@
 // off. With POLLING=1 the daemon also pulls: once when it starts, before its first push, and then
 // every POLLING_INTERVAL seconds (600, ten minutes, when not set), it runs pull.js as `tm pull`
 // does, so a change made on the server, or pushed to it by another machine, comes here. With both
-// off it has nothing to do and exits.
+// off, or without REMOTE_SERVER, it has nothing to do, and with a POLLING_INTERVAL that is not a
+// number of seconds it cannot poll: it says so and exits with 0 (pm2 then leaves it stopped rather
+// than starting it again and again, see ecosystem.config.cjs).
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { spaceKey } = require('./server/sync');
+const { loadDotenv } = require('./server/config');
+
+// What .env turns on, looked at before push.js is loaded (it exits with an error when the server is
+// not set): whether the daemon pushes (on unless PUSHING is 0), whether it pulls too (off unless
+// POLLING is 1), and how often, in seconds.
+loadDotenv();
+const isOn = (v) => /^(1|true|yes|on)$/i.test(String(v || '').trim());
+const PUSHING = String(process.env.PUSHING || '').trim() === '' || isOn(process.env.PUSHING);
+const POLLING = isOn(process.env.POLLING);
+function notRunning(why) {
+  console.log(`taskmgrd: ${why}; not running.`);
+  process.exit(0);
+}
+if (!String(process.env.REMOTE_SERVER || '').trim()) notRunning('REMOTE_SERVER is not set in .env, no server to sync with');
+if (!PUSHING && !POLLING) notRunning('PUSHING=0 and POLLING=0 in .env, nothing to do');
+
 const { SERVER, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace } = require('./push');
 
 // The daemon's pushes (and the pulls it runs) are logged apart from those made by hand (`tm push`,
@@ -33,18 +52,12 @@ const RESCAN_MS = 5 * 60 * 1000;        // how often the server is asked what it
 const MISSING_POLL_MS = 30 * 1000;      // how often a missing tasks folder is looked for
 const RETRY_MS = [5000, 15000, 60000];  // waits before retrying after a failed push, the last one repeating
 
-// From .env (see the top): whether the daemon pushes (on unless PUSHING is 0), whether it pulls too
-// (off unless POLLING is 1), and how often, in seconds.
-const isOn = (v) => /^(1|true|yes|on)$/i.test(String(v || '').trim());
-const PUSHING = process.env.PUSHING === undefined || String(process.env.PUSHING).trim() === '' || isOn(process.env.PUSHING);
-const POLLING = isOn(process.env.POLLING);
 const POLLING_INTERVAL_S = POLLING ? pollingInterval() : 0;
-if (!PUSHING && !POLLING) die('PUSHING=0 and POLLING=0 in .env: nothing for taskmgrd to do (set PUSHING=1, POLLING=1 or both).');
 function pollingInterval() {
   const raw = String(process.env.POLLING_INTERVAL || '').trim();
   if (!raw) return 600;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1) die(`POLLING_INTERVAL in .env must be a whole number of seconds, 1 or more, not "${raw}".`);
+  if (!Number.isInteger(n) || n < 1) notRunning(`POLLING_INTERVAL in .env must be a whole number of seconds, 1 or more, not "${raw}"`);
   return n;
 }
 
