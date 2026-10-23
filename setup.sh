@@ -38,6 +38,12 @@ esac
 
 if ! command -v pm2 >/dev/null 2>&1; then
   echo "Installing pm2..."
+  if [ -z "$PNPM_HOME" ]; then
+    # pnpm needs a global bin dir on PATH; "pnpm setup" creates it and updates the shell profile
+    pnpm setup
+    export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
+    export PATH="$PNPM_HOME:$PATH"
+  fi
   pnpm add -g pm2
 fi
 
