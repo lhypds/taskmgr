@@ -1,7 +1,7 @@
 @echo off
-rem Windows version of install.sh: install taskmgr as global commands (taskmgr, tm, taskmgr-web,
-rem taskmgrd). Each is a small .cmd that runs this folder's script with node, put in npm's global
-rem folder, which is on PATH wherever node is.
+rem Windows version of install.sh: install taskmgr as global commands (taskmgr, tm). Each is a small
+rem .cmd that runs this folder's script with node, put in npm's global folder, which is on PATH
+rem wherever node is.
 setlocal
 cd /d "%~dp0"
 
@@ -15,10 +15,8 @@ if not defined BIN (echo Cannot find npm's global folder 1>&2 & exit /b 1)
 echo Installing taskmgr globally into %BIN%...
 call :shim taskmgr cli.js || exit /b 1
 call :shim tm cli.js || exit /b 1
-call :shim taskmgr-web server\index.js || exit /b 1
-call :shim taskmgrd taskmgrd.js || exit /b 1
 
-echo Done. Commands available: taskmgr, tm, taskmgr-web, taskmgrd
+echo Done. Commands available: taskmgr, tm
 goto :eof
 
 :shim

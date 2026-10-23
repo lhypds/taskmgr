@@ -4,9 +4,7 @@
   "description": "Simple task management CLI with a web UI.",
   "bin": {
     "taskmgr": "cli.js",
-    "tm": "cli.js",
-    "taskmgr-web": "server/index.js",
-    "taskmgrd": "taskmgrd.js"
+    "tm": "cli.js"
   },
   "main": "cli.js",
   "packageManager": "pnpm@10.33.0",

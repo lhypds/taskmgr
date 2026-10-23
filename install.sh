@@ -30,7 +30,7 @@ fi
 echo "Installing taskmgr globally..."
 pnpm add --global "link:$PWD" $(pnpm_bin_dir_args)
 
-echo "Done. Commands available: taskmgr, tm, taskmgr-web, taskmgrd"
+echo "Done. Commands available: taskmgr, tm"
 
 # A script cannot change the PATH of the shell that ran it: when pnpm's bin dir was not on it, say so.
 BIN_DIR="$(pnpm bin -g 2>/dev/null || true)"

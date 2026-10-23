@@ -77,7 +77,7 @@ stopped until the next `./start.sh`. The daemon alone, with pm2's own commands (
 `pm2 describe taskmgrd` says whether it runs  
 `pm2 stop taskmgrd` / `pm2 restart taskmgrd` stop it, or restart it alone (a changed `.env` is read again; `./start.sh` for one that empties or sets `SYNC_SERVER`)  
 `pm2 startup` then `pm2 save` make it start with the machine, as the web UI  
-`pnpm run daemon` (or `taskmgrd` after `./install.sh`, Windows: `install.bat`) runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
+`pnpm run daemon` runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
 `tm push` pushes once, by hand, and exits: `taskmgr.json` and every tasks folder that differs from the server's copy, whether or not the daemon runs (it exits with an error when the server cannot be reached or refuses)  
 `tm pull` is the other direction, once: it fetches `taskmgr.json`, the task files and the other files from the server and adds or updates them here, and deletes the tasks the server deleted since the last sync, but no other file (see the README)  
 

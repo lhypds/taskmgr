@@ -9,6 +9,7 @@ for /f "usebackq delims=" %%i in (`npm config get prefix`) do set "BIN=%%i"
 if not defined BIN (echo Cannot find npm's global folder 1>&2 & exit /b 1)
 
 echo Uninstalling taskmgr...
+rem taskmgr-web and taskmgrd are no longer installed; still removed here for older installs.
 for %%n in (taskmgr tm taskmgr-web taskmgrd) do (
   if exist "%BIN%\%%n.cmd" (
     findstr /c:"%~dp0install.bat" "%BIN%\%%n.cmd" >nul 2>&1 && (del "%BIN%\%%n.cmd" & echo   removed %%n)

@@ -36,7 +36,7 @@ const { createSyncApp, isMirrored } = require('./sync');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
 // Dev (Vite middleware, hot reload) when NODE_ENV=development, or when nothing is built yet;
-// otherwise the prebuilt dist/ is served, so `taskmgr-web` works without any env set.
+// otherwise the prebuilt dist/ is served, so `pnpm run webui` works without any env set.
 const DEV = process.env.NODE_ENV === 'development'
   || (process.env.NODE_ENV !== 'production' && !fs.existsSync(path.join(DIST_DIR, 'index.html')));
 
