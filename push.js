@@ -9,6 +9,8 @@
 // .env (next to this file):
 //   SYNC_SERVER=https://tm.example.com   the server to push to: the URL of its web UI
 //   SYNC_SERVER_TOKEN=...                 the same value as SYNC_SERVER_TOKEN in that server's .env
+//   MACHINE_ID=...                        the name this machine's pushes are shown under on the server
+//                                         (empty: the hostname)
 //
 // taskmgr.json is pushed whole; an invalid one is not pushed. A tasks folder is pushed as a snapshot
 // of everything in it: every file (task.txt files as text, the others, attachments included, by the
@@ -23,6 +25,7 @@ process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '32';
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const os = require('os');
 const crypto = require('crypto');
 const { loadDotenv, parseConfig, DEFAULT_CONFIG_PATH } = require('./server/config');
 const { spaceKey } = require('./server/sync');
@@ -38,6 +41,8 @@ const SKIPPED_FILES = new Set(['.DS_Store']);  // never pushed: Finder rewrites 
 loadDotenv();
 const SERVER = String(process.env.SYNC_SERVER || '').trim().replace(/\/+$/, '');
 const TOKEN = String(process.env.SYNC_SERVER_TOKEN || '').trim();
+// What the server shows a folder pushed from here as coming from: MACHINE_ID, or the hostname.
+const MACHINE_ID = String(process.env.MACHINE_ID || '').trim() || os.hostname();
 const CONFIG_PATH = DEFAULT_CONFIG_PATH;
 
 const sha1 = (text) => crypto.createHash('sha1').update(text).digest('hex');
@@ -327,7 +332,7 @@ async function pushSpace(space, { entries, blobs }) {
     const { missing } = await request('POST', '/api/sync/blobs', { blobs: [...blobs.keys()] });
     await upload(missing);
   }
-  const body = { origin: space.origin, work: space.work, repository: space.repository, entries };
+  const body = { origin: space.origin, work: space.work, repository: space.repository, machine: MACHINE_ID, entries };
   let result;
   try {
     result = await request('PUT', '/api/sync/space', body);
@@ -342,7 +347,7 @@ async function pushSpace(space, { entries, blobs }) {
   return `pushed ${label(space)} (${n(files, 'file')}${dirs ? `, ${n(dirs, 'empty folder')}` : ''}${uploaded ? `, ${n(uploaded, 'attachment')} uploaded` : ''})`;
 }
 
-module.exports = { SERVER, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace, fileHash, saveHashCache };
+module.exports = { SERVER, MACHINE_ID, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace, fileHash, saveHashCache };
 
 // ---------- tm push ----------
 
@@ -354,7 +359,8 @@ async function main() {
   log('tm push');
   log(`  config     : ${CONFIG_PATH}`);
   log(`  server     : ${SERVER}`);
-  syncLog('info', `tm push started (server ${SERVER})`);
+  log(`  machine    : ${MACHINE_ID}`);
+  syncLog('info', `tm push started (server ${SERVER}, machine ${MACHINE_ID})`);
   const config = readConfig();
   if (!config) fail(`${CONFIG_PATH} could not be read, or is invalid (see above).`);
   const push = async (what, run) => {

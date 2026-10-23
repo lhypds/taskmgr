@@ -113,7 +113,8 @@ Tasks
 
 `GET /api/tasks?work=&repository=&dir=`  
 The tasks in a folder, sorted todo, done, pending, aborted, each with its subtasks:  
-`{ work, repository, dir, absDir, isRoot, parent, crumbs, tasks, counts }`; `counts` counts the subtasks too.  
+`{ work, repository, dir, absDir, remote, machine, isRoot, parent, crumbs, tasks, counts }`; `counts` counts the subtasks too;  
+`remote` says whether the folder is a copy pushed by taskmgrd and `machine` the `MACHINE_ID` it was pushed from (`""` when unknown).  
 
 `GET /api/tasks/all?all=1` / `?origin=` / `?work=`  
 Every task of every work, of one origin (all its works and their repositories), or of one work  
@@ -194,9 +195,11 @@ A space's folder listed like a push: `{ ok, entries }` with `{ path, content }` 
 `GET /api/sync/pull/file?origin=&work=&repository=&path=`  
 One file of a space, raw. Nothing on the server is changed by the pull routes.  
 
-`PUT /api/sync/space` `{ origin, work, repository, entries }`  
+`PUT /api/sync/space` `{ origin, work, repository, machine, entries }`  
 Bring one tasks folder to the snapshot, in place (a task that changed status is moved first, then only what differs is written, and what the snapshot lacks removed): `entries` are `{ path, content }` for task files (text),  
 `{ path, blob: sha1 }` for every other file (attachments included), taken from the blob store, and  
 `{ path, dir: true }` for an empty folder, paths relative to the tasks folder. After it, the server's copy  
 is the pushed folder exactly. `{ ok, files, dirs }`. 409 `MISSING_BLOBS` `{ missing }` when a blob is not in the  
 store; nothing is written then. A blob no space refers to any more is removed once it is an hour old.  
+`machine` (optional, the pusher's `MACHINE_ID`, or its hostname) is remembered for the space, in `data/.sync-state.json`,  
+and the web UI shows it as where the copy comes from (`machine` in `GET /api/spaces` and `GET /api/tasks`).  

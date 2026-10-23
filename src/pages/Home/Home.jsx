@@ -1138,8 +1138,8 @@ export default function Home({ all = false }) {
             <span>
               {t("status.aborted")} {c.aborted ?? 0}
             </span>
-            <span className={`mono ${styles.path}`} title={data.remote ? t("tree.remote") : data.absDir}>
-              {data.remote ? t("tree.remote") : data.absDir}
+            <span className={`mono ${styles.path}`} title={data.remote ? data.machine || t("tree.remote") : data.absDir}>
+              {data.remote ? data.machine || t("tree.remote") : data.absDir}
             </span>
           </>
         )}

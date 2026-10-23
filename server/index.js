@@ -31,7 +31,7 @@ const {
 const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig } = require('./config');
 const { createAuthApp } = require('./auth');
-const { createSyncApp, isMirrored } = require('./sync');
+const { createSyncApp, isMirrored, spaceKey } = require('./sync');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
@@ -177,6 +177,15 @@ function crumbsFor(root, abs) {
   return crumbs;
 }
 
+// The machine a mirror folder (see isMirrored) was pushed from: its MACHINE_ID, as the last push of
+// the space said, or "" (shown as plain "remote"). A space is found by work and repository; the
+// origin comes from the config, as a work is in one origin only.
+function machineOf({ work, repository, root }) {
+  if (!isMirrored(config.dataDir, root)) return '';
+  const w = config.getWorks().find(x => x.work === work);
+  return w ? syncApp.machineOf({ origin: w.origin, work: w.work, repository: repository || '' }) : '';
+}
+
 // How many tasks are todo, done, pending and aborted, subtasks included.
 function countTasks(tasks, counts = { todo: 0, done: 0, pending: 0, aborted: 0 }) {
   for (const t of tasks) {
@@ -198,6 +207,7 @@ function listDir(space, rel) {
     dir: toRel(root, abs),
     absDir: abs,
     remote: isMirrored(config.dataDir, root),
+    machine: machineOf(space),
     isRoot,
     parent,
     crumbs: crumbsFor(root, abs),
@@ -216,7 +226,10 @@ function listSpacesTasks(spaces, absDir) {
     for (const t of readTasks(s.root)) tasks.push({ ...serializeTask(s.root, t), work: s.work, repository: s.repository });
   }
   sortTasks(tasks);
-  return { dir: '', absDir, remote: isMirrored(config.dataDir, absDir), isRoot: true, parent: null, crumbs: [], tasks, counts: countTasks(tasks) };
+  const remote = isMirrored(config.dataDir, absDir);
+  // absDir, when given, is the root of the first space (a work's common tasks).
+  const machine = remote && spaces[0] && spaces[0].root === absDir ? machineOf(spaces[0]) : '';
+  return { dir: '', absDir, remote, machine, isRoot: true, parent: null, crumbs: [], tasks, counts: countTasks(tasks) };
 }
 
 // A work's common tasks and those of all its repositories.
@@ -227,10 +240,11 @@ function workSpaces(w) {
   ];
 }
 
-// The works/repositories list with, for each folder, whether it exists and whether it is a copy
-// pushed by taskmgrd (remote). A work without a tasks folder of its own (root "") is not missing one.
+// The works/repositories list with, for each folder, whether it exists, whether it is a copy
+// pushed by taskmgrd (remote) and, then, the machine it was pushed from. A work without a tasks
+// folder of its own (root "") is not missing one.
 function listSpaces() {
-  const describe = (root) => {
+  const describe = (root, space) => {
     const remote = isMirrored(config.dataDir, root);
     // A mirror folder is ours to make (nothing has been pushed into it yet), so it is created
     // here instead of asking the user to.
@@ -240,7 +254,8 @@ function listSpaces() {
     return {
       root,
       exists: !root || (fs.existsSync(root) && fs.statSync(root).isDirectory()),
-      remote
+      remote,
+      machine: remote ? syncApp.machineOf(space) : ''
     };
   };
   return config.getWorks().map(w => ({
@@ -249,8 +264,8 @@ function listSpaces() {
     income: w.income,
     hidden: w.hidden,
     shownPath: w.shownPath,
-    ...describe(w.root),
-    repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, shownPath: p.shownPath, paths: p.paths, ...describe(p.root) }))
+    ...describe(w.root, { origin: w.origin, work: w.work, repository: '' }),
+    repositories: w.repositories.map(p => ({ name: p.name, sourcePath: p.sourcePath, shownPath: p.shownPath, paths: p.paths, ...describe(p.root, { origin: w.origin, work: w.work, repository: p.name }) }))
   }));
 }
 

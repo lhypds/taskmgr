@@ -30,8 +30,10 @@
 //       which of these files the server does not have yet (see the blob store below).
 //   PUT /api/sync/blob/<sha1>   (the raw file)               -> { ok }
 //       stores one file by the sha1 of its content; refused when the content does not hash to it.
-//   PUT /api/sync/space   { origin, work, repository, entries }  -> { ok, files, dirs }
+//   PUT /api/sync/space   { origin, work, repository, machine, entries }  -> { ok, files, dirs }
 //       brings one space's folder to the snapshot (tasks that changed status moved first): entries are [{ path, content }] for task
+//       `machine` (MACHINE_ID of the pushing machine, optional) is remembered for the space and shown
+//       in the web UI here as where its copy comes from (see machineOf, below).
 //       files (text), [{ path, blob: sha1 }] for every other file, taken from the blob store, and
 //       [{ path, dir: true }] for an empty folder, paths relative to the space's folder. When a blob
 //       is not in the store, nothing is written and the answer is 409 MISSING_BLOBS { missing }.
@@ -50,7 +52,8 @@
 //
 // Files are written into data/.sync-tmp/ first and renamed into place, so a file is never half
 // written; a push cut short leaves the space part done, and the next one finishes it.
-// data/.sync-state.json remembers the hashes GET answers with, and the blobs each space refers to.
+// data/.sync-state.json remembers the hashes GET answers with, the blobs each space refers to, and the
+// machine each space was last pushed from.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -68,6 +71,7 @@ const BODY_LIMIT = '50mb';           // a snapshot: task texts and the hashes of
 const BLOB_LIMIT = '1gb';            // one attachment
 const BLOB_KEEP_MS = 60 * 60 * 1000; // how long an unreferenced blob is kept before it is removed
 const BLOB_RE = /^[0-9a-f]{40}$/;
+const MACHINE_MAX = 80;             // the longest MACHINE_ID kept (longer ones are cut)
 
 class SyncError extends Error {
   constructor(status, message, extra) { super(message); this.status = status; Object.assign(this, extra || {}); }
@@ -347,6 +351,12 @@ function mergeConfigs(here, pushed) {
   return merged;
 }
 
+// The MACHINE_ID of a push as kept: one line, trimmed, at most MACHINE_MAX characters; "" for none.
+function machineName(v) {
+  if (typeof v !== 'string') return '';
+  return v.replace(/[\0-\x1f\x7f]/g, ' ').trim().slice(0, MACHINE_MAX);
+}
+
 // Constant-time comparison, as for passwords (see server/auth.js).
 function tokensMatch(a, b) {
   const left = Buffer.from(String(a));
@@ -376,10 +386,11 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
       return {
         config: typeof s.config === 'string' ? s.config : null,
         spaces: s.spaces && typeof s.spaces === 'object' ? s.spaces : {},
-        blobs: s.blobs && typeof s.blobs === 'object' ? s.blobs : {}  // space key -> the blobs of its snapshot
+        blobs: s.blobs && typeof s.blobs === 'object' ? s.blobs : {},  // space key -> the blobs of its snapshot
+        machines: s.machines && typeof s.machines === 'object' ? s.machines : {}  // space key -> MACHINE_ID of its last push
       };
     } catch (e) {
-      return { config: null, spaces: {}, blobs: {} };
+      return { config: null, spaces: {}, blobs: {}, machines: {} };
     }
   }
 
@@ -456,6 +467,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
       for (const p of w.repositories) keys.add(spaceKey({ origin: w.origin, work: w.work, repository: p.name }));
     }
     for (const k of Object.keys(state.spaces)) if (!keys.has(k)) { delete state.spaces[k]; delete state.blobs[k]; }
+    for (const k of Object.keys(state.machines)) if (!keys.has(k)) delete state.machines[k];
     writeState(state);
     pruneBlobs(state);
     res.json({ ok: true, pruned });
@@ -488,7 +500,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
   });
 
   app.put('/api/sync/space', json, (req, res) => {
-    const { origin = '', work, repository = '', entries } = req.body || {};
+    const { origin = '', work, repository = '', machine, entries } = req.body || {};
     if (typeof origin !== 'string' || typeof repository !== 'string') throw new SyncError(400, 'origin and repository must be strings.');
     const target = spaceDir(dataDir, { origin, work, repository });
     if (!Array.isArray(entries)) throw new SyncError(400, '"entries" must be an array.');
@@ -498,6 +510,9 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     const key = spaceKey({ origin: origin.trim(), work: work.trim(), repository: repository.trim() });
     state.spaces[key] = sha1(JSON.stringify(entries));
     state.blobs[key] = [...new Set(list.filter(e => e.blob).map(e => e.blob))];
+    const name = machineName(machine);
+    if (name) state.machines[key] = name;
+    else delete state.machines[key];
     writeState(state);
     pruneBlobs(state);
     res.json({ ok: true, files, dirs });
@@ -595,6 +610,10 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     if (!(err instanceof SyncError)) return next(err);
     res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}), ...(err.missing ? { missing: err.missing } : {}) });
   });
+
+  // The MACHINE_ID the space (see spaceKey) was last pushed from, "" when it was never pushed or the
+  // push did not say. Read from the state file each time, as pushes come in between.
+  app.machineOf = (space) => readState().machines[spaceKey(space)] || '';
 
   // Forget the hashes of the pushed snapshots, so the next push sends every space whole: to be called
   // when the tasks are changed here (the web UI), which leaves the copies no longer what was pushed.

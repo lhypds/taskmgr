@@ -40,7 +40,7 @@ function notRunning(why) {
 if (!String(process.env.SYNC_SERVER || '').trim()) notRunning('SYNC_SERVER is not set in .env, no server to sync with');
 if (!PUSHING && !POLLING) notRunning('PUSHING=0 and POLLING=0 in .env, nothing to do');
 
-const { SERVER, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace } = require('./push');
+const { SERVER, MACHINE_ID, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace } = require('./push');
 
 // The daemon's pushes (and the pulls it runs) are logged apart from those made by hand (`tm push`,
 // `tm pull`: logs/taskmgr.log).
@@ -339,9 +339,10 @@ async function poll() {
 // ---------- main ----------
 
 log('taskmgrd');
-syncLog('info', `taskmgrd started (server ${SERVER})`);
+syncLog('info', `taskmgrd started (server ${SERVER}, machine ${MACHINE_ID})`);
 log(`  config     : ${CONFIG_PATH}`);
 log(`  server     : ${SERVER}`);
+log(`  machine    : ${MACHINE_ID}`);
 log(`  pushing    : ${PUSHING ? 'on' : 'off (PUSHING=0 in .env)'}`);
 log(`  polling    : ${POLLING ? `tm pull every ${POLLING_INTERVAL_S % 60 === 0 ? `${POLLING_INTERVAL_S / 60} min` : `${POLLING_INTERVAL_S}s`}` : 'off (POLLING=1 in .env turns it on)'}`);
 

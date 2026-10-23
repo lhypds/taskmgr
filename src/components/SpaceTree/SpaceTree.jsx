@@ -209,7 +209,7 @@ export default function SpaceTree({
                         active={activeTo === api.spacePath(g.origin, w.work)}
                         focused={focused}
                         label={w.work}
-                        root={w.remote ? t("tree.remote") : w.shownPath}
+                        root={w.remote ? w.machine || t("tree.remote") : w.shownPath}
                         income={w.income}
                         onSelect={onSelect}
                         actions={
@@ -246,7 +246,7 @@ export default function SpaceTree({
                           active={activeTo === api.spacePath(g.origin, w.work, p.name)}
                           focused={focused}
                           label={p.name}
-                          root={p.remote ? t("tree.remote") : p.shownPath}
+                          root={p.remote ? p.machine || t("tree.remote") : p.shownPath}
                           onSelect={onSelect}
                           actions={
                             <>
