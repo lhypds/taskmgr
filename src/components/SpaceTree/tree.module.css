@@ -132,35 +132,8 @@
   opacity: 0.5;
 }
 
-/* Tree lines, drawn with borders. Level i sits at 16px + 20px * i, under the start of the name of
-   the row one level up. The elbow (├, or └ for the last row) points at the middle of the name
-   line: the 8px row padding plus half its 16px. A through line carries an ancestor's line past
-   rows that are not its own. */
-.elbow,
-.through {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(16px + 20px * var(--level));
-  width: 10px;
-  border-left: var(--line) solid var(--faint);
-  pointer-events: none;
-}
-
-/* └: the line stops at the middle of the name line. */
-.elbow[data-last="true"] {
-  bottom: auto;
-  height: 16px;
-}
-
-.elbow::after {
-  content: "";
-  position: absolute;
-  top: 16px;
-  left: 0;
-  right: 0;
-  border-top: var(--line) solid var(--faint);
-}
+/* The tree lines (TreeLines) are drawn over the row at their default places: level 0 at 16px,
+   the elbow at the middle of the name line. */
 
 .top {
   display: flex;

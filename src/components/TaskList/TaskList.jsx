@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
-import { ChevronRightIcon, EditIcon, FolderIcon, TrashIcon } from "@components/icons";
+import { ChevronRightIcon, EditIcon, FolderIcon, PlusIcon, TrashIcon } from "@components/icons";
+import TreeLines from "@components/TreeLines";
 import { describe, formatStamp } from "@utils/task";
 import styles from "./tasklist.module.css";
 
@@ -16,11 +17,11 @@ function DoneBox({ checked, pending, onChange, title }) {
 }
 
 // A small button at the right end of a row's title, shown while the row is hovered (as in the tree).
-function RowButton({ label, onClick, children }) {
+function RowButton({ label, className = "", onClick, children }) {
   return (
     <button
       type="button"
-      className={styles.rowButton}
+      className={`${styles.rowButton} ${className}`}
       title={label}
       aria-label={label}
       onClick={(e) => {
@@ -67,9 +68,14 @@ export function TaskActions({ task, className = "", onOpen, onOpenFolder, onDele
   );
 }
 
-// `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into view. A task's
-// `from` (the work or repository it lives in, in a list of several) shows before its title.
-export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpenFolder, onToggleDone, onEnter }) {
+// The tasks as a tree, like the origins tree: `tasks` are the rows in order, each subtask under
+// its task with its `depth`, `through` and `last` (see flattenTasks), drawn with tree lines before
+// its title. `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into
+// view. A task's `from` (the work or repository it lives in, in a list of several) shows before
+// its title; its subtasks are from the same place, so they do not repeat it. The + at the right
+// end of a row (while hovered) adds a subtask to it (onAddSubtask); the > on a task with subtasks
+// opens them on their own (onEnter).
+export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpenFolder, onToggleDone, onAddSubtask, onEnter }) {
   const { t: tr } = useTranslation();
   const selectedRef = useRef(null);
   useEffect(() => {
@@ -91,6 +97,7 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
             ref={t.key === selectedKey ? selectedRef : null}
             className={`${styles.row}${t.key === selectedKey ? ` ${styles.selected}` : ""}`}
             data-status={t.status}
+            data-depth={t.depth}
             role="button"
             tabIndex={0}
             onFocus={() => onSelect(t)}
@@ -106,15 +113,21 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
               />
             </div>
             <div className="mono">{formatStamp(t.id)}</div>
-            <div className={styles.title}>
-              <FromTag task={t} />
-              <span className={styles.titleText}>
-                {t.title || <span className="muted">{tr("common.untitled")}</span>}
-                {detail && <span className={styles.detail}>{detail}</span>}
-              </span>
+            <div className={styles.title} style={{ "--depth": t.depth }}>
+              <TreeLines depth={t.depth} through={t.through} last={t.last} />
+              <div className={styles.titleLines}>
+                {t.depth === 0 && <FromTag task={t} />}
+                <span className={styles.titleText}>
+                  {t.title || <span className="muted">{tr("common.untitled")}</span>}
+                  {detail && <span className={styles.detail}>{detail}</span>}
+                </span>
+              </div>
             </div>
-            {t.hasSubtask && (
-              <div className={styles.enter}>
+            <div className={styles.rowEnd}>
+              <RowButton className={styles.addSubtask} label={tr("list.addSubtask")} onClick={() => onAddSubtask(t)}>
+                <PlusIcon />
+              </RowButton>
+              {t.hasSubtask ? (
                 <button
                   type="button"
                   className={styles.enterButton}
@@ -126,8 +139,10 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
                 >
                   <ChevronRightIcon />
                 </button>
-              </div>
-            )}
+              ) : (
+                <span className={styles.enterGap} aria-hidden="true" />
+              )}
+            </div>
           </div>
         );
       })}

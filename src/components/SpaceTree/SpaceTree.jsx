@@ -1,23 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
 import { EditIcon, FolderIcon, PlusIcon, TrashIcon } from "@components/icons";
+import TreeLines from "@components/TreeLines";
 import { Checkbox } from "@ui";
 import * as api from "@utils/api";
 import { formatIncome, formatIncomeShort } from "@utils/income";
 import { groupWorksByOrigin } from "@utils/works";
 import styles from "./tree.module.css";
-
-// Tree lines for a row at `depth`: a straight line for each ancestor level in `through` that still
-// has rows below, then an elbow (├, or └ when `last`) pointing at this row.
-function TreeLines({ depth, through, last }) {
-  if (depth === 0) return null;
-  return (
-    <>
-      {through.map((on, i) => on && <span key={i} className={styles.through} style={{ "--level": i }} aria-hidden="true" />)}
-      <span className={styles.elbow} data-last={last} style={{ "--level": depth - 1 }} aria-hidden="true" />
-    </>
-  );
-}
 
 // A small button at the right of a row's name line, shown while the row is hovered.
 function RowButton({ label, onClick, children }) {

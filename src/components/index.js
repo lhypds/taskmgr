@@ -3,6 +3,7 @@ export { default as TaskEditorModal } from "./TaskEditorModal";
 export { default as ConfirmModal } from "./ConfirmModal";
 export { default as HelpModal } from "./HelpModal";
 export { default as SpaceTree } from "./SpaceTree";
+export { default as TreeLines } from "./TreeLines";
 export { default as Attachments, useTaskFiles } from "./Attachments";
 export { default as FilePreviewModal } from "./FilePreviewModal";
 export { default as TaskPreviewModal } from "./TaskPreviewModal";

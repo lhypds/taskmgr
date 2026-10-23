@@ -1,5 +1,5 @@
 .table {
-  /* check | created | task | subtasks (only on a row that has them) */
+  /* check | created | task (a tree) | add a subtask, open the subtasks */
   --cols: 32px 132px minmax(160px, 1fr) auto;
   min-width: 360px;
   padding-bottom: 12px;
@@ -98,12 +98,25 @@
   color: var(--fg);
 }
 
+/* The task column is a tree, drawn as the origins tree is: a subtask's title is indented 20px
+   per level under its task's, with the tree lines (TreeLines) before it, level 0 at 10px. The
+   column stretches to the row's height so the lines run through the whole row; the elbow points
+   at the middle of the first line, the 7px padding plus half its 16px. */
+.row > .title {
+  position: relative;
+  align-self: stretch;
+  --tree-left: 10px;
+  --tree-mid: 15px;
+  padding-right: 12px;
+  padding-left: calc(6px + 20px * var(--depth, 0));
+  white-space: normal;
+  overflow: visible;
+}
+
 /* The `from` tag, the title and the details after it are one inline flow, so the tag sits at the
    start of the first line and the text wraps after it: a task with more details makes a taller
    row, up to three lines. */
-.row > .title {
-  padding-right: 12px;
-  white-space: normal;
+.titleLines {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -111,7 +124,7 @@
   word-break: break-word;
 }
 
-.title > :global(.tag) {
+.titleLines > :global(.tag) {
   vertical-align: top;
   margin-right: 8px;
 }
@@ -192,11 +205,29 @@
   color: var(--muted);
 }
 
-.enter {
-  width: 28px;
-  padding: 0 !important;
+/* The right end of a row: the + that adds a subtask, shown while the row is hovered, then the >
+   that opens the subtasks on their own, or its place on a task without any, so the + stays put. */
+.rowEnd {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0 8px 0 0 !important;
+  overflow: visible;
+}
+
+.addSubtask {
+  visibility: hidden;
+}
+
+.row:hover .addSubtask {
+  visibility: visible;
+}
+
+.enterGap {
+  flex: none;
+  width: 20px;
+  height: 20px;
 }
 
 .enterButton {

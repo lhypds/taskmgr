@@ -12,7 +12,6 @@ const {
   renameTaskByFirstLine,
   openTask,
   readTasks,
-  hasSubtask,
   compareIdsDesc
 } = require('./utils/taskUtils');
 const { clearScreen } = require('./utils/screenUtils');
@@ -45,9 +44,10 @@ const fs = require('fs');
   } catch (e) { /* dotenv optional or not installed; ignore */ }
 })();
 
-// Cut or pad a string to exactly `width` terminal cells (CJK characters take two).
+// Cut or pad a string to exactly `width` terminal cells (CJK characters take two). Leading
+// spaces stay: in the picker they are the indent of a repository under the last work of an origin.
 function padToWidth(s, width) {
-  s = (s || '').toString().trim();
+  s = (s || '').toString().trimEnd();
   let out = '';
   let cur = 0;
   for (const ch of s) {
@@ -60,9 +60,60 @@ function padToWidth(s, width) {
   return out;
 }
 
+// A list's order: todo at the top, then done, then pending; newest first within a status.
+function statusOrder(s) {
+  const st = (s || '').toLowerCase();
+  if (st === 'done') return 1;
+  if (st === 'pending') return 2;
+  return 0;
+}
+
+function sortTasks(tasks) {
+  tasks.sort((a, b) => {
+    const sa = statusOrder(a.status);
+    const sb = statusOrder(b.status);
+    if (sa !== sb) return sa - sb;
+    return compareIdsDesc(a, b);
+  });
+  return tasks;
+}
+
+// The tasks listed in dir as a tree: each, sorted as a list is, with its `subtasks`, the task
+// folders inside its own (and theirs), as the web UI reads them.
+function readTree(dir) {
+  return sortTasks(readTasks(dir)).map(t => {
+    let subtasks = [];
+    try { subtasks = readTree(path.dirname(t.path)); } catch (e) { subtasks = []; }
+    t.subtasks = subtasks;
+    return t;
+  });
+}
+
+// The tree as rows, depth first, each subtask under its task. A row gets its `depth`, `last` (the
+// last of its siblings) and `through`, which ancestor levels have rows below it, so their lines
+// run on past it; the tasks at the top have no lines, so their subtasks' lines start at level 0.
+function flattenTree(tasks, depth = 0, through = []) {
+  const rows = [];
+  tasks.forEach((t, i) => {
+    const last = i === tasks.length - 1;
+    t.depth = depth;
+    t.through = through;
+    t.last = last;
+    rows.push(t, ...flattenTree(t.subtasks || [], depth + 1, depth === 0 ? [] : [...through, !last]));
+  });
+  return rows;
+}
+
+// The tree lines before a subtask's title, as the web UI draws them: a bar for each ancestor
+// level that goes on below this row, then the elbow (├ or, for the last subtask, └).
+function treePrefix(t) {
+  if (!t.depth) return '';
+  return t.through.map(on => (on ? '│  ' : '   ')).join('') + (t.last ? '└─ ' : '├─ ');
+}
+
 function renderList(screen, list, tasks, selected) {
   const lines = tasks.map((t, i) => {
-    // determine status display: done/pending/todo (with subtask marker)
+    // determine status display: done/pending/todo
     const statusRaw = (t.status || '').toLowerCase();
     let check;
     if (statusRaw === 'done') {
@@ -70,11 +121,7 @@ function renderList(screen, list, tasks, selected) {
     } else if (statusRaw === 'pending') {
       check = '[p]';
     } else {
-      // todo or other: show [+] if it has subtasks
-      const taskDir = t.path ? path.dirname(t.path) : '';
-      let sub = false;
-      try { sub = hasSubtask(taskDir); } catch (e) { sub = false; }
-      check = sub ? '[+]' : '[ ]';
+      check = '[ ]';
     }
 
     const detailsRaw = t.details || '';
@@ -93,7 +140,7 @@ function renderList(screen, list, tasks, selected) {
       title = '(empty)';
     }
 
-    return `${check}  ${t.id}  ${title}`;
+    return `${check}  ${t.id}  ${treePrefix(t)}${title}`;
   });
   list.setItems(lines);
   list.select(selected);
@@ -323,7 +370,7 @@ function createWorkPicker(screen, config, onPick) {
     const nameWidth = Math.max(4, ...entries.map(e => displayWidth(e.name)));
     const infoWidth = Math.max(4, ...infos.map(displayWidth));
     list.setItems(entries.map((e, i) =>
-      `  ${padToWidth(e.name, nameWidth)}  ${padToWidth(infos[i], infoWidth)}  ${e.origin ? '' : e.root || '(no tasks folder)'}`));
+      `  ${padToWidth(e.name, nameWidth)}  ${padToWidth(infos[i], infoWidth)}  ${e.origin ? '' : e.root || ''}`));
     list.select(Math.min(lastSelected, Math.max(0, entries.length - 1)));
     showStatus();
   }
@@ -517,7 +564,7 @@ function createTaskView(screen, onBack) {
     // Show: <counters> [work / repository] `path-to-task-folder` <editor>
     const editor = getEditor();
 
-    // counters for statuses: todo (including empty), done, pending
+    // counters for statuses: todo (including empty), done, pending; subtasks count too
     let todoCount = 0, doneCount = 0, pendingCount = 0;
     for (const item of ts) {
       const st = (item.status || '').toLowerCase();
@@ -546,7 +593,8 @@ function createTaskView(screen, onBack) {
   });
 
   function refresh(selectedIndex = 0) {
-    const tasks = readTasks(cwd);
+    // every task in cwd with its subtasks under it, as the web UI lists them
+    const tasks = flattenTree(readTree(cwd));
 
     if (tasks.length === 0) {
       list.clearItems();
@@ -573,23 +621,6 @@ function createTaskView(screen, onBack) {
     try { noTasksBox.hide(); } catch (e) { }
     try { header.show(); } catch (e) { }
     try { list.show(); } catch (e) { }
-
-    // reorder tasks: todo (top), done (middle), pending (bottom)
-    const statusOrder = (s) => {
-      const st = (s || '').toLowerCase();
-      if (st === 'todo' || st === '') return 0;
-      if (st === 'done') return 1;
-      if (st === 'pending') return 2;
-      return 0;
-    };
-
-    tasks.sort((a, b) => {
-      const sa = statusOrder(a.status);
-      const sb = statusOrder(b.status);
-      if (sa !== sb) return sa - sb;
-      // within same status, sort by id descending (newest first)
-      return compareIdsDesc(a, b);
-    });
 
     renderList(screen, list, tasks, selectedIndex);
     list.tasksData = tasks; // attach
@@ -681,6 +712,7 @@ function createTaskView(screen, onBack) {
   let newMode = 'insert'; // 'insert' (typing), 'normal' (after esc) or 'command' (after :)
   let newCommand = '';
   let isNaming = false;
+  let newTaskDir = null; // the folder the new task is created in: cwd, or a task's for a subtask
 
   const NEW_HINTS = {
     insert: '-- INSERT --  first line: name, then details    esc then :wq save  :q cancel',
@@ -743,13 +775,16 @@ function createTaskView(screen, onBack) {
 
   function saveNewTask() {
     const text = newText.replace(/\s+$/, '');
+    const dir = newTaskDir || cwd;
     closeNewTask();
     if (!text.trim()) return;
-    createTask(cwd, text + '\n');
+    createTask(dir, text + '\n');
     refresh();
   }
 
-  function openNewTask() {
+  // A new task in cwd; with `parent`, a subtask of that task (in its folder).
+  function openNewTask(parent = null) {
+    newTaskDir = parent && parent.path ? path.dirname(parent.path) : null;
     isNaming = true;
     newText = '';
     newMode = 'insert';
@@ -835,6 +870,14 @@ function createTaskView(screen, onBack) {
     openNewTask();
   });
 
+  // 4.5. Add a subtask of the selected task (shift+a)
+  taskKey('S-a', () => {
+    if (isPreviewing || isNaming) return;
+    const tasks = list.tasksData || [];
+    const t = tasks[list.selected];
+    if (t) openNewTask(t);
+  });
+
   // 5. Edit a task
   function editSelected() {
     // Close preview if it's open
@@ -874,9 +917,10 @@ function createTaskView(screen, onBack) {
     ' taskmgr shortcuts',
     '',
     '  j / k, up / down   move between tasks',
-    '  h / l, left/right  go to parent / into subtasks',
+    '  h / l, left/right  go to parent / into subtasks (listed under their task as a tree)',
     ...(onBack ? ['  h at the top       back to the Origins tree'] : []),
     '  a / n              add a task (type task.txt: first line name; esc :wq saves, :q cancels)',
+    '  shift+a            add a subtask of the selected task',
     '  e / i              edit the selected task',
     '  space              preview task details',
     '  enter              open the task folder',
@@ -980,6 +1024,7 @@ function createTaskView(screen, onBack) {
     const t = tasks[cur];
     if (!t) return;
     const id = t.id;
+    const listDir = listDirOf(path.dirname(t.path)); // ids are unique within a list, not across levels
 
     // the status is the folder the task is in, so this moves it
     try {
@@ -990,8 +1035,8 @@ function createTaskView(screen, onBack) {
 
     // refresh list and re-select the same task by id in new ordering
     refresh();
-    const newTasks = list.tasksData || readTasks(cwd);
-    const idx = newTasks.findIndex(x => x.id === id);
+    const newTasks = list.tasksData || [];
+    const idx = newTasks.findIndex(x => x.id === id && listDirOf(path.dirname(x.path)) === listDir);
     const sel = idx >= 0 ? idx : Math.min(cur, newTasks.length - 1);
     try { list.select(sel); } catch (e) { }
     try { screen.render(); } catch (e) { }

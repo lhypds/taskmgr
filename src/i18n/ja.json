@@ -12,7 +12,7 @@
     "typeToConfirm": "確認のため「{{name}}」と入力してください"
   },
   "status": {
-    "todo": "未着手",
+    "todo": "ToDo",
     "done": "完了",
     "pending": "保留"
   },
@@ -28,6 +28,8 @@
     "up": "上へ",
     "refresh": "更新",
     "newTask": "新規タスク",
+    "newSubtask": "サブタスクを追加",
+    "newSubtaskOf": "「{{name}}」のサブタスクを追加",
     "hideTree": "ツリーを隠す",
     "showTree": "ツリーを表示",
     "hideDetails": "詳細を隠す",
@@ -74,9 +76,10 @@
     "showHidden": "非表示の work を表示（{{count}}）"
   },
   "list": {
-    "markTodo": "未着手にする",
+    "markTodo": "ToDoにする",
     "markDone": "完了にする",
-    "openSubtasks": "サブタスクを開く"
+    "openSubtasks": "サブタスクを開く",
+    "addSubtask": "サブタスクを追加"
   },
   "panel": {
     "heading": "タスク",
@@ -99,7 +102,8 @@
     "newTask": "新規タスク",
     "saveHint": "⌘S / Ctrl+S で保存",
     "save": "保存",
-    "saving": "保存中…"
+    "saving": "保存中…",
+    "newSubtask": "「{{name}}」のサブタスクを追加"
   },
   "config": {
     "title": "taskmgr.json を編集",
@@ -133,7 +137,11 @@
     },
     "add": {
       "keys": "a / n",
-      "desc": "タスクを追加"
+      "desc": "タスクを追加（タスク選択中はそのサブタスクを追加）"
+    },
+    "unselect": {
+      "keys": "esc",
+      "desc": "選択を解除し、a / n で最上位にタスクを追加"
     },
     "edit": {
       "keys": "e / i、一覧では enter",
@@ -157,7 +165,7 @@
     },
     "pending": {
       "keys": "p",
-      "desc": "保留 / 未着手を切り替え"
+      "desc": "保留 / ToDoを切り替え"
     },
     "delete": {
       "keys": "d",

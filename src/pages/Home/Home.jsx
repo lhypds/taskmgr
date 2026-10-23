@@ -35,7 +35,7 @@ import { BOARD_STATUSES, boardStatus } from "@components/TaskBoard";
 import { showToast, Checkbox } from "@ui";
 import { useAuth } from "@store";
 import * as api from "@utils/api";
-import { ALL_MONTHS, taskMonth, taskMonths, monthLabel, previewKind } from "@utils/task";
+import { ALL_MONTHS, taskMonth, taskMonths, monthLabel, previewKind, flattenTasks, filterTasks } from "@utils/task";
 import { groupWorksByOrigin } from "@utils/works";
 import { useTaskFiles } from "@components/Attachments";
 import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
@@ -110,8 +110,9 @@ export default function Home({ all = false }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false); // the new task modal is open
-  const [creatingStatus, setCreatingStatus] = useState("todo"); // board column the new task belongs to
+  // The new task modal is open: { space, dir, status, parent }, where the task goes (in a task
+  // folder with `parent`, the task it is a subtask of) and the board column it belongs to.
+  const [creating, setCreating] = useState(null);
   const searchRef = useRef(null);
   const [focusKey, setFocusKey] = useState(null); // the task whose text the panel should focus
   const [saving, setSaving] = useState(false);
@@ -254,8 +255,10 @@ export default function Home({ all = false }) {
 
   // Every task with the space it lives in, a key unique across spaces, and, in a list of several
   // spaces, where it is from: its repository, or its work for a work's own task in an origin's or
-  // in all of them. The whole work / repository path is kept for the hover title and search.
-  const tasks = useMemo(
+  // in all of them. The whole work / repository path is kept for the hover title and search. The
+  // tasks are a tree (each with its subtasks, which live in the same space); `tree` keeps that
+  // shape, `tasks` is every task as a row under its parent, in the list's order.
+  const tree = useMemo(
     () =>
       // Until the new path's list arrives, the previous one may still be here; a task of one space
       // has no space of its own to show on an origin's page, so it is left out.
@@ -266,11 +269,21 @@ export default function Home({ all = false }) {
             : space;
         if (!s) return [];
         const path = !scope ? [] : all || origin ? [s.work, s.repository].filter(Boolean) : [s.repository].filter(Boolean);
+        const from = path.join(" / ");
         const fromParts = path.slice(-1);
-        return { ...t, space: s, key: keyOf(s, t.rel), from: path.join(" / "), fromParts };
+        const decorate = (task) => ({
+          ...task,
+          space: s,
+          key: keyOf(s, task.rel),
+          from,
+          fromParts,
+          subtasks: (task.subtasks || []).map(decorate),
+        });
+        return decorate(t);
       }),
     [data.tasks, space, scope, all, origin, works],
   );
+  const tasks = useMemo(() => flattenTasks(tree), [tree]);
 
   // The month filter's entries; a month that this list has no task from shows every month.
   const months = useMemo(() => taskMonths(tasks), [tasks]);
@@ -282,15 +295,18 @@ export default function Home({ all = false }) {
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const inMonth = monthKey === ALL_MONTHS ? tasks : tasks.filter((t) => taskMonth(t) === monthKey);
-    const shown = !q
-      ? inMonth
-      : inMonth.filter((t) => t.title.toLowerCase().includes(q) || t.id.includes(q) || t.from.toLowerCase().includes(q));
-    // On the board, j / k go down a column and on into the next one. The board always has its
-    // done column; the list leaves the done tasks out unless they are shown.
-    if (view !== "board") return showDone ? shown : shown.filter((t) => t.status !== "done");
+    const keep = (t) =>
+      (monthKey === ALL_MONTHS || taskMonth(t) === monthKey) &&
+      (!q || t.title.toLowerCase().includes(q) || t.id.includes(q) || t.from.toLowerCase().includes(q)) &&
+      (view === "board" || showDone || t.status !== "done");
+    // The list shows every task under its parent, which stays when a subtask of it is kept, and
+    // leaves the done tasks out unless they are shown. The board shows the tasks at the top (a
+    // card's subtasks open on their own), always with its done column; on it, j / k go down a
+    // column and on into the next one.
+    if (view !== "board") return flattenTasks(filterTasks(tree, keep));
+    const shown = tree.filter(keep);
     return BOARD_STATUSES.flatMap((s) => shown.filter((t) => boardStatus(t) === s));
-  }, [tasks, query, view, showDone, monthKey]);
+  }, [tree, query, view, showDone, monthKey]);
 
   // No row is selected until one is chosen, or when the selected task is not in this list (a new
   // folder, a filter, a deleted task); j / k then start from the first row.
@@ -393,16 +409,18 @@ export default function Home({ all = false }) {
 
   async function saveEditor(text, files = []) {
     setSaving(true);
-    // a new task goes in the folder on the right; in a work's list, in the work's own tasks
+    // the new task goes where the editor was opened for: the folder on the right (in a work's
+    // list, the work's own tasks), or the folder of the task it is a subtask of
+    const { space: inSpace, dir: inDir, status } = creating;
     try {
-      const { task: created } = await api.createTaskText(space, dir, text);
+      const { task: created } = await api.createTaskText(inSpace, inDir, text);
       let rel = created.rel;
-      if (creatingStatus !== "todo") {
+      if (status !== "todo") {
         try {
-          const { task: updated } = await api.setStatus(space, rel, creatingStatus);
+          const { task: updated } = await api.setStatus(inSpace, rel, status);
           rel = updated.rel;
         } catch (e) {
-          setCreating(false);
+          setCreating(null);
           await reload();
           showToast(e.message, 5000);
           return;
@@ -410,11 +428,12 @@ export default function Home({ all = false }) {
       }
       // the task exists now, so a failed upload must not keep the editor open for a second create
       try {
-        for (const f of files) await api.uploadFile(space, rel, f);
+        for (const f of files) await api.uploadFile(inSpace, rel, f);
       } catch (e) {
         showToast(t("toast.createdUploadFailed", { error: e.message }), 5000);
       }
-      setCreating(false);
+      setCreating(null);
+      setSelectedKey(keyOf(inSpace, rel));
       await reload();
       showToast(t("toast.created"));
     } catch (e) {
@@ -504,10 +523,11 @@ export default function Home({ all = false }) {
   const workRoot = (works || []).find((w) => w.work === work)?.root;
   const canAdd = !!space && !loadError && (!!repository || !!workRoot);
 
-  function openCreator(status = "todo") {
-    if (!canAdd) return;
-    setCreatingStatus(status);
-    setCreating(true);
+  // Open the new task editor: for a subtask of `parent` (in its folder, in its space), by default
+  // the selected task, or, with none selected, for a task in the folder on the right.
+  function openCreator(status = "todo", parent = selected) {
+    if (parent) setCreating({ space: parent.space, dir: parent.rel, status, parent });
+    else if (canAdd) setCreating({ space, dir, status, parent: null });
   }
 
   function toggleView() {
@@ -697,6 +717,11 @@ export default function Home({ all = false }) {
       openCreator(view === "board" && BOARD_STATUSES.includes(pane) ? pane : "todo");
       return true;
     }
+    // esc drops the selection, so the next a / n adds a task at the top, not a subtask
+    if (name === "escape" && selected && pane !== "detail") {
+      setSelectedKey(null);
+      return true;
+    }
     if (view === "list" && ["h", "left", "l", "right"].includes(name)) {
       moveListPane(["h", "left"].includes(name) ? -1 : 1);
       return true;
@@ -851,6 +876,7 @@ export default function Home({ all = false }) {
           onSelect={(t) => setSelectedKey(t.key)}
           onOpenFolder={openFolder}
           onToggleDone={toggleDone}
+          onAddSubtask={(t) => openCreator("todo", t)}
           onEnter={enterFolder}
         />
       </div>
@@ -1028,9 +1054,15 @@ export default function Home({ all = false }) {
                   {t("header.showDone")}
                 </Checkbox>
               )}
-              <button type="button" className={`btn ${styles.addTask}`} onClick={() => openCreator()} disabled={!canAdd}>
+              <button
+                type="button"
+                className={`btn ${styles.addTask}`}
+                onClick={() => openCreator()}
+                disabled={!canAdd && !selected}
+                title={selected ? t("header.newSubtaskOf", { name: selected.title || selected.id }) : undefined}
+              >
                 <PlusIcon />
-                {t("header.newTask")}
+                {t(selected ? "header.newSubtask" : "header.newTask")}
               </button>
             </div>
           )}
@@ -1173,12 +1205,13 @@ export default function Home({ all = false }) {
       <HelpModal isOpen={help} onClose={() => setHelp(false)} />
 
       <TaskEditorModal
-        isOpen={creating}
-        space={space}
+        isOpen={!!creating}
+        space={creating?.space}
+        parent={creating?.parent}
         saving={saving}
-        onCancel={() => setCreating(false)}
+        onCancel={() => setCreating(null)}
         onSave={saveEditor}
-        onPreview={(file) => setPreview({ ...file, space })}
+        onPreview={(file) => setPreview({ ...file, space: creating.space })}
       />
 
       <TaskPreviewModal task={peekTask} editing={peekEditing} onEdit={() => setPeekEditing(true)} onEndEdit={() => setPeekEditing(false)} onSave={saveText} onOpenFile={(file) => openFile(file, peek)} files={peekFiles} selectedRel={peekFile?.rel} onUnselect={() => setPeekFileRel(null)} onClose={() => { setPeek(null); setPeekFileRel(null); setPeekEditing(false); }} />

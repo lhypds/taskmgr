@@ -17,6 +17,27 @@ export function describe(details) {
   return i === -1 ? "" : (lines[i + 1] || "").trim();
 }
 
+// A folder of tasks is a tree: each task has its `subtasks`. The list shows it as rows, depth
+// first, each under its parent; a row gets its `depth`, `last` (the last of its siblings) and
+// `through`, which ancestor levels have rows below it, so their tree lines run on past it (see
+// TreeLines). The tasks at the top have no lines, so their subtasks' lines start at level 0.
+export function flattenTasks(tasks, depth = 0, through = []) {
+  return tasks.flatMap((t, i) => {
+    const last = i === tasks.length - 1;
+    const below = depth === 0 ? [] : [...through, !last];
+    return [{ ...t, depth, through, last }, ...flattenTasks(t.subtasks || [], depth + 1, below)];
+  });
+}
+
+// The tasks that pass `keep`, each with its subtasks that do. A task that does not pass stays
+// when a subtask under it does, so a filter never hides a task that matches it.
+export function filterTasks(tasks, keep) {
+  return tasks.flatMap((t) => {
+    const subtasks = filterTasks(t.subtasks || [], keep);
+    return keep(t) || subtasks.length ? [{ ...t, subtasks }] : [];
+  });
+}
+
 export function joinDetails(title, body) {
   const t = (title || "").trim();
   const b = (body || "").replace(/\r\n/g, "\n").trim();

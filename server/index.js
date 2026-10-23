@@ -26,7 +26,6 @@ const {
   openTask,
   openFolder,
   readTasks,
-  hasSubtask,
   compareIdsDesc
 } = require('../utils/taskUtils');
 const { getEditor } = require('../utils/editorUtils');
@@ -140,10 +139,12 @@ function normalizeStatus(s) {
   return st === 'done' ? 'done' : (st === 'pending' ? 'pending' : 'todo');
 }
 
+// A task with its subtasks (the task folders inside its own, sorted as a list is), each with
+// theirs, so the UI shows a folder of tasks as a tree.
 function serializeTask(root, t) {
   const taskDir = path.dirname(t.path);
-  let sub = false;
-  try { sub = hasSubtask(taskDir); } catch (e) { sub = false; }
+  let subtasks = [];
+  try { subtasks = sortTasks(readTasks(taskDir)).map(s => serializeTask(root, s)); } catch (e) { subtasks = []; }
   return {
     id: t.id,
     rel: toRel(root, taskDir),
@@ -151,7 +152,8 @@ function serializeTask(root, t) {
     status: normalizeStatus(t.status),
     title: firstDetailLine(t.details),
     details: t.details || '',
-    hasSubtask: sub
+    hasSubtask: subtasks.length > 0,
+    subtasks
   };
 }
 
@@ -171,9 +173,12 @@ function crumbsFor(root, abs) {
   return crumbs;
 }
 
-function countTasks(tasks) {
-  const counts = { todo: 0, done: 0, pending: 0 };
-  for (const t of tasks) counts[normalizeStatus(t.status)]++;
+// How many tasks are todo, done and pending, subtasks included.
+function countTasks(tasks, counts = { todo: 0, done: 0, pending: 0 }) {
+  for (const t of tasks) {
+    counts[normalizeStatus(t.status)]++;
+    countTasks(t.subtasks || [], counts);
+  }
   return counts;
 }
 
@@ -679,7 +684,7 @@ mountFrontend().then(() => {
     console.log(`  users      : ${config.usersPath}`);
     console.log(`  sync       : ${syncToken && syncToken.trim() ? `receiving from taskmgrd into ${path.join(config.dataDir, 'origins')}` : 'off (set SYNC_SERVER_TOKEN in .env to receive pushes from taskmgrd)'}`);
     for (const w of config.getWorks()) {
-      console.log(`  work       : ${w.work}${w.origin ? ` (${w.origin})` : ''}  ${w.root || '(no tasks folder)'}`);
+      console.log(`  work       : ${w.work}${w.origin ? ` (${w.origin})` : ''}${w.root ? `  ${w.root}` : ''}`);
       for (const p of w.repositories) console.log(`    repository : ${p.name}  ${p.root}${p.sourcePath ? `  (source: ${p.sourcePath})` : ''}`);
     }
     console.log(`  url        : http://${config.host}:${config.port}/`);

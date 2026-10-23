@@ -28,6 +28,8 @@
     "up": "上级",
     "refresh": "刷新",
     "newTask": "新建任务",
+    "newSubtask": "新建子任务",
+    "newSubtaskOf": "为“{{name}}”新建子任务",
     "hideTree": "隐藏目录树",
     "showTree": "显示目录树",
     "hideDetails": "隐藏详情",
@@ -76,7 +78,8 @@
   "list": {
     "markTodo": "标为待办",
     "markDone": "标为完成",
-    "openSubtasks": "打开子任务"
+    "openSubtasks": "打开子任务",
+    "addSubtask": "添加子任务"
   },
   "panel": {
     "heading": "任务",
@@ -99,7 +102,8 @@
     "newTask": "新建任务",
     "saveHint": "⌘S / Ctrl+S 保存",
     "save": "保存",
-    "saving": "保存中…"
+    "saving": "保存中…",
+    "newSubtask": "为“{{name}}”添加子任务"
   },
   "config": {
     "title": "编辑 taskmgr.json",
@@ -133,7 +137,11 @@
     },
     "add": {
       "keys": "a / n",
-      "desc": "添加任务"
+      "desc": "添加任务（选中任务时添加为其子任务）"
+    },
+    "unselect": {
+      "keys": "esc",
+      "desc": "取消选中，之后 a / n 在顶层添加任务"
     },
     "edit": {
       "keys": "e / i；列表中按 enter",

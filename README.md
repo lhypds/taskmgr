@@ -41,7 +41,7 @@ Use `space` to preview task details.
 Support `vi` style keybindings.  
 
 Subtasks  
-Support subtasks inside the a task folder.  
+Support subtasks inside the a task folder; the terminal and the web UI list them as a tree under their task.  
 
 Shortcuts  
 Refer `Shortcuts` section.  
@@ -178,6 +178,9 @@ esc then `:wq` creates it and `:q` cancels). It creates a folder `<id> <name>` i
 (the id is the creation minute, `YYYYMMDDHHmm`; a second task in the same minute gets  
 the next minute).  
 
+shift+a  
+Add a subtask of the selected task: the same box, created inside that task's folder.  
+
 e  
 Edit a task with the default text editor.  
 
@@ -187,7 +190,8 @@ Move from tasks.
 
 h and l  
 → or ← (arrow keys)
-Move from main task and subtasks.  
+Move from main task and subtasks. Subtasks are already listed under their task as a tree  
+(`├─`, `└─`); `l` opens a task's subtasks on their own, `h` goes back up.  
 `h` at the top of the list goes back to the work / repository tree (when started with a bare `tm`).  
 
 x  

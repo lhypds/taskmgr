@@ -12,7 +12,7 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "start": "node cli.js",
-    "dev": "NODE_ENV=development node server/index.js",
+    "dev": "node -e \"process.env.NODE_ENV='development';require('./server/index.js')\"",
     "build": "vite build",
     "webui": "node server/index.js",
     "daemon": "node taskmgrd.js"

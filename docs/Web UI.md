@@ -13,7 +13,13 @@ work
 
 It is one page: that tree on the left (a drawer that folds away), the tasks of the chosen work  
 (its common tasks) or repository on the right, to list, filter, add, edit, mark done or pending,  
-delete, and open subtasks and attachments. `tab` (or `h` at the top of a task list) moves the  
+delete, and open subtasks and attachments. A subtask is a task inside a task (a task folder in  
+the task's own folder); the list is a tree like the one on the left, each subtask under its task  
+with tree lines before its title. With a task selected, "New task" (and `a` / `n`) adds a subtask  
+of it (the button says "New subtask"); `esc` drops the selection, as does a click on the blank area,  
+and then they add a task at the top. The `+` at the right end of a row adds a subtask to that task,  
+and the `>` on a task with subtasks opens them on their own. A search or filter keeps a task whose  
+subtask matches. `tab` (or `h` at the top of a task list) moves the  
 keyboard to the tree, `l` / `enter` back to the tasks.  
 
 Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-ignored).  

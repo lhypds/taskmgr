@@ -24,10 +24,12 @@ They are in the query for `GET` / `DELETE` and in the body otherwise (and in the
 A task, as answered:  
 ```
 { "id": "202508142100", "rel": "202508142100 Buy apple", "folder": "202508142100 Buy apple",
-  "status": "todo", "title": "Buy apple", "details": "Buy apple\nfrom the store.", "hasSubtask": false }
+  "status": "todo", "title": "Buy apple", "details": "Buy apple\nfrom the store.",
+  "hasSubtask": true, "subtasks": [ { "id": "202508142130", "rel": "202508142100 Buy apple/202508142130 Pay", ... } ] }
 ```
 
-`status` is `todo`, `done` or `pending`.  
+`status` is `todo`, `done` or `pending`. `subtasks` are the task folders inside the task's own (its  
+subtasks, a task inside a task), sorted as a list is, each with its own `subtasks`; `hasSubtask` says there are some.  
 
 The works APIs answer with the tree, `{ works, origins }`: each work with its origin, income, paths and  
 repositories, and the origins (`{ origin, income }`, an origin possibly without works yet).  
@@ -110,8 +112,8 @@ Tasks
 -----
 
 `GET /api/tasks?work=&repository=&dir=`  
-The tasks in a folder, sorted todo, done, pending:  
-`{ work, repository, dir, absDir, isRoot, parent, crumbs, tasks, ... }`.  
+The tasks in a folder, sorted todo, done, pending, each with its subtasks:  
+`{ work, repository, dir, absDir, isRoot, parent, crumbs, tasks, counts }`; `counts` counts the subtasks too.  
 
 `GET /api/tasks/all?all=1` / `?origin=` / `?work=`  
 Every task of every work, of one origin (all its works and their repositories), or of one work  

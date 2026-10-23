@@ -1,0 +1,30 @@
+/* Tree lines, drawn with borders. Level i sits at --tree-left + 20px * i, under the start of the
+   name of the row one level up. The elbow (├, or └ for the last row) points at the middle of the
+   row's first line, --tree-mid down from its top. A through line carries an ancestor's line past
+   rows that are not its own. The defaults are the origins tree's: a level 0 line at 16px, and the
+   middle of its name line at the 8px row padding plus half its 16px. */
+.elbow,
+.through {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--tree-left, 16px) + 20px * var(--level));
+  width: 10px;
+  border-left: var(--line) solid var(--faint);
+  pointer-events: none;
+}
+
+/* └: the line stops at the middle of the name line. */
+.elbow[data-last="true"] {
+  bottom: auto;
+  height: var(--tree-mid, 16px);
+}
+
+.elbow::after {
+  content: "";
+  position: absolute;
+  top: var(--tree-mid, 16px);
+  left: 0;
+  right: 0;
+  border-top: var(--line) solid var(--faint);
+}

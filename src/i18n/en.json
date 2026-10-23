@@ -28,6 +28,8 @@
     "up": "Up",
     "refresh": "Refresh",
     "newTask": "New task",
+    "newSubtask": "New subtask",
+    "newSubtaskOf": "New subtask of “{{name}}”",
     "hideTree": "Hide the tree",
     "showTree": "Show the tree",
     "hideDetails": "Hide the details",
@@ -76,7 +78,8 @@
   "list": {
     "markTodo": "Mark as todo",
     "markDone": "Mark as done",
-    "openSubtasks": "Open subtasks"
+    "openSubtasks": "Open subtasks",
+    "addSubtask": "Add a subtask"
   },
   "panel": {
     "heading": "Task",
@@ -99,7 +102,8 @@
     "newTask": "New task",
     "saveHint": "⌘S / Ctrl+S saves",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "newSubtask": "New subtask of “{{name}}”"
   },
   "config": {
     "title": "Edit taskmgr.json",
@@ -133,7 +137,11 @@
     },
     "add": {
       "keys": "a / n",
-      "desc": "add a task"
+      "desc": "add a task (a subtask of the selected task, when there is one)"
+    },
+    "unselect": {
+      "keys": "esc",
+      "desc": "drop the selection, so a / n add a task at the top"
     },
     "edit": {
       "keys": "e / i; enter in list",
