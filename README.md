@@ -109,7 +109,7 @@ it is created from `taskmgr.json.example` first.
 Pushes `taskmgr.json` and the tasks folders to the remote server once, by hand, the same push the sync daemon does (see [docs/taskmgrd.md](docs/taskmgrd.md); `TASKMGRD_SERVER` and `TASKMGRD_TOKEN` in `.env`). It prints what it pushed and exits, with an error when the server cannot be reached.  
 
 `tm pull`  
-Fetches `taskmgr.json`, every `task.txt` and the other files (attachments, files in folders) from the server, once, by hand. It never deletes anything here: a file or folder that exists is updated when it differs, one that does not is added. `taskmgr.json` is merged: what is only here stays, a work or repository here keeps its own `tasks_path` and `source_path`, and one only on the server is added with its tasks folder under `data/origins/`. Same `.env` settings as `tm push`.  
+Fetches `taskmgr.json` and, for the works and repositories listed in it, every `task.txt` and the other files (attachments, files in folders) from the server, once, by hand. It never deletes anything here: a file or folder that exists is updated when it differs, one that does not is added. `taskmgr.json` is merged, and only for what is already in it: an origin, work or repository you have takes the server's fields (keeping its own `tasks_path` and `source_path`), and one only on the server is not pulled, with its files. Same `.env` settings as `tm push`.  
 
 `tm help` (or `tm -h`, `tm --help`)  
 Prints the commands above. To open a folder named `config`, `push`, `pull` or `help`, prefix it: `tm ./config`.  

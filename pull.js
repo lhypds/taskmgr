@@ -5,14 +5,14 @@
 //
 //   node pull.js      (what `tm pull` runs; TASKMGRD_SERVER and TASKMGRD_TOKEN in .env, as for taskmgrd)
 //
-// taskmgr.json is merged, not replaced: a work or repository here keeps its own tasks_path and
-// source_path (the server's are folders on the server) and takes the server's other fields; one only
-// on the server is added, its tasks folder under data/origins/ here, laid out as on the server; one
-// only here stays. Then the tasks folder of every work and repository the server has is filled.
+// taskmgr.json is merged, not replaced, and only for what is already here: an origin, work or
+// repository here keeps its own tasks_path and source_path (the server's are folders on the server)
+// and takes the server's other fields; one only on the server is not pulled, nor its files; one only
+// here stays. Then the tasks folder of every work and repository here that the server also has is filled.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { loadDotenv, parseConfig, upgradeRaw, DEFAULT_CONFIG_PATH, DEFAULT_DATA_DIR } = require('./server/config');
+const { loadDotenv, parseConfig, upgradeRaw, DEFAULT_CONFIG_PATH } = require('./server/config');
 
 const REQUEST_TIMEOUT_MS = 30 * 1000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000;  // one attachment
@@ -54,62 +54,31 @@ const sha1 = (data) => crypto.createHash('sha1').update(data).digest('hex');
 const name = (v, key) => (v && typeof v[key] === 'string' ? v[key].trim() : '');
 const label = (s) => `${s.origin ? `${s.origin} / ` : ''}${s.work}${s.repository ? ` / ${s.repository}` : ''}`;
 
-// Where a space that is new here is kept: data/origins/<origin>/<work>/tasks, or .../repositories/<repository>.
-function localDir({ origin, work, repository }) {
-  const parts = [DEFAULT_DATA_DIR, 'origins', origin || '_', work];
-  parts.push(...(repository ? ['repositories', repository] : ['tasks']));
-  return path.join(...parts);
-}
-
-// taskmgr.json here (raw, "origins" form) with the server's merged in; nothing here is removed.
-// `serverRoots` is the set of space keys the server has a tasks folder for.
-function mergeFromServer(here, server, serverSpaces) {
-  const merged = { ...here, ...server, origins: (here.origins || []).map(g => ({ ...g, works: (g.works || []).map(w => ({ ...w })) })) };
-  const keep = (v, key) => (typeof v?.[key] === 'string' && v[key].trim() ? { [key]: v[key] } : {});
+// taskmgr.json here (raw, "origins" form) with the server's fields merged into what is already
+// here: an origin, work or repository only on the server is not added, and nothing here is removed.
+// A work or repository keeps its own tasks_path and source_path (the server's are folders there).
+function mergeFromServer(here, server) {
+  const merged = { ...here, origins: (here.origins || []).map(g => ({ ...g, works: (g.works || []).map(w => ({ ...w })) })) };
   for (const g of server.origins || []) {
     const origin = name(g, 'origin');
-    let target = merged.origins.find(o => name(o, 'origin') === origin);
-    if (!target) {
-      const { works, ...rest } = g;
-      target = { ...rest, works: [] };
-      merged.origins.push(target);
-    } else {
+    const target = merged.origins.find(o => name(o, 'origin') === origin);
+    if (target) {
       const { works, ...rest } = g;
       Object.assign(target, rest);
     }
     for (const w of g.works || []) {
-      const work = name(w, 'work');
       // Work names are unique across origins: a work here stays in its own origin.
-      let owner = target;
-      let mine = target.works.find(x => name(x, 'work') === work);
-      if (!mine) {
-        for (const o of merged.origins) {
-          const x = o.works.find(y => name(y, 'work') === work);
-          if (x) { owner = o; mine = x; break; }
-        }
-      }
+      const work = name(w, 'work');
+      const mine = merged.origins.flatMap(o => o.works).find(x => name(x, 'work') === work);
+      if (!mine) continue;
       const { tasks_path, repositories, ...fields } = w;
-      const hasTasks = serverSpaces.has([origin, work, ''].join('/'));
-      const next = {
-        ...(mine || {}),
-        ...fields,
-        ...(mine && name(mine, 'tasks_path') ? keep(mine, 'tasks_path') : hasTasks ? { tasks_path: localDir({ origin, work }) } : {})
-      };
-      const repos = [...((mine && mine.repositories) || [])];
+      Object.assign(mine, fields);
       for (const p of repositories || []) {
-        const repository = name(p, 'repository');
+        const mineRepo = (mine.repositories || []).find(x => name(x, 'repository') === name(p, 'repository'));
+        if (!mineRepo) continue;
         const { tasks_path: _t, source_path: _s, ...pf } = p;
-        const j = repos.findIndex(x => name(x, 'repository') === repository);
-        if (j >= 0) {
-          repos[j] = { ...repos[j], ...pf };
-        } else {
-          repos.push({ ...pf, tasks_path: localDir({ origin, work, repository }) });
-        }
+        Object.assign(mineRepo, pf);
       }
-      next.repositories = repos;
-      if (!next.repositories.length && !(mine && mine.repositories)) delete next.repositories;
-      if (mine) owner.works[owner.works.indexOf(mine)] = next;
-      else target.works.push(next);
     }
   }
   return merged;
@@ -197,29 +166,27 @@ async function pullSpace(s, root, stats) {
     for (const p of w.repositories) serverSpaces.add([w.origin || '', w.work, p.name].join('/'));
   }
 
-  let here = { origins: [] };
-  let hereText = null;
+  let here;
+  let hereText;
   try {
     hereText = fs.readFileSync(DEFAULT_CONFIG_PATH, 'utf8');
   } catch (e) {
-    if (e.code !== 'ENOENT') die(`could not read ${DEFAULT_CONFIG_PATH}: ${e.message}`);
+    die(e.code === 'ENOENT' ? `${DEFAULT_CONFIG_PATH} does not exist: tm pull only updates the origins, works and repositories listed there.` : `could not read ${DEFAULT_CONFIG_PATH}: ${e.message}`);
   }
-  if (hereText !== null) {
-    try {
-      parseConfig(hereText, DEFAULT_CONFIG_PATH);
-      here = upgradeRaw(JSON.parse(hereText));
-    } catch (e) {
-      die(`${e.message} (fix it first; nothing was pulled)`);
-    }
+  try {
+    parseConfig(hereText, DEFAULT_CONFIG_PATH);
+    here = upgradeRaw(JSON.parse(hereText));
+  } catch (e) {
+    die(`${e.message} (fix it first; nothing was pulled)`);
   }
-  const mergedText = JSON.stringify(mergeFromServer(here, serverRaw, serverSpaces), null, 2) + '\n';
+  const mergedText = JSON.stringify(mergeFromServer(here, serverRaw), null, 2) + '\n';
   let merged;
   try {
     merged = parseConfig(mergedText, 'the merged taskmgr.json');
   } catch (e) {
     die(`cannot merge the server's taskmgr.json with the one here: ${e.message}`);
   }
-  const changed = hereText === null || JSON.stringify(JSON.parse(hereText)) !== JSON.stringify(JSON.parse(mergedText));
+  const changed = JSON.stringify(JSON.parse(hereText)) !== JSON.stringify(JSON.parse(mergedText));
   if (changed) {
     fs.writeFileSync(DEFAULT_CONFIG_PATH, mergedText);
     console.log(`pulled taskmgr.json`);
