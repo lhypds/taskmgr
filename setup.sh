@@ -17,6 +17,18 @@ if [ ! -f data/users.json ]; then
   echo "Copied data/users.example.json to data/users.json"
 fi
 
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "Installing pnpm..."
+  if command -v corepack >/dev/null 2>&1; then
+    corepack enable pnpm || npm install -g pnpm
+  elif command -v npm >/dev/null 2>&1; then
+    npm install -g pnpm
+  else
+    echo "Node.js/npm is required to install pnpm." >&2
+    exit 1
+  fi
+fi
+
 echo "Installing dependencies..."
 pnpm install
 
