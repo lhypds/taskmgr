@@ -110,7 +110,8 @@ export default function IncomeFields({ fields }) {
                       {t("income.fromLabel")}
                       <input
                         className={`input ${styles.from}`}
-                        type="month"
+                        inputMode="numeric"
+                        maxLength={7}
                         value={x.from}
                         placeholder="2026-01"
                         aria-label={t("income.from")}
@@ -118,7 +119,7 @@ export default function IncomeFields({ fields }) {
                       />
                     </label>
                   )}
-                  <button type="button" className="btn" title={t("income.remove")} aria-label={t("income.remove")} onClick={() => removeRow(p, x.key)}>
+                  <button type="button" className={`btn ${styles.remove}`} title={t("income.remove")} aria-label={t("income.remove")} onClick={() => removeRow(p, x.key)}>
                     <XIcon />
                   </button>
                 </div>

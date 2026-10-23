@@ -21,6 +21,12 @@
   min-width: 0;
 }
 
+/* As high as the inputs beside it. */
+.remove {
+  flex: none;
+  height: 26px;
+}
+
 .addRow {
   align-self: flex-start;
 }
