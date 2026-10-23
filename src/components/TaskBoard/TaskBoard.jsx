@@ -5,22 +5,25 @@ import TreeLines from "@components/TreeLines";
 import { describe, formatStamp } from "@utils/task";
 import styles from "./board.module.css";
 
-export const BOARD_STATUSES = ["todo", "done", "pending"];
+// Every column the board can have, in order; the "aborted" column shows only when aborted tasks
+// are shown (`statuses` says which columns a board has).
+export const BOARD_STATUSES = ["todo", "done", "pending", "aborted"];
 
-// A task's own status as a column: anything that is not done or pending is still to do.
+// A task's own status as a column: anything that is not done, pending or aborted is still to do.
 const ownStatus = (task) => (BOARD_STATUSES.includes(task.status) ? task.status : "todo");
 
 // The column a task sits in: a subtask's is its task's (`column`, set when the rows are built),
 // whatever its own status; a task at the top sits in the column of its status.
 export const boardStatus = (task) => task.column || ownStatus(task);
 
-// The progress view: a column per status with the tasks as cards, each task's subtasks as cards
+// The progress view: a column per status in `statuses` with the tasks as cards, each task's subtasks as cards
 // under it, drawn as a tree like the list (`tasks` are the rows in order, with their `depth`,
 // `through` and `last`, see flattenTasks). Dragging a card into another column sets the task to
 // that status (`onMove`); a subtask stays under its task, in grey when its status is not the
 // column's. As in the list, a click only selects.
 export default function TaskBoard({
   tasks,
+  statuses = BOARD_STATUSES,
   selectedKey,
   focusedStatus,
   onFocusStatus,
@@ -43,8 +46,8 @@ export default function TaskBoard({
   }
 
   return (
-    <div className={styles.board}>
-      {BOARD_STATUSES.map((status) => (
+    <div className={styles.board} style={{ "--columns": statuses.length }}>
+      {statuses.map((status) => (
         <Column
           key={status}
           status={status}

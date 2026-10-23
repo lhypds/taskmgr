@@ -70,7 +70,7 @@ export function formatSize(n) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export const STATUS_LABEL = { todo: "todo", done: "done", pending: "pending" };
+export const STATUS_LABEL = { todo: "todo", done: "done", pending: "pending", aborted: "aborted" };
 
 // What the preview modal can show in the page: a PDF, an image or a text file.
 const TEXT_EXT = /\.(txt|md|markdown|log|csv|tsv|json|ya?ml|xml|ini|conf|cfg|toml|sql|sh|bat|ps1|js|jsx|ts|tsx|py|rb|go|java|c|h|cpp|cs|rs|php|css|html?)$/i;

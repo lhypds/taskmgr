@@ -60,11 +60,12 @@ function padToWidth(s, width) {
   return out;
 }
 
-// A list's order: todo at the top, then done, then pending; newest first within a status.
+// A list's order: todo at the top, then done, then pending, then aborted; newest first within a status.
 function statusOrder(s) {
   const st = (s || '').toLowerCase();
   if (st === 'done') return 1;
   if (st === 'pending') return 2;
+  if (st === 'aborted') return 3;
   return 0;
 }
 
@@ -113,13 +114,15 @@ function treePrefix(t) {
 
 function renderList(screen, list, tasks, selected) {
   const lines = tasks.map((t, i) => {
-    // determine status display: done/pending/todo
+    // determine status display: done/pending/aborted/todo
     const statusRaw = (t.status || '').toLowerCase();
     let check;
     if (statusRaw === 'done') {
       check = '[x]';
     } else if (statusRaw === 'pending') {
       check = '[p]';
+    } else if (statusRaw === 'aborted') {
+      check = '[a]';
     } else {
       check = '[ ]';
     }
@@ -159,11 +162,12 @@ function isDirectory(p) {
 }
 
 function countTasks(dir) {
-  const counts = { todo: 0, done: 0, pending: 0 };
+  const counts = { todo: 0, done: 0, pending: 0, aborted: 0 };
   for (const t of readTasks(dir)) {
     const st = (t.status || '').toLowerCase();
     if (st === 'done') counts.done++;
     else if (st === 'pending') counts.pending++;
+    else if (st === 'aborted') counts.aborted++;
     else counts.todo++;
   }
   return counts;
@@ -331,7 +335,7 @@ function createWorkPicker(screen, config, onPick) {
     if (!root || !isDirectory(root)) return '';
     try {
       const c = countTasks(root);
-      return `todo:${c.todo} done:${c.done} pending:${c.pending}`;
+      return `todo:${c.todo} done:${c.done} pending:${c.pending} aborted:${c.aborted}`;
     } catch (e) { return ''; }
   }
 
@@ -564,16 +568,17 @@ function createTaskView(screen, onBack) {
     // Show: <counters> [work / repository] `path-to-task-folder` <editor>
     const editor = getEditor();
 
-    // counters for statuses: todo (including empty), done, pending; subtasks count too
-    let todoCount = 0, doneCount = 0, pendingCount = 0;
+    // counters for statuses: todo (including empty), done, pending, aborted; subtasks count too
+    let todoCount = 0, doneCount = 0, pendingCount = 0, abortCount = 0;
     for (const item of ts) {
       const st = (item.status || '').toLowerCase();
       if (st === 'done') doneCount++;
       else if (st === 'pending') pendingCount++;
+      else if (st === 'aborted') abortCount++;
       else todoCount++;
     }
 
-    const counterString = `todo:${todoCount} done:${doneCount} pending:${pendingCount}`;
+    const counterString = `todo:${todoCount} done:${doneCount} pending:${pendingCount} aborted:${abortCount}`;
     const spaceString = spaceLabel ? ` [${spaceLabel}]` : '';
     const pathString = ' ' + '`' + cwd + '`';
     const { missing } = getEditorInfo();
@@ -926,6 +931,7 @@ function createTaskView(screen, onBack) {
     '  enter              open the task folder',
     '  x                  mark done / undone',
     '  p                  mark pending / todo',
+    '  w                  mark aborted / todo',
     '  d                  delete the selected task',
     '  r                  refresh the task list',
     '  :                  command mode  (:h or :help shows this)',
@@ -1049,6 +1055,13 @@ function createTaskView(screen, onBack) {
     toggleStatus('pending');
   });
 
+  // 6.6. Toggle aborted status with 'w' — mark aborted/todo and refresh ordering
+  taskKey('w', () => {
+    // do not toggle aborted if preview is open
+    if (isPreviewing) return;
+    toggleStatus('aborted');
+  });
+
   // 7. Open current task folder (enter or a left click on the row)
   function openSelected() {
     // do not open if preview is open
@@ -1112,7 +1125,7 @@ function createTaskView(screen, onBack) {
         }
         return;
       }
-      // up to the list the task is in, past its "done" / "pending" folder
+      // up to the list the task is in, past its "done" / "pending" / "aborted" folder
       const parent = listDirOf(cwd);
       if (!parent || parent === cwd) return;
       // prevent moving above the initial root directory where the program started

@@ -14,7 +14,8 @@
   "status": {
     "todo": "todo",
     "done": "done",
-    "pending": "pending"
+    "pending": "pending",
+    "aborted": "aborted"
   },
   "field": {
     "created": "created",
@@ -23,6 +24,7 @@
   "header": {
     "showDone": "done",
     "showPending": "pending",
+    "showAbort": "aborted",
     "filter": "Search task...",
     "filterLabel": "Filter tasks",
     "clearFilter": "Clear filter",
@@ -48,7 +50,8 @@
   "home": {
     "onlyDone": "Every task here is done.",
     "onlyPending": "Every task here is pending.",
-    "onlyHidden": "Every task here is done or pending.",
+    "onlyAbort": "Every task here is aborted.",
+    "onlyHidden": "Every task here is done, pending or aborted.",
     "pickSpace": "Pick a work or repository on the left.",
     "noTasks": "No tasks yet.",
     "noSubtasks": "No subtasks in this task.",
@@ -167,6 +170,10 @@
     "pending": {
       "keys": "p",
       "desc": "mark pending / todo"
+    },
+    "aborted": {
+      "keys": "w",
+      "desc": "mark aborted / todo"
     },
     "delete": {
       "keys": "d",

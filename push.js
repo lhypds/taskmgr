@@ -164,7 +164,7 @@ async function snapshot(root) {
     }
     const isTask = dirents.some(d => d.name === TASK_FILE);
     // Only a folder inside a task can be skipped for its size; the task's own folder (and done/,
-    // pending/ and the like around it) always goes, minus whatever is too large in it.
+    // pending/, aborted/ and the like around it) always goes, minus whatever is too large in it.
     inTask = inTask || isTask;
     const out = { files: [], dirs: [], warnings: [], size: 0, isTask };
     // Each entry looked at side by side: { sub } for a folder, { file } for a file, null for none.

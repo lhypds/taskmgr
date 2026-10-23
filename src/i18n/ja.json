@@ -14,7 +14,8 @@
   "status": {
     "todo": "ToDo",
     "done": "完了",
-    "pending": "保留"
+    "pending": "保留",
+    "aborted": "中止"
   },
   "field": {
     "created": "作成日時",
@@ -23,6 +24,7 @@
   "header": {
     "showDone": "完了",
     "showPending": "保留",
+    "showAbort": "中止",
     "filter": "タスクを検索...",
     "filterLabel": "タスクを絞り込む",
     "clearFilter": "絞り込みを解除",
@@ -48,7 +50,8 @@
   "home": {
     "onlyDone": "ここのタスクはすべて完了しています。",
     "onlyPending": "ここのタスクはすべて保留中です。",
-    "onlyHidden": "ここのタスクはすべて完了または保留中です。",
+    "onlyAbort": "ここのタスクはすべて中止されています。",
+    "onlyHidden": "ここのタスクはすべて完了、保留または中止されています。",
     "pickSpace": "左側から作業またはリポジトリを選んでください。",
     "noTasks": "タスクはまだありません。",
     "noSubtasks": "このタスクにサブタスクはありません。",
@@ -167,6 +170,10 @@
     "pending": {
       "keys": "p",
       "desc": "保留 / ToDoを切り替え"
+    },
+    "aborted": {
+      "keys": "w",
+      "desc": "中止 / ToDoを切り替え"
     },
     "delete": {
       "keys": "d",

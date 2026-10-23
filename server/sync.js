@@ -133,11 +133,12 @@ function placeBlob(from, to) {
   }
 }
 
-const STATUS_DIRS = ['done', 'pending'];
+const STATUS_DIRS = ['done', 'pending', 'aborted'];
 
 // The tasks of a snapshot (`entries`, by `path` relative to `root`) that `root` has under another
-// status folder (todo, done/, pending/ beside each other) are moved there first, folder and all, so
-// a task marked done or pending (or back to todo) is moved, not copied anew and the old one deleted.
+// status folder (todo, done/, pending/, aborted/ beside each other) are moved there first, folder and all,
+// so a task marked done, pending or aborted (or back to todo) is moved, not copied anew and the old one
+// deleted.
 // The same task is the same id (the first word of its folder name), whatever the rest of the name.
 // Calls onMove() for each task moved, onError(path, error) for each that could not be.
 function moveTasks(root, entries, { onMove = () => {}, onError = () => {} } = {}) {

@@ -92,10 +92,10 @@ each work followed by its repositories:
 
 ```
   work / repository
-  acme         todo:3 done:1 pending:0   ~/acme/tasks
-  ├─ alpha     todo:1 done:0 pending:0   ~/acme/alpha/tasks
-  └─ beta      folder not found          ~/acme/beta/tasks
-  personal     todo:2 done:5 pending:1   ~/tasks
+  acme         todo:3 done:1 pending:0 aborted:0   ~/acme/tasks
+  ├─ alpha     todo:1 done:0 pending:0 aborted:0   ~/acme/alpha/tasks
+  └─ beta      folder not found                    ~/acme/beta/tasks
+  personal     todo:2 done:5 pending:1 aborted:2   ~/tasks
 ```
 
 Select a row with `enter` to open its task list: a work row opens the common tasks of the work,  
@@ -131,15 +131,16 @@ Buy apple from the store.
 ```
 
 The status is where the folder is: a task right in a folder of tasks is todo, one in its
-`done` folder is done, one in its `pending` folder is pending. Marking a task done or pending
-moves its folder there (the `done` / `pending` folder is created when needed and removed when
-it is empty again):
+`done` folder is done, one in its `pending` folder is pending, one in its `aborted` folder is
+aborted. Marking a task done, pending or aborted moves its folder there (the `done` / `pending` /
+`aborted` folder is created when needed and removed when it is empty again):
 ```
 tasks/
   202508142100 Buy orange./
   done/
     202508142100 Buy apple./
   pending/
+  aborted/
 ```
 Task files from older versions, which began with a `---` block (`status:`, `labels:`, ...), are
 converted the first time their folder is listed: the block is dropped, and a done or pending
@@ -160,9 +161,10 @@ Task status:
 empty for todo.  
 x for done.  
 p for pending.  
+a for aborted.  
 
 Task order:  
-TODO tasks first, then done tasks, then pending tasks.
+TODO tasks first, then done tasks, then pending tasks, then aborted tasks.
 
 
 Shortcuts
@@ -214,6 +216,9 @@ Refresh the task list.
 
 p  
 Pending a task.  
+
+w  
+Abort a task (its folder moves into `aborted`; `w` again makes it todo).  
 
 :  
 Enter command mode (like Vim). Supported commands:  

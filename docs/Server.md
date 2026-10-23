@@ -28,7 +28,7 @@ A task, as answered:
   "hasSubtask": true, "subtasks": [ { "id": "202508142130", "rel": "202508142100 Buy apple/202508142130 Pay", ... } ] }
 ```
 
-`status` is `todo`, `done` or `pending`. `subtasks` are the task folders inside the task's own (its  
+`status` is `todo`, `done`, `pending` or `aborted`. `subtasks` are the task folders inside the task's own (its  
 subtasks, a task inside a task), sorted as a list is, each with its own `subtasks`; `hasSubtask` says there are some.  
 
 The works APIs answer with the tree, `{ works, origins }`: each work with its origin, income, paths and  
@@ -112,7 +112,7 @@ Tasks
 -----
 
 `GET /api/tasks?work=&repository=&dir=`  
-The tasks in a folder, sorted todo, done, pending, each with its subtasks:  
+The tasks in a folder, sorted todo, done, pending, aborted, each with its subtasks:  
 `{ work, repository, dir, absDir, isRoot, parent, crumbs, tasks, counts }`; `counts` counts the subtasks too.  
 
 `GET /api/tasks/all?all=1` / `?origin=` / `?work=`  
@@ -132,7 +132,7 @@ One task and its files: `{ task, files }`, each file `{ name, rel, isDir, isSubt
 Set a task's details and status; the folder is renamed after the first line and moved by the status. `{ task }`.  
 
 `POST /api/task/status` `{ work, repository?, rel, status }`  
-Mark a task `todo`, `done` or `pending` (moves its folder). `{ task }`.  
+Mark a task `todo`, `done`, `pending` or `aborted` (moves its folder). `{ task }`.  
 
 `GET /api/task/text?work=&repository=&rel=`  
 The `task.txt` text: `{ text }`.  

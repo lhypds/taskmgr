@@ -88,16 +88,19 @@
 }
 
 .row[data-status="done"] > div,
-.row[data-status="pending"] > div {
+.row[data-status="pending"] > div,
+.row[data-status="aborted"] > div {
   color: var(--muted);
 }
 
-/* A done or pending row keeps its date and its from label (the work or repository it is in) in
-   the normal colour; the rest of the row is grey. */
+/* A done, pending or aborted row keeps its date and its from label (the work or repository it is
+   in) in the normal colour; the rest of the row is grey. */
 .row[data-status="done"] > :global(.mono),
 .row[data-status="pending"] > :global(.mono),
+.row[data-status="aborted"] > :global(.mono),
 .row[data-status="done"] .titleLines > :global(.tag),
-.row[data-status="pending"] .titleLines > :global(.tag) {
+.row[data-status="pending"] .titleLines > :global(.tag),
+.row[data-status="aborted"] .titleLines > :global(.tag) {
   color: var(--fg);
 }
 
@@ -133,7 +136,7 @@
 }
 
 /* The name breaks at any character, so even a long run without spaces starts on the tag's line.
-   It stays black on a done or pending row, where the rest of the row is grey. */
+   It stays black on a done, pending or aborted row, where the rest of the row is grey. */
 .titleText {
   display: inline;
   word-break: break-all;
@@ -237,7 +240,8 @@
   color: var(--fg); /* the tick is black on white, the box is never filled */
 }
 
-.box[data-pending="true"] {
+/* The letter in the box: "p" for a pending task, "a" for an aborted one. */
+.box[data-letter="true"] {
   font-size: 9px;
   font-weight: 600;
   line-height: 1;

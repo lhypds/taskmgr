@@ -48,7 +48,7 @@ const EMPTY_DIR = {
   parent: null,
   crumbs: [],
   tasks: [],
-  counts: { todo: 0, done: 0, pending: 0 },
+  counts: { todo: 0, done: 0, pending: 0, aborted: 0 },
 };
 
 function readFlag(key, fallback) {
@@ -135,12 +135,14 @@ export default function Home({ all = false }) {
   const [month, setMonth] = useState(ALL_MONTHS); // the month the tasks were created in, or all
   const [showDone, setShowDone] = useState(() => readFlag("tasks.showDone", true)); // the list shows done tasks too
   const [showPending, setShowPending] = useState(() => readFlag("tasks.showPending", true)); // and pending ones
+  const [showAbort, setShowAbort] = useState(() => readFlag("tasks.showAbort", true)); // and aborted ones (the board's aborted column too)
 
   useEffect(() => writeFlag("panel.tree", treeOpen), [treeOpen]);
   useEffect(() => writeFlag("panel.detail", detailOpen), [detailOpen]);
   useEffect(() => writeFlag("tree.showHidden", showHidden), [showHidden]);
   useEffect(() => writeFlag("tasks.showDone", showDone), [showDone]);
   useEffect(() => writeFlag("tasks.showPending", showPending), [showPending]);
+  useEffect(() => writeFlag("tasks.showAbort", showAbort), [showAbort]);
   useEffect(() => {
     try {
       localStorage.setItem("tasks.view", view);
@@ -295,20 +297,25 @@ export default function Home({ all = false }) {
   );
   const monthKey = months[monthIndex].key;
 
+  // The board's columns: todo, done and pending always, aborted only while aborted tasks are shown.
+  const boardStatuses = useMemo(() => BOARD_STATUSES.filter((s) => s !== "aborted" || showAbort), [showAbort]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const keep = (t) =>
       (monthKey === ALL_MONTHS || taskMonth(t) === monthKey) &&
       (!q || t.title.toLowerCase().includes(q) || t.id.includes(q) || t.from.toLowerCase().includes(q)) &&
+      (showAbort || t.status !== "aborted") &&
       (view === "board" || ((showDone || t.status !== "done") && (showPending || t.status !== "pending")));
     // Both views show every task under its parent, which stays when a subtask of it is kept. The
-    // list leaves the done and the pending tasks out unless they are shown. The board always has its columns;
+    // list leaves the done, the pending and the aborted tasks out unless they are shown. The board
+    // always has its todo / done / pending columns, and its aborted column while aborted tasks are shown;
     // a task at the top sits in the column of its status with its subtasks under it, whatever
     // theirs (`column` says which), and on it j / k go down a column and on into the next one.
     const kept = filterTasks(tree, keep);
     if (view !== "board") return flattenTasks(kept);
-    return BOARD_STATUSES.flatMap((s) => flattenTasks(kept.filter((t) => boardStatus(t) === s)).map((r) => ({ ...r, column: s })));
-  }, [tree, query, view, showDone, showPending, monthKey]);
+    return boardStatuses.flatMap((s) => flattenTasks(kept.filter((t) => boardStatus(t) === s)).map((r) => ({ ...r, column: s })));
+  }, [tree, query, view, showDone, showPending, showAbort, boardStatuses, monthKey]);
 
   // No row is selected until one is chosen, or when the selected task is not in this list (a new
   // folder, a filter, a deleted task); j / k then start from the first row.
@@ -372,6 +379,7 @@ export default function Home({ all = false }) {
 
   const toggleDone = (task) => setStatus(task, task.status === "done" ? "todo" : "done");
   const togglePending = (task) => setStatus(task, task.status === "pending" ? "todo" : "pending");
+  const toggleAbort = (task) => setStatus(task, task.status === "aborted" ? "todo" : "aborted");
 
   const goTo = (rel) => setSearchParams(rel ? { dir: rel } : {});
 
@@ -530,10 +538,10 @@ export default function Home({ all = false }) {
   function toggleView() {
     const next = view === "board" ? "list" : "board";
     setView(next);
-    setPane(next === "board" ? (selected ? boardStatus(selected) : BOARD_STATUSES[0]) : "tasks");
+    setPane(next === "board" ? (selected ? boardStatus(selected) : boardStatuses[0]) : "tasks");
   }
 
-  const boardPane = BOARD_STATUSES.includes(pane) ? pane : selected ? boardStatus(selected) : BOARD_STATUSES[0];
+  const boardPane = boardStatuses.includes(pane) ? pane : selected ? boardStatus(selected) : boardStatuses[0];
 
   function selectBoardColumn(status, row = 0) {
     const cards = visible.filter((task) => boardStatus(task) === status);
@@ -542,7 +550,7 @@ export default function Home({ all = false }) {
   }
 
   function moveBoardColumn(step) {
-    const areas = ["tree", ...BOARD_STATUSES, "detail"];
+    const areas = ["tree", ...boardStatuses, "detail"];
     const current = ["tree", "detail"].includes(pane) ? pane : boardPane;
     const target = areas[Math.max(0, Math.min(areas.length - 1, areas.indexOf(current) + step))];
     if (target === current) return;
@@ -616,7 +624,7 @@ export default function Home({ all = false }) {
     }
     if (["l", "right", "enter"].includes(name)) {
       if (spaceTo) {
-        if (view === "board") selectBoardColumn(BOARD_STATUSES[0]);
+        if (view === "board") selectBoardColumn(boardStatuses[0]);
         else setPane("tasks");
       }
       return true;
@@ -689,7 +697,7 @@ export default function Home({ all = false }) {
         setTreeOpen(true);
         setPane("tree");
       } else if (spaceTo) {
-        if (view === "board") selectBoardColumn(BOARD_STATUSES[0]);
+        if (view === "board") selectBoardColumn(boardStatuses[0]);
         else setPane("tasks");
       }
       return true;
@@ -711,7 +719,7 @@ export default function Home({ all = false }) {
       return true;
     }
     if (["a", "n"].includes(name)) {
-      openCreator(view === "board" && BOARD_STATUSES.includes(pane) ? pane : "todo");
+      openCreator(view === "board" && boardStatuses.includes(pane) ? pane : "todo");
       return true;
     }
     // esc drops the selection, so the next a / n adds a task at the top, not a subtask
@@ -749,7 +757,7 @@ export default function Home({ all = false }) {
       moveBoardColumn(["h", "left"].includes(name) ? -1 : 1);
       return true;
     }
-    if (view === "board" && BOARD_STATUSES.includes(pane) && name === "i") {
+    if (view === "board" && boardStatuses.includes(pane) && name === "i") {
       openCreator(pane);
       return true;
     }
@@ -780,6 +788,9 @@ export default function Home({ all = false }) {
         return true;
       case "p":
         if (t) togglePending(t);
+        return true;
+      case "w":
+        if (t) toggleAbort(t);
         return true;
       case "d":
         if (t) setConfirm(t);
@@ -821,12 +832,14 @@ export default function Home({ all = false }) {
       </div>
     );
   } else if (view === "board" && !(loading && data.tasks.length === 0)) {
-    // The board keeps its todo / done / pending columns even with no tasks (or none matching).
+    // The board keeps its todo / done / pending columns (and the aborted column while aborted tasks
+    // are shown) even with no tasks (or none matching).
     content = (
       <TaskBoard
         tasks={visible}
+        statuses={boardStatuses}
         selectedKey={selected?.key}
-        focusedStatus={BOARD_STATUSES.includes(pane) ? pane : null}
+        focusedStatus={boardStatuses.includes(pane) ? pane : null}
         onFocusStatus={setPane}
         onSelect={(t) => {
           setPane(boardStatus(t));
@@ -857,11 +870,11 @@ export default function Home({ all = false }) {
         </>
       );
     } else if (visible.length === 0) {
+      // every task here has a status that is not shown: named when it is one status, else "hidden"
+      const hidden = [!showDone && "onlyDone", !showPending && "onlyPending", !showAbort && "onlyAbort"].filter(Boolean);
       empty = (
         <p className="muted">
-          {query.trim()
-            ? t("home.noMatch", { query })
-            : t(!showDone && !showPending ? "home.onlyHidden" : !showPending ? "home.onlyPending" : "home.onlyDone")}
+          {query.trim() ? t("home.noMatch", { query }) : t(hidden.length === 1 ? `home.${hidden[0]}` : "home.onlyHidden")}
         </p>
       );
     }
@@ -901,9 +914,9 @@ export default function Home({ all = false }) {
                 const selectedTask = tasks.find((task) => task.key === selectedKey);
                 const status = selectedTask
                   ? boardStatus(selectedTask)
-                  : BOARD_STATUSES.includes(pane)
+                  : boardStatuses.includes(pane)
                     ? pane
-                    : BOARD_STATUSES[0];
+                    : boardStatuses[0];
                 setPane(view === "board" ? status : "tasks");
               }
             }}
@@ -1056,6 +1069,9 @@ export default function Home({ all = false }) {
                   </Checkbox>
                 </>
               )}
+              <Checkbox className={styles.showDone} checked={showAbort} onChange={setShowAbort}>
+                {t("header.showAbort")}
+              </Checkbox>
               <button
                 type="button"
                 className={`btn ${styles.addTask}`}
@@ -1118,6 +1134,9 @@ export default function Home({ all = false }) {
             </span>
             <span>
               {t("status.pending")} {c.pending}
+            </span>
+            <span>
+              {t("status.aborted")} {c.aborted ?? 0}
             </span>
             <span className={`mono ${styles.path}`} title={data.remote ? t("tree.remote") : data.absDir}>
               {data.remote ? t("tree.remote") : data.absDir}

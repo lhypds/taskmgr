@@ -5,12 +5,13 @@ import TreeLines from "@components/TreeLines";
 import { describe, formatStamp } from "@utils/task";
 import styles from "./tasklist.module.css";
 
-function DoneBox({ checked, pending, onChange, title }) {
+// The status box: a tick for done, a "p" for pending, an "a" for aborted, empty for todo.
+function DoneBox({ checked, pending, aborted, onChange, title }) {
   return (
     <label className={styles.check} title={title} onClick={(e) => e.stopPropagation()}>
       <input type="checkbox" className={styles.checkInput} checked={checked} onChange={onChange} />
-      <span className={styles.box} data-pending={pending} aria-hidden="true">
-        {pending ? "p" : null}
+      <span className={styles.box} data-letter={pending || aborted} aria-hidden="true">
+        {pending ? "p" : aborted ? "a" : null}
       </span>
     </label>
   );
@@ -107,6 +108,7 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
               <DoneBox
                 checked={t.status === "done"}
                 pending={t.status === "pending"}
+                aborted={t.status === "aborted"}
                 onChange={() => onToggleDone(t)}
                 title={tr(t.status === "done" ? "list.markTodo" : "list.markDone")}
               />

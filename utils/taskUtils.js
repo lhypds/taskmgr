@@ -5,8 +5,8 @@ const { spawnSync } = require('child_process');
 const TASK_FILE = 'task.txt';
 
 // A task's status is where its folder is: right in a folder of tasks it is todo, in that
-// folder's "done" or "pending" folder it is done or pending.
-const STATUS_DIRS = ['done', 'pending'];
+// folder's "done", "pending" or "aborted" folder it is done, pending or aborted.
+const STATUS_DIRS = ['done', 'pending', 'aborted'];
 
 // task.txt is just the task's details, the first line being its title. Older files start
 // with a front matter block (---, status:, labels:, ..., ---); its status is returned as
@@ -62,7 +62,7 @@ function readTaskDir(dirAbs) {
   return parsed;
 }
 
-// An older task file: drop its front matter, and move a done or pending task (still
+// An older task file: drop its front matter, and move a done, pending or aborted task (still
 // right in its folder of tasks) into its status folder. Returns the task as it is now.
 function migrateTask(task) {
   if (task.oldStatus === undefined) return task;
@@ -215,7 +215,7 @@ function removeIfEmptyStatusDir(dir) {
   } catch (e) { /* ignore */ }
 }
 
-// Set a task's status by moving its folder: into its list's "done" or "pending"
+// Set a task's status by moving its folder: into its list's "done", "pending" or "aborted"
 // folder, or back into the list itself for todo. Updates task.path and task.status.
 function markTask(task, status) {
   if (!task) return;

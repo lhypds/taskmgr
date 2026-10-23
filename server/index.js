@@ -116,11 +116,13 @@ function firstDetailLine(details) {
   return (details || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
 }
 
-// Same ordering as the CLI: todo first, then done, then pending; newest id first within a group.
+// Same ordering as the CLI: todo first, then done, then pending, then aborted; newest id first
+// within a group.
 function statusOrder(s) {
   const st = (s || '').toLowerCase();
   if (st === 'done') return 1;
   if (st === 'pending') return 2;
+  if (st === 'aborted') return 3;
   return 0;
 }
 
@@ -134,9 +136,11 @@ function sortTasks(tasks) {
   return tasks;
 }
 
+const STATUSES = ['todo', 'done', 'pending', 'aborted'];
+
 function normalizeStatus(s) {
   const st = String(s || '').toLowerCase();
-  return st === 'done' ? 'done' : (st === 'pending' ? 'pending' : 'todo');
+  return STATUSES.includes(st) ? st : 'todo';
 }
 
 // A task with its subtasks (the task folders inside its own, sorted as a list is), each with
@@ -157,8 +161,8 @@ function serializeTask(root, t) {
   };
 }
 
-// Breadcrumb from the space's root down to `abs`: every task folder on the way (the "done" and
-// "pending" folders between them are skipped).
+// Breadcrumb from the space's root down to `abs`: every task folder on the way (the "done",
+// "pending" and "aborted" folders between them are skipped).
 function crumbsFor(root, abs) {
   const crumbs = [];
   let cur = abs;
@@ -173,8 +177,8 @@ function crumbsFor(root, abs) {
   return crumbs;
 }
 
-// How many tasks are todo, done and pending, subtasks included.
-function countTasks(tasks, counts = { todo: 0, done: 0, pending: 0 }) {
+// How many tasks are todo, done, pending and aborted, subtasks included.
+function countTasks(tasks, counts = { todo: 0, done: 0, pending: 0, aborted: 0 }) {
   for (const t of tasks) {
     counts[normalizeStatus(t.status)]++;
     countTasks(t.subtasks || [], counts);
@@ -262,7 +266,7 @@ function listFiles(root, taskDirAbs) {
   for (const e of entries) {
     if (e.name === TASK_FILE) continue;
     if (e.name.startsWith('.')) continue;
-    if (e.isDirectory() && STATUS_DIRS.includes(e.name)) continue;  // holds done / pending subtasks
+    if (e.isDirectory() && STATUS_DIRS.includes(e.name)) continue;  // holds done / pending / aborted subtasks
     const abs = path.join(taskDirAbs, e.name);
     let size = 0;
     try { size = fs.statSync(abs).size; } catch (err) { /* ignore */ }
@@ -525,7 +529,7 @@ app.post('/api/task/status', (req, res) => {
   const { root } = spaceFrom(body);
   const taskDir = resolveTaskDir(root, body.rel);
   const status = String(body.status || '').toLowerCase();
-  if (!['todo', 'done', 'pending'].includes(status)) throw new HttpError(400, 'Invalid status.');
+  if (!STATUSES.includes(status)) throw new HttpError(400, 'Invalid status.');
   const task = taskFromDir(taskDir);
   markTask(task, status);
   res.json({ task: serializeTask(root, taskFromDir(path.dirname(task.path))) });

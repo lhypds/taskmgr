@@ -1,9 +1,10 @@
-/* Three columns side by side, divided by a line, each scrolling its own cards. */
+/* The columns (three, or four with the aborted tasks shown) side by side, divided by a line, each
+   scrolling its own cards. */
 .board {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  grid-template-columns: repeat(var(--columns, 3), minmax(200px, 1fr));
   overflow-x: auto;
 }
 
@@ -147,6 +148,6 @@
 
 @media (max-width: 860px) {
   .board {
-    grid-template-columns: repeat(3, minmax(180px, 80vw));
+    grid-template-columns: repeat(var(--columns, 3), minmax(180px, 80vw));
   }
 }

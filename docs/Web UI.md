@@ -12,10 +12,10 @@ work
 ```
 
 It is one page: that tree on the left (a drawer that folds away), the tasks of the chosen work  
-(its common tasks) or repository on the right, to list, filter, add, edit, mark done or pending,  
-delete, and open subtasks and attachments. Above the list, the "done" and "pending" boxes take  
-the done and the pending tasks out of the list and back (the progress view always has its  
-columns); the mouse wheel over the list moves the selection, as in the terminal. A subtask is a task inside a task (a task folder in  
+(its common tasks) or repository on the right, to list, filter, add, edit, mark done, pending or aborted,  
+delete, and open subtasks and attachments. Above the list, the "done", "pending" and "aborted" boxes take  
+the done, the pending and the aborted tasks out of the list and back (the progress view always has its  
+todo, done and pending columns; its "aborted" box shows and hides the aborted column); the mouse wheel over the list moves the selection, as in the terminal. A subtask is a task inside a task (a task folder in  
 the task's own folder); the list is a tree like the one on the left, each subtask under its task  
 with tree lines before its title. With a task selected, "New task" (and `a` / `n`) adds a subtask  
 of it (the button says "New subtask"); `esc` drops the selection, as does a click on the blank area,  

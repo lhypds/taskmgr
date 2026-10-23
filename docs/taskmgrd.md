@@ -23,8 +23,8 @@ data/
 
 What is pushed: `taskmgr.json` whole when it changes (an invalid one is not pushed; the folders of the  
 last good one stay watched), and each tasks folder whole, whenever anything in it changes: every file in  
-it, task files, attachments and anything else, `done` / `pending` folders and subtasks included, and every  
-empty folder. The server brings its copy to the snapshot: a task marked done or pending (or back to todo) is moved first, then only what differs is written and what is gone removed, so after a push its copy is the folder  
+it, task files, attachments and anything else, `done` / `pending` / `aborted` folders and subtasks included, and every  
+empty folder. The server brings its copy to the snapshot: a task marked done, pending or aborted (or back to todo) is moved first, then only what differs is written and what is gone removed, so after a push its copy is the folder  
 exactly as it is here, and a renamed, moved or deleted task or attachment is mirrored too. Only `.DS_Store`  
 files are left out. Task files go as text; every other file by the sha1 of its content: the daemon asks the  
 server which of them it does not have yet and uploads only those, so an unchanged attachment, or the same  
