@@ -64,8 +64,12 @@ function loadDotenv() {
   }
 }
 
+// "~" is the home folder; a Windows path ("C:/code", "C:\code") run from WSL is its /mnt/c/code,
+// which path.resolve would otherwise take as relative and resolve inside the current folder.
 function expandHome(p) {
   if (!p) return p;
+  const drive = process.platform !== 'win32' && /^([A-Za-z]):[\\/]/.exec(p);
+  if (drive) return `/mnt/${drive[1].toLowerCase()}/${p.slice(3).replace(/\\/g, '/')}`;
   if (p === '~') return os.homedir();
   if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2));
   return p;
