@@ -5,7 +5,7 @@ import * as api from "@utils/api";
 
 const attachmentsOf = (files) => files.filter((f) => !f.isSubtask);
 
-// The attachments of one task folder, loaded while `rel` is set, with upload and delete.
+// The attachments of one task folder, loaded while `rel` is set, with upload and delete (remove asks first unless ask is false, and says whether it deleted).
 // `version` reloads them when it changes (e.g. after the task list reloads).
 export default function useTaskFiles(space, rel, version) {
   const [files, setFiles] = useState([]);
@@ -41,13 +41,15 @@ export default function useTaskFiles(space, rel, version) {
   );
 
   const remove = useCallback(
-    async (file) => {
-      if (!window.confirm(i18n.t("attach.deleteConfirm", { name: file.name }))) return;
+    async (file, ask = true) => {
+      if (ask && !window.confirm(i18n.t("attach.deleteConfirm", { name: file.name }))) return false;
       try {
         const d = await api.deleteFile(space, file.rel);
         setFiles(attachmentsOf(d.files));
+        return true;
       } catch (e) {
         showToast(e.message, 4000);
+        return false;
       }
     },
     [space],

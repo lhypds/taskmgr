@@ -90,6 +90,7 @@
     "folder": "フォルダ",
     "remove": "{{name}} を削除",
     "deleteConfirm": "{{name}} を削除しますか？",
+    "deleteAgain": "もう一度 d で {{name}} を削除",
     "uploading": "アップロード中…",
     "drop": "ここにファイルをドロップ、または",
     "choose": "ファイルを選択"

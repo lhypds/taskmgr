@@ -90,6 +90,7 @@
     "folder": "文件夹",
     "remove": "移除 {{name}}",
     "deleteConfirm": "删除 {{name}}？",
+    "deleteAgain": "再按一次 d 删除 {{name}}",
     "uploading": "上传中…",
     "drop": "将文件拖放到此处，或",
     "choose": "选择文件"

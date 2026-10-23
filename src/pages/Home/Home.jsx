@@ -307,9 +307,23 @@ export default function Home({ all = false }) {
   // peek holds the key; the task itself is read fresh, so a saved edit shows at once
   const peekTask = tasks.find((task) => task.key === peek?.key) || peek;
   const [peekEditing, setPeekEditing] = useState(false); // the preview's text is being edited
-  const peekFiles = useTaskFiles(peekTask?.space, peekTask?.rel, data).files.filter((f) => !f.isDir);
+  const peekAttachments = useTaskFiles(peekTask?.space, peekTask?.rel, data);
+  const peekFiles = peekAttachments.files.filter((f) => !f.isDir);
   const [peekFileRel, setPeekFileRel] = useState(null);
   const peekFile = peekFiles.find((f) => f.rel === peekFileRel) || null;
+  // d on a file asks by saying so; d again deletes it and moves the highlight to its neighbour.
+  // Any other key takes the question back.
+  const armedRef = useRef(null);
+  const deleteFile = async (hook, list, file, setRel) => {
+    if (armedRef.current !== file.rel) {
+      armedRef.current = file.rel;
+      showToast(t("attach.deleteAgain", { name: file.name }), 4000);
+      return;
+    }
+    armedRef.current = null;
+    const i = list.indexOf(file);
+    if (await hook.remove(file, false)) setRel((list[i + 1] || list[i - 1] || null)?.rel ?? null);
+  };
   const openFile = (file, task = selected) => {
     if (previewKind(file.name)) setPreview({ ...file, space: task.space });
     else window.open(api.fileUrl(task.space, file.rel), "_blank", "noreferrer");
@@ -598,6 +612,7 @@ export default function Home({ all = false }) {
 
   // The terminal's key bindings (see cli.js); :h lists them.
   useShortcuts((name) => {
+    if (name !== "d") armedRef.current = null;
     if (
       creating ||
       confirm ||
@@ -634,6 +649,10 @@ export default function Home({ all = false }) {
       const move = moveIndex(name, peekFiles.indexOf(peekFile), peekFiles.length);
       if (move !== null) {
         if (move >= 0) setPeekFileRel(peekFiles[move].rel);
+        return true;
+      }
+      if (name === "d" && peekFile) {
+        deleteFile(peekAttachments, peekFiles, peekFile, setPeekFileRel);
         return true;
       }
       if (["enter", "space"].includes(name) && peekFile) {
@@ -695,6 +714,14 @@ export default function Home({ all = false }) {
       }
       if (["space", "enter"].includes(name)) {
         if (selectedFile) openFile(selectedFile);
+        return true;
+      }
+      if (name === "d" && selectedFile) {
+        deleteFile(attachments, fileList, selectedFile, setFileRel);
+        return true;
+      }
+      if (name === "escape" && selectedFile) {
+        setFileRel(null);
         return true;
       }
     }

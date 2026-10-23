@@ -54,12 +54,13 @@ export function useShortcuts(handler) {
   }, []);
 }
 
-// Next selection index for j / k / up / down, clamped to the list.
+// Next selection index for j / k / up / down, clamped to the list (-1 for an empty one); null for
+// any other key.
 export function moveIndex(name, index, length) {
+  const down = name === "j" || name === "down";
+  if (!down && name !== "k" && name !== "up") return null;
   if (length === 0) return -1;
-  if (name === "j" || name === "down") return Math.min(length - 1, index + 1);
-  if (name === "k" || name === "up") return Math.max(0, index - 1);
-  return null;
+  return down ? Math.min(length - 1, index + 1) : Math.max(0, index - 1);
 }
 
 // Mouse wheel over `el` moves the selection instead of scrolling, as in the terminal UI:
