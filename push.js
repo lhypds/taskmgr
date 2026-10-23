@@ -47,8 +47,9 @@ const warn = (...args) => console.error(...args);
 // One line per sync event, appended to the sync log: SUCCESS or FAILED for a push (or pull) of a file
 // or folder, WARNING for something left out on purpose, INFO for a run starting and ending (success is
 // true, false, 'warning' or 'info'). A run by hand (`tm push`, `tm pull`) logs to logs/taskmgr.log; the
-// daemon, taskmgrd.js, switches to its own logs/taskmgrd.log with logTo(), so the two are told apart.
-let SYNC_LOG = path.join(__dirname, 'logs', 'taskmgr.log');
+// daemon, taskmgrd.js, switches to its own logs/taskmgrd.log with logTo(), so the two are told apart,
+// and names that file in TASKMGRD_SYNC_LOG for the pull it runs in its own process (see its polling).
+let SYNC_LOG = process.env.TASKMGRD_SYNC_LOG || path.join(__dirname, 'logs', 'taskmgr.log');
 const logTo = (file) => { SYNC_LOG = file; };
 function syncLog(success, message) {
   const level = success === 'warning' ? 'WARNING' : success === 'info' ? 'INFO   ' : success ? 'SUCCESS' : 'FAILED ';

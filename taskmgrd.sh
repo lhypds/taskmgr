@@ -39,6 +39,28 @@ check_setup() {
   [ -f taskmgr.json ] || die "taskmgr.json not found — copy taskmgr.json.example, or run tm config"
   [ -n "${TASKMGRD_SERVER:-$(env_var TASKMGRD_SERVER)}" ] || die "TASKMGRD_SERVER is not set in .env (the tm server to push to, e.g. https://tm.example.com)"
   [ -n "${TASKMGRD_TOKEN:-$(env_var TASKMGRD_TOKEN)}" ] || die "TASKMGRD_TOKEN is not set in .env (the same value as in the remote server's .env)"
+  # Polling (the daemon pulls too, every so many seconds): the interval must be a whole number of seconds.
+  if polling_on; then
+    local interval="${TASKMGRD_POLLING_INTERVAL:-$(env_var TASKMGRD_POLLING_INTERVAL)}"
+    case "${interval:-600}" in
+      ''|*[!0-9]*|0) die "TASKMGRD_POLLING_INTERVAL in .env must be a whole number of seconds, 1 or more, not \"$interval\"" ;;
+    esac
+  fi
+}
+
+# Is TASKMGRD_POLLING set to 1 (or true, yes, on)?
+polling_on() {
+  case "$(echo "${TASKMGRD_POLLING:-$(env_var TASKMGRD_POLLING)}" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# "every 10 min" or "every 90s": how often the daemon pulls.
+polling_every() {
+  local s="${TASKMGRD_POLLING_INTERVAL:-$(env_var TASKMGRD_POLLING_INTERVAL)}"
+  s="${s:-600}"
+  if [ $((s % 60)) -eq 0 ]; then echo "every $((s / 60)) min"; else echo "every ${s}s"; fi
 }
 
 case "${1:-start}" in
@@ -49,7 +71,7 @@ case "${1:-start}" in
     # As in start.sh: drop any old registration so the current taskmgrd.config.cjs is what runs.
     pm2 delete "$PM2_NAME" >/dev/null 2>&1 || true
     pm2 start taskmgrd.config.cjs --update-env
-    echo "taskmgrd running (pm2 process \"$PM2_NAME\"), pushing to ${TASKMGRD_SERVER:-$(env_var TASKMGRD_SERVER)}"
+    echo "taskmgrd running (pm2 process \"$PM2_NAME\"), pushing to ${TASKMGRD_SERVER:-$(env_var TASKMGRD_SERVER)}$(polling_on && echo ", pulling from it $(polling_every)")"
     echo "  ./taskmgrd.sh logs    follow its log"
     echo "  ./taskmgrd.sh stop    stop it"
     echo "  pm2 startup && pm2 save   to have it start with the machine"

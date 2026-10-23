@@ -11,18 +11,36 @@
 // every few minutes after that, the daemon asks the server what it has and pushes what differs; so a
 // change missed by the file system, or a server that lost its data, is put right. A push that fails
 // is retried, with growing waits, until the server answers again.
+//
+// With TASKMGRD_POLLING=1 in .env the daemon also pulls: once when it starts, before its first push,
+// and then every TASKMGRD_POLLING_INTERVAL seconds (600, ten minutes, when not set), it runs pull.js
+// as `tm pull` does, so a change made on the server, or pushed to it by another machine, comes here.
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const { spaceKey } = require('./server/sync');
 const { SERVER, CONFIG_PATH, log, warn, die, syncLog, logTo, readConfig, spacesOf, label, snapshot, isDir, serverState, pushConfig, pushSpace } = require('./push');
 
-// The daemon's pushes are logged apart from those made by hand (`tm push`, `tm pull`: logs/taskmgr.log).
-logTo(path.join(__dirname, 'logs', 'taskmgrd.log'));
+// The daemon's pushes (and the pulls it runs) are logged apart from those made by hand (`tm push`,
+// `tm pull`: logs/taskmgr.log).
+const DAEMON_LOG = path.join(__dirname, 'logs', 'taskmgrd.log');
+logTo(DAEMON_LOG);
 
 const DEBOUNCE_MS = 10 * 1000;          // a change waits this long, and each new one restarts the wait
 const RESCAN_MS = 5 * 60 * 1000;        // how often the server is asked what it has, and everything compared
 const MISSING_POLL_MS = 30 * 1000;      // how often a missing tasks folder is looked for
 const RETRY_MS = [5000, 15000, 60000];  // waits before retrying after a failed push, the last one repeating
+
+// Polling, from .env (see the top): whether the daemon pulls too, and how often, in seconds.
+const POLLING = /^(1|true|yes|on)$/i.test(String(process.env.TASKMGRD_POLLING || '').trim());
+const POLLING_INTERVAL_S = POLLING ? pollingInterval() : 0;
+function pollingInterval() {
+  const raw = String(process.env.TASKMGRD_POLLING_INTERVAL || '').trim();
+  if (!raw) return 600;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) die(`TASKMGRD_POLLING_INTERVAL in .env must be a whole number of seconds, 1 or more, not "${raw}".`);
+  return n;
+}
 
 // What the server has: the hash of its config and of each space's snapshot. Kept up to date with
 // every push, and asked again at each rescan.
@@ -34,7 +52,7 @@ let onServer = { config: null, spaces: {} };
 // Jobs go out one at a time, the config first since the server prunes by it. After a failure the
 // queue waits and tries again from the start.
 const queue = new Map();
-let draining = false;
+let drainPromise = null;   // the drain under way, if one is
 let failures = 0;
 let retryTimer = null;
 
@@ -55,38 +73,40 @@ async function pushJob(job) {
   return done;
 }
 
-async function drain() {
-  if (draining) return;
+// Push what is queued; resolves once the queue is empty, or a failed push has scheduled a retry.
+// Nothing is pushed while a pull runs (see poll): the folders are scanned again when it is through.
+function drain() {
+  if (pulling) return Promise.resolve();
+  if (!drainPromise) drainPromise = drainQueue().finally(() => { drainPromise = null; });
+  return drainPromise;
+}
+
+async function drainQueue() {
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-  draining = true;
   const name = (job) => (job.key === 'config' ? 'taskmgr.json' : label(job.space));
   let pushed = 0;
-  try {
-    if (queue.size) syncLog('info', `pushing ${[...queue.values()].map(name).join(', ')}`);
-    while (queue.size) {
-      const job = queue.has('config') ? queue.get('config') : queue.values().next().value;
-      let done;
-      try {
-        done = await pushJob(job);
-      } catch (e) {
-        failures++;
-        const wait = RETRY_MS[Math.min(failures - 1, RETRY_MS.length - 1)];
-        syncLog(false, `${name(job)}: ${e.message}; trying again in ${wait / 1000}s`);
-        warn(`${name(job)}: ${e.message}; trying again in ${wait / 1000}s`);
-        retryTimer = setTimeout(() => { retryTimer = null; drain(); }, wait);
-        return;
-      }
-      if (failures) log(`${SERVER} answers again`);
-      failures = 0;
-      log(done);
-      syncLog(true, done);
-      pushed++;
-      if (queue.get(job.key) === job) queue.delete(job.key);  // a newer one may have replaced it meanwhile
+  if (queue.size) syncLog('info', `pushing ${[...queue.values()].map(name).join(', ')}`);
+  while (queue.size) {
+    const job = queue.has('config') ? queue.get('config') : queue.values().next().value;
+    let done;
+    try {
+      done = await pushJob(job);
+    } catch (e) {
+      failures++;
+      const wait = RETRY_MS[Math.min(failures - 1, RETRY_MS.length - 1)];
+      syncLog(false, `${name(job)}: ${e.message}; trying again in ${wait / 1000}s`);
+      warn(`${name(job)}: ${e.message}; trying again in ${wait / 1000}s`);
+      retryTimer = setTimeout(() => { retryTimer = null; drain(); }, wait);
+      return;
     }
-    if (pushed) syncLog('info', 'push finished');
-  } finally {
-    draining = false;
+    if (failures) log(`${SERVER} answers again`);
+    failures = 0;
+    log(done);
+    syncLog(true, done);
+    pushed++;
+    if (queue.get(job.key) === job) queue.delete(job.key);  // a newer one may have replaced it meanwhile
   }
+  if (pushed) syncLog('info', 'push finished');
 }
 
 // ---------- watching ----------
@@ -100,6 +120,7 @@ const roots = new Map();   // tasks folder -> { root, spaces, watcher, timer, po
 async function scanRoot(root, why = 'changed') {
   const r = roots.get(root);
   if (!r) return;
+  if (pulling) return;  // the pull is writing here; every folder is scanned again once it is through (see poll)
   if (!isDir(root)) {
     if (!r.missing) {
       warn(`${root}: folder not found (${r.spaces.map(label).join(', ')}); waiting for it`);
@@ -131,6 +152,7 @@ async function scanRoot(root, why = 'changed') {
   for (const s of r.spaces) {
     const key = spaceKey(s);
     if (onServer.spaces[key] !== hash) { enqueue({ key, space: s, entries, blobs, hash }); queued++; }
+    else queue.delete(key);  // a push still waiting is of an older state of the folder: no longer wanted
   }
   syncLog('info', `checked ${root}: ${queued ? `${queued === r.spaces.length ? '' : `${queued} of ${r.spaces.length} `}to push` : 'same as on the server'}`);
   drain();
@@ -180,6 +202,7 @@ function reconcile() {
   }
   if (!current) return;  // nothing good read yet
   if (onServer.config !== current.hash) enqueue({ key: 'config', text: current.text, hash: current.hash });
+  else queue.delete('config');
 
   const byRoot = new Map();
   for (const s of spacesOf(current.works)) {
@@ -215,7 +238,9 @@ function watchConfig() {
 // Ask the server what it has, then compare everything with it. Run at startup and every RESCAN_MS.
 // The first time, taskmgr.json is pushed whatever the server has.
 let startup = true;
+let rescanRetry = null;  // the retry of a failed rescan, if one is waiting: a new rescan replaces it
 async function rescan() {
+  if (rescanRetry) { clearTimeout(rescanRetry); rescanRetry = null; }
   syncLog('info', `polling ${SERVER}`);
   try {
     const state = await serverState();
@@ -229,10 +254,60 @@ async function rescan() {
     const wait = RETRY_MS[Math.min(failures - 1, RETRY_MS.length - 1)];
     syncLog(false, `${e.message}; trying again in ${wait / 1000}s`);
     warn(`${e.message}; trying again in ${wait / 1000}s`);
-    setTimeout(rescan, wait);
+    rescanRetry = setTimeout(() => { rescanRetry = null; rescan(); }, wait);
     return;
   }
   reconcile();
+}
+
+// ---------- polling: tm pull ----------
+
+let pulling = false;
+let pollTimer = null;
+
+// Run pull.js in its own process, as `tm pull` does, its output going to this log and its sync log
+// lines to the daemon's. Resolves to null, or to what went wrong.
+function runPull() {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(process.execPath, [path.join(__dirname, 'pull.js')], {
+        stdio: 'inherit',
+        env: { ...process.env, TASKMGRD_SYNC_LOG: DAEMON_LOG },
+      });
+    } catch (e) {
+      resolve(`cannot run pull.js: ${e.message}`);
+      return;
+    }
+    child.on('error', (e) => resolve(`cannot run pull.js: ${e.message}`));
+    child.on('exit', (code, signal) => resolve(code === 0 ? null : `tm pull ${signal ? `was stopped by ${signal}` : `exited with code ${code}`}`));
+  });
+}
+
+// Pull from the server, then look at everything again. What is queued is pushed first, so a change
+// made here goes out before the server's copy of it comes back; nothing is pushed or scanned while
+// the pull writes the folders (a push of a folder half pulled would send the old files back). After
+// it, the server is asked what it has and every folder compared, as at a rescan. The next pull is
+// POLLING_INTERVAL_S after this one ends, so they never overlap.
+async function poll() {
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+  if (pulling) return;
+  await drain();
+  pulling = true;
+  log('polling: tm pull');
+  syncLog('info', 'polling: running tm pull');
+  let failed;
+  try {
+    failed = await runPull();
+  } finally {
+    pulling = false;
+  }
+  if (failed) {
+    warn(`polling: ${failed}`);
+    syncLog(false, `polling: ${failed}`);
+  }
+  pollTimer = setTimeout(poll, POLLING_INTERVAL_S * 1000);
+  await rescan();
 }
 
 // ---------- main ----------
@@ -241,6 +316,7 @@ log('taskmgrd');
 syncLog('info', `taskmgrd started (server ${SERVER})`);
 log(`  config     : ${CONFIG_PATH}`);
 log(`  server     : ${SERVER}`);
+log(`  polling    : ${POLLING ? `tm pull every ${POLLING_INTERVAL_S % 60 === 0 ? `${POLLING_INTERVAL_S / 60} min` : `${POLLING_INTERVAL_S}s`}` : 'off (TASKMGRD_POLLING=1 in .env turns it on)'}`);
 
 const first = readConfig();
 if (!first) die(`${CONFIG_PATH} could not be read, or is invalid (see above).`);
@@ -248,11 +324,16 @@ current = first;
 for (const s of spacesOf(first.works)) log(`  ${s.repository ? 'repository' : 'work      '} : ${label(s)}  ${s.root}`);
 
 watchConfig();
-rescan();
+// With polling on, the first pull comes before the first push: what the server has (another
+// machine's changes, say) is taken in first, and the push that follows sends the folders as merged.
+if (POLLING) poll();
+else rescan();
 setInterval(rescan, RESCAN_MS);
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
+    if (pollTimer) clearTimeout(pollTimer);
+    if (rescanRetry) clearTimeout(rescanRetry);
     for (const r of [...roots.values()]) forgetRoot(r);
     log('taskmgrd stopped');
     syncLog('info', 'taskmgrd stopped');

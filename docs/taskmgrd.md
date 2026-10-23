@@ -41,13 +41,27 @@ go out 10 seconds after the last of them; at startup the daemon pushes `taskmgr.
 at startup and every 5 minutes it asks the server what it has and pushes what differs, and a push  
 that fails (the server is down) is retried, with growing waits, until it goes through.  
 
+Polling: with `TASKMGRD_POLLING=1` in `.env`, the daemon pulls too. Every `TASKMGRD_POLLING_INTERVAL`  
+seconds (600, ten minutes, when it is not set) it runs the pull of `tm pull` (see the README: the server's  
+`taskmgr.json` merged into this one, every task file and other file of the works and repositories here that  
+the server also has added or updated, and the tasks the server deleted since the last sync deleted here),  
+so a change made on the server, or pushed to it by another machine, comes here as well. It pulls once  
+when it starts, before its first push, so what the server has is taken in first and the push that follows  
+sends the folders as merged; after that a pull comes `TASKMGRD_POLLING_INTERVAL` seconds after the last  
+one ended. Before a pull, what is waiting to be pushed goes out; while it runs nothing is pushed; after it  
+the server is asked what it has and every folder compared, as at a rescan. The pull's lines go to the  
+daemon's `logs/taskmgrd.log`, and a pull that fails is only told there (and in `./taskmgrd.sh logs`):  
+the next one comes at the next interval. With `TASKMGRD_POLLING=0`, or unset, the daemon only pushes,  
+and `tm pull` is the way to fetch from the server.  
+
 On the server: set `TASKMGRD_TOKEN` in `.env` to a secret of your choice and restart the web UI  
 (`./start.sh`); its startup lines then say `sync : receiving from taskmgrd`. Without the token the  
 server refuses pushes. The copied files are git-ignored. A task changed in the server's web UI is  
 changed in the copy only: the next push of its folder overwrites it.  
 
 On the machine with the tasks: in `.env`, `TASKMGRD_SERVER` is the server's URL (the one its web UI  
-answers at, e.g. `https://tm.example.com`) and `TASKMGRD_TOKEN` the same secret. Then:  
+answers at, e.g. `https://tm.example.com`) and `TASKMGRD_TOKEN` the same secret; `TASKMGRD_POLLING=1`  
+and `TASKMGRD_POLLING_INTERVAL` (seconds, default 600) make it pull as well (see above). Then:  
 
 `./taskmgrd.sh` starts the daemon under pm2 (and restarts it when it already runs, picking up a changed `.env`)  
 `./taskmgrd.sh stop` stops it  
