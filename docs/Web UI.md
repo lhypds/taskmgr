@@ -59,7 +59,7 @@ Setup (installs dependencies, creates `.env`, `taskmgr.json` and `data/users.jso
 
 Run as a background service with pm2 (`pnpm add -g pm2`):  
 `./start.sh` start, `./stop.sh` stop, `./restart.sh` pull latest code, rebuild and restart (taskmgrd too, when `TASKMGRD_SERVER` is set in `.env`).  
-On Windows: `setup.bat`, then `start.bat`, `stop.bat`, `restart.bat`; these start and stop taskmgrd too when `TASKMGRD_SERVER` is set. Paths in `taskmgr.json` are then Windows paths (`C:\code\...` or `C:/code/...`).  
+On Windows: `setup.bat` once, then `start.bat`, `stop.bat`, `restart.bat` (taskmgrd too, when `TASKMGRD_SERVER` is set in `.env`); `install.bat` / `uninstall.bat` add or remove the global commands. Paths in `taskmgr.json` are then Windows paths (`C:\code\...` or `C:/code/...`).  
 Then open the printed URL (default `http://127.0.0.1:3456/`).  
 The pm2 process name is `PM2_NAME` in `.env` (default `taskmgr`), configured in `ecosystem.config.cjs`.  
 

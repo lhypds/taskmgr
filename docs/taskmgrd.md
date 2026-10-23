@@ -58,6 +58,6 @@ answers at, e.g. `https://tm.example.com`) and `TASKMGRD_TOKEN` the same secret.
 `./taskmgrd.sh fg` runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
 
 The pm2 process is named `taskmgrd` (see `taskmgrd.config.cjs`); `pm2 startup` then `pm2 save` make it start with the machine. After  
-`./install.sh`, `taskmgrd` runs it in the foreground too (also `pnpm run daemon`).  
+`./install.sh` (Windows: `install.bat`), `taskmgrd` runs it in the foreground too (also `pnpm run daemon`).  
 
 For the API the daemon uses, see [Server.md](Server.md).  
