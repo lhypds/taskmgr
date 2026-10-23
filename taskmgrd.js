@@ -25,6 +25,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { loadDotenv, parseConfig, DEFAULT_CONFIG_PATH } = require('./server/config');
 const { spaceKey } = require('./server/sync');
+const syncState = require('./server/syncstate');
 const { TASK_FILE } = require('./utils/taskUtils');
 
 const DEBOUNCE_MS = 1500;               // changes within this window go out together
@@ -311,6 +312,7 @@ async function pushJob(job) {
   }
   const { files, dirs } = result;
   onServer.spaces[job.key] = job.hash;
+  try { syncState.set(job.key, syncState.manifestOf(job.entries)); } catch (e) { warn(`could not record the sync state: ${e.message}`); }
   const n = (count, what) => `${count} ${what}${count === 1 ? '' : 's'}`;
   return `pushed ${label(job.space)} (${n(files, 'file')}${dirs ? `, ${n(dirs, 'empty folder')}` : ''}${uploaded ? `, ${n(uploaded, 'attachment')} uploaded` : ''})`;
 }

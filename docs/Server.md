@@ -193,7 +193,7 @@ A space's folder listed like a push: `{ ok, entries }` with `{ path, content }` 
 One file of a space, raw. Nothing on the server is changed by the pull routes.  
 
 `PUT /api/sync/space` `{ origin, work, repository, entries }`  
-Replace one tasks folder with the snapshot: `entries` are `{ path, content }` for task files (text),  
+Bring one tasks folder to the snapshot, in place (a task that changed status is moved first, then only what differs is written, and what the snapshot lacks removed): `entries` are `{ path, content }` for task files (text),  
 `{ path, blob: sha1 }` for every other file (attachments included), taken from the blob store, and  
 `{ path, dir: true }` for an empty folder, paths relative to the tasks folder. After it, the server's copy  
 is the pushed folder exactly. `{ ok, files, dirs }`. 409 `MISSING_BLOBS` `{ missing }` when a blob is not in the  

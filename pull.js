@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // tm pull: fetch taskmgr.json, every task.txt and every other file (attachments, files in folders)
 // from the server taskmgrd pushes to (what `tm push` sends), and put them here. Nothing local is
-// ever deleted: a file or folder that exists is updated when it differs, one that does not is added.
+// deleted unless it is a task the server deleted since the last sync (see server/syncstate.js): a file or folder
+// that exists is updated when it differs, one that does not is added.
 //
 //   node pull.js      (what `tm pull` runs; TASKMGRD_SERVER and TASKMGRD_TOKEN in .env, as for taskmgrd)
 //
@@ -12,6 +13,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const syncState = require('./server/syncstate');
+const { spaceKey, moveTasks } = require('./server/sync');
 const { loadDotenv, parseConfig, upgradeRaw, DEFAULT_CONFIG_PATH } = require('./server/config');
 
 const REQUEST_TIMEOUT_MS = 30 * 1000;
@@ -112,44 +115,46 @@ const readIf = (abs) => {
   }
 };
 
-const STATUS_DIRS = ['done', 'pending'];
-
-// A task the server has under another status folder than here (marked done or pending there, or back
-// to todo) is moved here too, with everything in it, instead of being pulled again as a second copy.
-function moveTasks(root, entries, stats) {
-  for (const e of entries) {
-    const parts = String(e.path).split('/');
-    if (parts.pop() !== 'task.txt' || parts.length < 1) continue;
-    try {
-      const target = safeJoin(root, parts.join('/'));
-      if (fs.existsSync(target)) continue;
-      const taskName = parts.pop();
-      if (STATUS_DIRS.includes(parts[parts.length - 1])) parts.pop();
-      const id = taskName.split(/\s/)[0];
-      for (const dir of [null, ...STATUS_DIRS]) {
-        const base = path.resolve(root, ...parts, ...(dir ? [dir] : []));
-        let names = [];
-        try { names = fs.readdirSync(base); } catch (err) { continue; }
-        // Same task id, whatever the rest of the folder name is.
-        const found = names.find(n => (n === taskName || n.split(/\s/)[0] === id) && fs.existsSync(path.join(base, n, 'task.txt')));
-        if (!found) continue;
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.renameSync(path.join(base, found), target);
-        stats.updated++;
-        break;
-      }
-    } catch (err) {
-      stats.failed++;
-      console.error(`${e.path}: ${err.message}`);
-    }
-  }
-}
-
 async function pullSpace(s, root, stats) {
   const query = { origin: s.origin, work: s.work, repository: s.repository };
+  const key = spaceKey(s);
+  const known = syncState.get(key) || {};  // what both sides had at the last push or pull
   const { entries } = await get('space', query);
+  const onServer = syncState.manifestOf(entries);
+  const failedBefore = stats.failed;
   fs.mkdirSync(root, { recursive: true });
-  moveTasks(root, entries, stats);
+  // A task the server has under another status folder than here is moved, not pulled as a second copy.
+  moveTasks(root, entries, {
+    onMove: () => { stats.updated++; },
+    onError: (p, err) => { stats.failed++; console.error(`${label(s)}: ${p}: ${err.message}`); }
+  });
+
+  // A task deleted on the server since the last sync (its task.txt known, now gone there) is deleted
+  // here too, with its folder, unless its task.txt was edited here since or a subtask is still in it.
+  // Any other file missing on the server is left alone: it may only be one taskmgrd did not push
+  // (too large), not a deleted one.
+  const hasTask = (dir) => fs.readdirSync(dir, { withFileTypes: true }).some(d => d.isDirectory() ? hasTask(path.join(dir, d.name)) : d.name === 'task.txt');
+  const gone = Object.keys(known).filter(p => !(p in onServer) && p.split('/').pop() === 'task.txt').sort((a, b) => b.length - a.length);
+  for (const p of gone) {
+    try {
+      const abs = safeJoin(root, p);
+      const have = readIf(abs);
+      if (!have) continue;
+      if (sha1(have) !== known[p]) {
+        console.error(`${label(s)}: ${p}: deleted on the server but changed here, kept`);
+        continue;
+      }
+      const dir = path.dirname(abs);
+      if (dir === path.resolve(root)) fs.rmSync(abs);
+      else if (fs.readdirSync(dir, { withFileTypes: true }).some(d => d.isDirectory() && hasTask(path.join(dir, d.name)))) fs.rmSync(abs);  // a subtask stays
+      else fs.rmSync(dir, { recursive: true, force: true });
+      stats.updated++;
+    } catch (err) {
+      stats.failed++;
+      console.error(`${label(s)}: ${p}: ${err.message}`);
+    }
+  }
+
   for (const e of entries) {
     try {
       const abs = safeJoin(root, e.path);
@@ -174,6 +179,11 @@ async function pullSpace(s, root, stats) {
       stats.failed++;
       console.error(`${label(s)}: ${e.path}: ${err.message}`);
     }
+  }
+  // Remembered only when the whole space went through; what was left out stays as it was known.
+  if (stats.failed === failedBefore) {
+    for (const p of Object.keys(known)) if (!(p in onServer) && fs.existsSync(safeJoin(root, p))) onServer[p] = known[p];  // kept here: still known
+    syncState.set(key, onServer);
   }
 }
 

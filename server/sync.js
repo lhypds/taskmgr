@@ -31,7 +31,7 @@
 //   PUT /api/sync/blob/<sha1>   (the raw file)               -> { ok }
 //       stores one file by the sha1 of its content; refused when the content does not hash to it.
 //   PUT /api/sync/space   { origin, work, repository, entries }  -> { ok, files, dirs }
-//       replaces one space's folder with the snapshot: entries are [{ path, content }] for task
+//       brings one space's folder to the snapshot (tasks that changed status moved first): entries are [{ path, content }] for task
 //       files (text), [{ path, blob: sha1 }] for every other file, taken from the blob store, and
 //       [{ path, dir: true }] for an empty folder, paths relative to the space's folder. When a blob
 //       is not in the store, nothing is written and the answer is 409 MISSING_BLOBS { missing }.
@@ -48,7 +48,8 @@
 // removed once it is an hour old (never sooner, so a blob uploaded for a snapshot still on its way
 // stays).
 //
-// Files are written into data/.sync-tmp/ first and swapped in, so a space is never half written.
+// Files are written into data/.sync-tmp/ first and renamed into place, so a file is never half
+// written; a push cut short leaves the space part done, and the next one finishes it.
 // data/.sync-state.json remembers the hashes GET answers with, and the blobs each space refers to.
 const fs = require('fs');
 const path = require('path');
@@ -132,52 +133,124 @@ function placeBlob(from, to) {
   }
 }
 
-// Replace `target` with the entries: they are written in a fresh folder under data/.sync-tmp/, which
-// then takes the target's place. Nothing is written when a blob is not in the store (409).
+const STATUS_DIRS = ['done', 'pending'];
+
+// The tasks of a snapshot (`entries`, by `path` relative to `root`) that `root` has under another
+// status folder (todo, done/, pending/ beside each other) are moved there first, folder and all, so
+// a task marked done or pending (or back to todo) is moved, not copied anew and the old one deleted.
+// The same task is the same id (the first word of its folder name), whatever the rest of the name.
+// Calls onMove() for each task moved, onError(path, error) for each that could not be.
+function moveTasks(root, entries, { onMove = () => {}, onError = () => {} } = {}) {
+  root = path.resolve(root);
+  for (const e of entries) {
+    const parts = String(e.path).split('/');
+    if (parts.pop() !== 'task.txt' || parts.length < 1) continue;
+    try {
+      const target = path.resolve(root, ...parts);
+      if (!inside(root, target)) throw new Error('the path leaves the folder');
+      if (fs.existsSync(target)) continue;
+      const taskName = parts.pop();
+      if (STATUS_DIRS.includes(parts[parts.length - 1])) parts.pop();
+      const id = taskName.split(/\s/)[0];
+      for (const dir of [null, ...STATUS_DIRS]) {
+        const base = path.resolve(root, ...parts, ...(dir ? [dir] : []));
+        let names = [];
+        try { names = fs.readdirSync(base); } catch (err) { continue; }
+        const found = names.find(n => (n === taskName || n.split(/\s/)[0] === id) && fs.existsSync(path.join(base, n, 'task.txt')));
+        if (!found) continue;
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.renameSync(path.join(base, found), target);
+        onMove();
+        break;
+      }
+    } catch (err) {
+      onError(e.path, err);
+    }
+  }
+}
+
+// Bring `target` to the entries, in place: the tasks that changed status are moved first (see
+// moveTasks), then each file that differs is written (through data/.sync-tmp/, so a file is never half
+// written), and whatever the snapshot does not have is removed. A file placed from the blob store and
+// still the same is told by its inode, so the attachments are not read again at every push. Nothing
+// is written when a blob is not in the store (409).
 function writeSnapshot(dataDir, target, entries) {
-  const tmpRoot = path.join(dataDir, TMP_DIR);
-  const id = crypto.randomBytes(6).toString('hex');
-  const tmp = path.join(tmpRoot, id);
-  const old = path.join(tmpRoot, `${id}.old`);
-  // Every path resolved and checked to stay inside, before anything is written.
   const list = entries.map(e => {
-    const abs = path.resolve(tmp, e.rel);
-    if (!inside(tmp, abs)) throw new SyncError(400, `Path "${e.rel}" leaves the folder.`);
+    const abs = path.resolve(target, e.rel);
+    if (!inside(target, abs)) throw new SyncError(400, `Path "${e.rel}" leaves the folder.`);
     return { ...e, abs };
   });
   const missing = [...new Set(list.filter(e => e.blob && !fs.existsSync(blobPath(dataDir, e.blob))).map(e => e.blob))];
   if (missing.length) throw new SyncError(409, `${missing.length} file${missing.length === 1 ? ' is' : 's are'} not on the server yet.`, { code: 'MISSING_BLOBS', missing });
+
+  fs.mkdirSync(target, { recursive: true });
+  moveTasks(target, list.map(e => ({ path: e.rel.split(path.sep).join('/') })));
+
+  const tmpRoot = path.join(dataDir, TMP_DIR);
+  fs.mkdirSync(tmpRoot, { recursive: true });
+  const put = (abs, write) => {
+    const tmp = path.join(tmpRoot, crypto.randomBytes(6).toString('hex'));
+    try {
+      write(tmp);
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      // A folder where a file goes (or the other way round) is cleared first.
+      if (isDir(abs)) fs.rmSync(abs, { recursive: true, force: true });
+      fs.renameSync(tmp, abs);
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
+  };
   let files = 0;
   let dirs = 0;
-  try {
-    fs.mkdirSync(tmp, { recursive: true });
-    for (const e of list) {
-      const abs = e.abs;
-      if (e.dir) {
-        fs.mkdirSync(abs, { recursive: true });
-        dirs++;
-      } else {
-        fs.mkdirSync(path.dirname(abs), { recursive: true });
-        if (e.blob) placeBlob(blobPath(dataDir, e.blob), abs);
-        else fs.writeFileSync(abs, e.content, 'utf8');
-        files++;
+  for (const e of list) {
+    if (e.dir) {
+      if (!isDir(e.abs)) {
+        fs.rmSync(e.abs, { force: true });
+        fs.mkdirSync(e.abs, { recursive: true });
+      }
+      dirs++;
+      continue;
+    }
+    files++;
+    let stat = null;
+    try { stat = fs.statSync(e.abs); } catch (err) { /* not there yet */ }
+    if (e.blob) {
+      const from = blobPath(dataDir, e.blob);
+      const blob = fs.statSync(from);
+      if (stat && stat.isFile() && ((stat.ino === blob.ino && stat.dev === blob.dev) || (stat.size === blob.size && sha1(fs.readFileSync(e.abs)) === e.blob))) continue;
+      put(e.abs, (tmp) => placeBlob(from, tmp));
+    } else {
+      if (stat && stat.isFile() && fs.readFileSync(e.abs, 'utf8') === e.content) continue;
+      put(e.abs, (tmp) => fs.writeFileSync(tmp, e.content, 'utf8'));
+    }
+  }
+
+  // What the snapshot does not have goes: a file not in it, a folder nothing in it lies under.
+  const keepFiles = new Set(list.filter(e => !e.dir).map(e => e.abs));
+  const keepDirs = new Set();
+  for (const e of list) for (let d = e.dir ? e.abs : path.dirname(e.abs); d !== target && inside(target, d); d = path.dirname(d)) keepDirs.add(d);
+  const prune = (dir) => {
+    for (const d of fs.readdirSync(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, d.name);
+      if (d.isDirectory()) {
+        if (keepDirs.has(abs)) prune(abs);
+        else fs.rmSync(abs, { recursive: true, force: true });
+      } else if (!keepFiles.has(abs)) {
+        fs.rmSync(abs, { force: true });
       }
     }
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    const had = fs.existsSync(target);
-    if (had) fs.renameSync(target, old);
-    try {
-      fs.renameSync(tmp, target);
-    } catch (e) {
-      if (had) fs.renameSync(old, target);  // the previous copy goes back
-      throw e;
-    }
-    fs.rmSync(old, { recursive: true, force: true });
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
+  };
+  prune(target);
   return { files, dirs };
 }
+
+const isDir = (abs) => {
+  try {
+    return fs.statSync(abs).isDirectory();
+  } catch (e) {
+    return false;
+  }
+};
 
 // Remove, under data/origins/, what the pushed config does not have any more: an origin, a work, the
 // tasks folder of a work that has none now, a repository. Returns what was removed (relative to data/).
@@ -525,4 +598,4 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
   return app;
 }
 
-module.exports = { createSyncApp, isMirrored, spaceKey, sha1 };
+module.exports = { createSyncApp, isMirrored, spaceKey, sha1, moveTasks };

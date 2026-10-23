@@ -1091,7 +1091,7 @@ const USAGE = `Usage: tm [<folder> | config | push | pull | help]
   tm <folder>     open that folder as a task list (e.g. tm . or tm ~/tasks)
   tm config       open taskmgr.json in the editor (created from taskmgr.json.example if missing)
   tm push         push taskmgr.json and the tasks folders to the server of taskmgrd now (TASKMGRD_SERVER in .env)
-  tm pull         fetch taskmgr.json, the tasks and their files from the server, adding and updating but never deleting
+  tm pull         fetch taskmgr.json, the tasks and their files from the server, adding, updating and deleting the tasks the server deleted
   tm help         show this help (also -h, --help)
 
 To open a folder named "config", "push", "pull" or "help", prefix it: tm ./config
@@ -1131,7 +1131,7 @@ function pushNow() {
   process.exit(result.status === null ? 1 : result.status);
 }
 
-// `tm pull`: the other way round: fetch from the server, adding and updating local files, deleting none.
+// `tm pull`: the other way round: fetch from the server, adding and updating local files, deleting only tasks the server deleted since the last sync.
 function pullNow() {
   const { spawnSync } = require('child_process');
   const result = spawnSync(process.execPath, [path.join(__dirname, 'pull.js')], { stdio: 'inherit' });
