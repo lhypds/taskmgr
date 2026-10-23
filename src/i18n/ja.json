@@ -75,6 +75,9 @@
   },
   "tree": {
     "remote": "remote",
+    "machineOnline": "接続中：最後の push / polling は {{when}}",
+    "machineOffline": "切断：{{when}} 以降 push / polling なし",
+    "machineUnknown": "切断：サーバー起動後 push / polling なし",
     "origins": "Origins",
     "allOrigins": "すべての origin",
     "noOrigins": "taskmgr.json に origin がありません。",

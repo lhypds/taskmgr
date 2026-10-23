@@ -18,6 +18,9 @@
 //
 // Every request carries `Authorization: Bearer <SYNC_SERVER_TOKEN>`: the same secret is SYNC_SERVER_TOKEN
 // in both .env files. Without SYNC_SERVER_TOKEN in this server's .env, pushes are refused (503).
+// It also carries `X-Machine-Id` (the MACHINE_ID of the machine, URI-encoded): the time of each
+// machine's last request is kept, in memory, so the web UI can show whether it is in touch (see
+// machineInfo, below).
 //
 //   GET /api/sync                                            -> { ok, config, spaces }
 //       what is here: the sha1 of the last pushed config, and of each space's last snapshot
@@ -33,7 +36,7 @@
 //   PUT /api/sync/space   { origin, work, repository, machine, entries }  -> { ok, files, dirs }
 //       brings one space's folder to the snapshot (tasks that changed status moved first): entries are [{ path, content }] for task
 //       `machine` (MACHINE_ID of the pushing machine, optional) is remembered for the space and shown
-//       in the web UI here as where its copy comes from (see machineOf, below).
+//       in the web UI here as where its copy comes from (see machineInfo, below).
 //       files (text), [{ path, blob: sha1 }] for every other file, taken from the blob store, and
 //       [{ path, dir: true }] for an empty folder, paths relative to the space's folder. When a blob
 //       is not in the store, nothing is written and the answer is 409 MISSING_BLOBS { missing }.
@@ -72,6 +75,7 @@ const BLOB_LIMIT = '1gb';            // one attachment
 const BLOB_KEEP_MS = 60 * 60 * 1000; // how long an unreferenced blob is kept before it is removed
 const BLOB_RE = /^[0-9a-f]{40}$/;
 const MACHINE_MAX = 80;             // the longest MACHINE_ID kept (longer ones are cut)
+const ONLINE_MS = 3 * 60 * 1000;    // how long after its last request a machine counts as in touch
 
 class SyncError extends Error {
   constructor(status, message, extra) { super(message); this.status = status; Object.assign(this, extra || {}); }
@@ -419,10 +423,18 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
   }
 
+  // MACHINE_ID -> when (ms) that machine last made a request. In memory only: after a restart a machine
+  // is in touch again at its next push or poll.
+  const seen = new Map();
+
   app.use('/api/sync', (req, res, next) => {
     if (!enabled) return res.status(503).json({ error: 'Sync is off on this server: set SYNC_SERVER_TOKEN in its .env.', code: 'SYNC_OFF' });
     const m = /^Bearer\s+(.+)$/.exec(String(req.headers.authorization || ''));
     if (!m || !tokensMatch(m[1].trim(), token.trim())) return res.status(401).json({ error: 'Wrong sync token.', code: 'INVALID_TOKEN' });
+    const raw = String(req.headers['x-machine-id'] || '');
+    let id;
+    try { id = machineName(decodeURIComponent(raw)); } catch (e) { id = machineName(raw); }
+    if (id) seen.set(id, Date.now());
     next();
   });
 
@@ -611,9 +623,16 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}), ...(err.missing ? { missing: err.missing } : {}) });
   });
 
-  // The MACHINE_ID the space (see spaceKey) was last pushed from, "" when it was never pushed or the
-  // push did not say. Read from the state file each time, as pushes come in between.
-  app.machineOf = (space) => readState().machines[spaceKey(space)] || '';
+  // The machine the space (see spaceKey) was last pushed from: { name, seenAt, online }, with its
+  // MACHINE_ID, when (ms) it last made a request (null: not since the server started) and whether that
+  // was within ONLINE_MS. null when the space was never pushed or the push did not say. Read from the
+  // state file each time, as pushes come in between.
+  app.machineInfo = (space) => {
+    const name = readState().machines[spaceKey(space)] || '';
+    if (!name) return null;
+    const seenAt = seen.get(name) || null;
+    return { name, seenAt, online: !!seenAt && Date.now() - seenAt < ONLINE_MS };
+  };
 
   // Forget the hashes of the pushed snapshots, so the next push sends every space whole: to be called
   // when the tasks are changed here (the web UI), which leaves the copies no longer what was pushed.

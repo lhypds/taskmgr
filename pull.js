@@ -15,6 +15,7 @@ process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '32';
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const os = require('os');
 const crypto = require('crypto');
 const syncState = require('./server/syncstate');
 const { spaceKey, moveTasks } = require('./server/sync');
@@ -27,6 +28,8 @@ const DOWNLOADS_AT_ONCE = 8;
 loadDotenv();
 const SERVER = String(process.env.SYNC_SERVER || '').trim().replace(/\/+$/, '');
 const TOKEN = String(process.env.SYNC_SERVER_TOKEN || '').trim();
+// Sent with every request (X-Machine-Id), so the server shows this machine as in touch (see push.js).
+const MACHINE_ID = String(process.env.MACHINE_ID || '').trim() || os.hostname();
 
 function die(message) {
   console.error(`Error: ${message}`);
@@ -60,7 +63,7 @@ async function get(route, query, { raw = false, timeout = REQUEST_TIMEOUT_MS } =
   let res;
   try {
     res = await fetch(`${SERVER}/api/sync/pull/${route}${qs}`, {
-      headers: { Authorization: `Bearer ${TOKEN}` },
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Machine-Id': encodeURIComponent(MACHINE_ID) },
       signal: AbortSignal.timeout(timeout)
     });
   } catch (e) {

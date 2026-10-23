@@ -66,7 +66,8 @@ changed in the copy only: the next push of its folder overwrites it.
 On the machine with the tasks: in `.env`, `SYNC_SERVER` is the server's URL (the one its web UI  
 answers at, e.g. `https://tm.example.com`) and `SYNC_SERVER_TOKEN` the same secret; `MACHINE_ID` names  
 this machine on the server, where each folder pushed from here is shown as coming from it in place of  
-"remote" (any short name; empty, the hostname is sent); `PUSHING`  
+"remote" (any short name; empty, the hostname is sent), with a dot beside it that is green while this machine  
+has pushed or polled within the last three minutes and grey otherwise; `PUSHING`  
 (default 1), `POLLING` (default 0) and `POLLING_INTERVAL` (seconds, default 600) say what it does (see above).  
 `./start.sh` (Windows: `start.bat`) then starts the daemon under pm2 together with the web UI, and `./stop.sh`  
 stops both: the two are the apps of `ecosystem.config.cjs`, the daemon only when `SYNC_SERVER` is set, so  

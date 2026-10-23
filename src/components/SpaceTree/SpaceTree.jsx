@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
 import { EditIcon, FolderIcon, PlusIcon, TrashIcon } from "@components/icons";
 import TreeLines from "@components/TreeLines";
+import MachineDot from "@components/MachineDot";
 import { Checkbox } from "@ui";
 import * as api from "@utils/api";
 import { formatIncome, formatIncomeShort } from "@utils/income";
@@ -47,7 +48,8 @@ function Top({ label, income, actions }) {
 
 // One space in the tree. `depth` is 0 for a work without an origin, 1 for a work under its origin
 // or a repository of a depth-0 work, and 2 for a repository of a work under an origin.
-function Row({ to, exists, hidden, depth, through = [], last, active, focused, label, root, income, actions, onSelect }) {
+// `machine` (see MachineDot) is the machine a remote folder was pushed from, shown as a dot before `root`.
+function Row({ to, exists, hidden, depth, through = [], last, active, focused, label, root, machine, income, actions, onSelect }) {
   const ref = useRef(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -72,7 +74,10 @@ function Row({ to, exists, hidden, depth, through = [], last, active, focused, l
       <div className={`mono ${styles.root}`} title={root}>
         {/* The line is right-to-left so a long path is cut at its start; this keeps the path itself
             left-to-right, or its leading "/" would show at the end. */}
-        <bdi dir="ltr">{root}</bdi>
+        <bdi dir="ltr">
+          <MachineDot machine={machine} />
+          {root}
+        </bdi>
       </div>
     </div>
   );
@@ -209,7 +214,8 @@ export default function SpaceTree({
                         active={activeTo === api.spacePath(g.origin, w.work)}
                         focused={focused}
                         label={w.work}
-                        root={w.remote ? w.machine || t("tree.remote") : w.shownPath}
+                        root={w.remote ? w.machine?.name || t("tree.remote") : w.shownPath}
+                        machine={w.remote ? w.machine : null}
                         income={w.income}
                         onSelect={onSelect}
                         actions={
@@ -246,7 +252,8 @@ export default function SpaceTree({
                           active={activeTo === api.spacePath(g.origin, w.work, p.name)}
                           focused={focused}
                           label={p.name}
-                          root={p.remote ? p.machine || t("tree.remote") : p.shownPath}
+                          root={p.remote ? p.machine?.name || t("tree.remote") : p.shownPath}
+                          machine={p.remote ? p.machine : null}
                           onSelect={onSelect}
                           actions={
                             <>

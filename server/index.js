@@ -177,13 +177,13 @@ function crumbsFor(root, abs) {
   return crumbs;
 }
 
-// The machine a mirror folder (see isMirrored) was pushed from: its MACHINE_ID, as the last push of
-// the space said, or "" (shown as plain "remote"). A space is found by work and repository; the
-// origin comes from the config, as a work is in one origin only.
+// The machine a mirror folder (see isMirrored) was pushed from, as the last push of the space said:
+// { name, seenAt, online } (see syncApp.machineInfo), or null (shown as plain "remote"). A space is
+// found by work and repository; the origin comes from the config, as a work is in one origin only.
 function machineOf({ work, repository, root }) {
-  if (!isMirrored(config.dataDir, root)) return '';
+  if (!isMirrored(config.dataDir, root)) return null;
   const w = config.getWorks().find(x => x.work === work);
-  return w ? syncApp.machineOf({ origin: w.origin, work: w.work, repository: repository || '' }) : '';
+  return w ? syncApp.machineInfo({ origin: w.origin, work: w.work, repository: repository || '' }) : null;
 }
 
 // How many tasks are todo, done, pending and aborted, subtasks included.
@@ -228,7 +228,7 @@ function listSpacesTasks(spaces, absDir) {
   sortTasks(tasks);
   const remote = isMirrored(config.dataDir, absDir);
   // absDir, when given, is the root of the first space (a work's common tasks).
-  const machine = remote && spaces[0] && spaces[0].root === absDir ? machineOf(spaces[0]) : '';
+  const machine = remote && spaces[0] && spaces[0].root === absDir ? machineOf(spaces[0]) : null;
   return { dir: '', absDir, remote, machine, isRoot: true, parent: null, crumbs: [], tasks, counts: countTasks(tasks) };
 }
 
@@ -255,7 +255,7 @@ function listSpaces() {
       root,
       exists: !root || (fs.existsSync(root) && fs.statSync(root).isDirectory()),
       remote,
-      machine: remote ? syncApp.machineOf(space) : ''
+      machine: remote ? syncApp.machineInfo(space) : null
     };
   };
   return config.getWorks().map(w => ({

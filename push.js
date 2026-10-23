@@ -10,7 +10,8 @@
 //   SYNC_SERVER=https://tm.example.com   the server to push to: the URL of its web UI
 //   SYNC_SERVER_TOKEN=...                 the same value as SYNC_SERVER_TOKEN in that server's .env
 //   MACHINE_ID=...                        the name this machine's pushes are shown under on the server
-//                                         (empty: the hostname)
+//                                         (empty: the hostname); sent with every request, as X-Machine-Id,
+//                                         so the server can show whether this machine is in touch
 //
 // taskmgr.json is pushed whole; an invalid one is not pushed. A tasks folder is pushed as a snapshot
 // of everything in it: every file (task.txt files as text, the others, attachments included, by the
@@ -279,7 +280,7 @@ async function request(method, route, body, { timeout = REQUEST_TIMEOUT_MS } = {
   try {
     res = await fetch(`${SERVER}${route}`, {
       method,
-      headers: { Authorization: `Bearer ${TOKEN}`, ...(body ? { 'Content-Type': raw ? 'application/octet-stream' : 'application/json' } : {}) },
+      headers: { Authorization: `Bearer ${TOKEN}`, 'X-Machine-Id': encodeURIComponent(MACHINE_ID), ...(body ? { 'Content-Type': raw ? 'application/octet-stream' : 'application/json' } : {}) },
       body: body ? (raw ? body : JSON.stringify(body)) : undefined,
       signal: AbortSignal.timeout(timeout)
     });

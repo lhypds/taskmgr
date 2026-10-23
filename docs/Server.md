@@ -71,7 +71,10 @@ Origins, works and repositories
 These change `taskmgr.json` and answer the tree. Removing one never removes its folders.  
 
 `GET /api/spaces`  
-The tree.  
+The tree. Each work and repository says whether its folder `exists`, whether it is a copy pushed by taskmgrd (`remote`)  
+and, then, `machine`: `{ name, seenAt, online }` for the machine it was pushed from (`null` when the push did not say),  
+its `MACHINE_ID`, when (ms) it last pushed or polled this server (`null`: not since the server started) and whether that  
+was within the last three minutes. The web UI shows it as a green or grey dot beside the name.  
 
 `POST /api/origin` `{ name, income? }`  
 Add an origin with no works yet. 201.  
@@ -114,7 +117,7 @@ Tasks
 `GET /api/tasks?work=&repository=&dir=`  
 The tasks in a folder, sorted todo, done, pending, aborted, each with its subtasks:  
 `{ work, repository, dir, absDir, remote, machine, isRoot, parent, crumbs, tasks, counts }`; `counts` counts the subtasks too;  
-`remote` says whether the folder is a copy pushed by taskmgrd and `machine` the `MACHINE_ID` it was pushed from (`""` when unknown).  
+`remote` says whether the folder is a copy pushed by taskmgrd and `machine` which machine pushed it, as in `GET /api/spaces` (`null` when unknown).  
 
 `GET /api/tasks/all?all=1` / `?origin=` / `?work=`  
 Every task of every work, of one origin (all its works and their repositories), or of one work  
@@ -167,7 +170,9 @@ Sync
 
 Defined in `server/sync.js`, used by `taskmgrd` (see [taskmgrd.md](taskmgrd.md)). No login: every request needs  
 `Authorization: Bearer <SYNC_SERVER_TOKEN>`; 503 `SYNC_OFF` when the server has no `SYNC_SERVER_TOKEN`,  
-401 `INVALID_TOKEN` for a wrong one.  
+401 `INVALID_TOKEN` for a wrong one. Every request also carries `X-Machine-Id`, the sender's `MACHINE_ID`  
+(URI-encoded); the server keeps, in memory, when each machine was last heard from, for the `machine` field  
+of `GET /api/spaces`.  
 
 `GET /api/sync`  
 What the server has: `{ ok, config, spaces }`, the sha1 of the last pushed `taskmgr.json` (`null` when there is none)  
@@ -202,4 +207,5 @@ Bring one tasks folder to the snapshot, in place (a task that changed status is 
 is the pushed folder exactly. `{ ok, files, dirs }`. 409 `MISSING_BLOBS` `{ missing }` when a blob is not in the  
 store; nothing is written then. A blob no space refers to any more is removed once it is an hour old.  
 `machine` (optional, the pusher's `MACHINE_ID`, or its hostname) is remembered for the space, in `data/.sync-state.json`,  
-and the web UI shows it as where the copy comes from (`machine` in `GET /api/spaces` and `GET /api/tasks`).  
+and the web UI shows it as where the copy comes from (`machine` in `GET /api/spaces` and `GET /api/tasks`), with a dot  
+that is green while that machine has pushed or polled within the last three minutes.  

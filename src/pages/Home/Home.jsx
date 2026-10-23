@@ -38,6 +38,7 @@ import * as api from "@utils/api";
 import { ALL_MONTHS, taskMonth, taskMonths, monthLabel, previewKind, flattenTasks, filterTasks } from "@utils/task";
 import { groupWorksByOrigin } from "@utils/works";
 import { useTaskFiles } from "@components/Attachments";
+import MachineDot from "@components/MachineDot";
 import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
 import styles from "./home.module.css";
 
@@ -201,6 +202,27 @@ export default function Home({ all = false }) {
   useEffect(() => {
     loadSpaces();
   }, [loadSpaces]);
+
+  // The dot beside a machine id (see MachineDot) goes grey three minutes after that machine's last
+  // push or poll, so while a space shows one, the works are re-read every half minute (when the tab
+  // is visible) to keep the dots current.
+  const hasMachines = !!works?.some((w) => w.machine || w.repositories.some((p) => p.machine));
+  useEffect(() => {
+    if (!hasMachines) return undefined;
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") loadSpaces();
+    }, 30 * 1000);
+    return () => clearInterval(id);
+  }, [hasMachines, loadSpaces]);
+
+  // The machine of the space shown, for the footer: from the works list, which is kept current (see
+  // above), rather than from the task list, which is not re-read for it.
+  const footerMachine = useMemo(() => {
+    if (!data.remote) return null;
+    const w = space && works?.find((x) => x.work === space.work);
+    const m = w && (space.repository ? w.repositories.find((p) => p.name === space.repository)?.machine : w.machine);
+    return m || data.machine || null;
+  }, [data.remote, data.machine, space, works]);
 
   useEffect(() => {
     document.title = all
@@ -1138,8 +1160,15 @@ export default function Home({ all = false }) {
             <span>
               {t("status.aborted")} {c.aborted ?? 0}
             </span>
-            <span className={`mono ${styles.path}`} title={data.remote ? data.machine || t("tree.remote") : data.absDir}>
-              {data.remote ? data.machine || t("tree.remote") : data.absDir}
+            <span className={`mono ${styles.path}`} title={data.remote ? footerMachine?.name || t("tree.remote") : data.absDir}>
+              {data.remote ? (
+                <>
+                  <MachineDot machine={footerMachine} />
+                  {footerMachine?.name || t("tree.remote")}
+                </>
+              ) : (
+                data.absDir
+              )}
             </span>
           </>
         )}

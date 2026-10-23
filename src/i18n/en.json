@@ -75,6 +75,9 @@
   },
   "tree": {
     "remote": "remote",
+    "machineOnline": "In touch: last push or poll at {{when}}",
+    "machineOffline": "Out of touch: no push or poll since {{when}}",
+    "machineUnknown": "Out of touch: no push or poll since the server started",
     "origins": "Origins",
     "allOrigins": "All origins",
     "noOrigins": "No origins in taskmgr.json.",
