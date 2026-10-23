@@ -20,7 +20,7 @@
 // in both .env files. Without SYNC_SERVER_TOKEN in this server's .env, pushes are refused (503).
 // It also carries `X-Machine-Id` (the MACHINE_ID of the machine, URI-encoded): the time of each
 // machine's last request is kept, in memory, so the web UI can show whether it is in touch (see
-// machineInfo, below).
+// machineInfo, below), and what it pushes and polls is logged to logs/<MACHINE_ID>.log (see machineLog).
 //
 //   GET /api/sync                                            -> { ok, config, spaces }
 //       what is here: the sha1 of the last pushed config, and of each space's last snapshot
@@ -368,10 +368,19 @@ function tokensMatch(a, b) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
+// The file name of a machine's log: its MACHINE_ID with what a file name cannot hold replaced; ""
+// when nothing is left of it.
+function logFileName(id) {
+  return String(id || '').replace(/[\/\\:*?"<>|\0-\x1f\x7f]/g, '_').replace(/^\.+/, '').trim();
+}
+
+const label = ({ origin, work, repository }) => `${origin ? `${origin} / ` : ''}${work}${repository ? ` / ${repository}` : ''}`;
+
 // Mounts the sync routes. Mount it before the login guard: a push is authorized by the token, not a
 // session. `token` is SYNC_SERVER_TOKEN; with none, every push is refused. `readConfig` and
-// `writeConfig` read and replace this server's taskmgr.json (see server/config.js).
-function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
+// `writeConfig` read and replace this server's taskmgr.json (see server/config.js). `logsDir` is
+// where each machine's log goes (see machineLog); default: logs/ next to data/.
+function createSyncApp({ dataDir, logsDir = path.join(dataDir, '..', 'logs'), token, readConfig, writeConfig }) {
   const app = express();
   const enabled = typeof token === 'string' && token.trim() !== '';
   const statePath = path.join(dataDir, STATE_FILE);
@@ -435,8 +444,25 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     let id;
     try { id = machineName(decodeURIComponent(raw)); } catch (e) { id = machineName(raw); }
     if (id) seen.set(id, Date.now());
+    req.machine = id;
     next();
   });
+
+  // One line to logs/<MACHINE_ID>.log, the log of what that machine pushes and polls here, in the form
+  // of the daemon's own log (see syncLog in push.js): the time, SUCCESS / FAILED / INFO, the message.
+  // Nothing is logged for a request without a machine id.
+  function machineLog(req, level, message) {
+    const name = logFileName(req.machine);
+    if (!name) return;
+    const file = path.join(logsDir, `${name}.log`);
+    const tag = level === 'info' ? 'INFO   ' : level === 'failed' ? 'FAILED ' : 'SUCCESS';
+    try {
+      fs.mkdirSync(logsDir, { recursive: true });
+      fs.appendFileSync(file, `${new Date().toISOString()} ${tag} ${message}\n`);
+    } catch (e) {
+      console.error(`cannot write ${file}: ${e.message}`);
+    }
+  }
 
   const json = express.json({ limit: BODY_LIMIT });
 
@@ -450,6 +476,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
         if (fs.existsSync(spaceDir(dataDir, { origin, work, repository }))) spaces[key] = hash;
       } catch (e) { /* a key that is not a space: left out */ }
     }
+    machineLog(req, 'info', `polled: ${Object.keys(spaces).length} tasks folder${Object.keys(spaces).length === 1 ? '' : 's'} here`);
     res.json({ ok: true, config: state.config, spaces });
   });
 
@@ -482,6 +509,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     for (const k of Object.keys(state.machines)) if (!keys.has(k)) delete state.machines[k];
     writeState(state);
     pruneBlobs(state);
+    machineLog(req, 'success', `pushed taskmgr.json${pruned.length ? ` (removed here: ${pruned.join(', ')})` : ''}`);
     res.json({ ok: true, pruned });
   });
 
@@ -527,6 +555,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     else delete state.machines[key];
     writeState(state);
     pruneBlobs(state);
+    machineLog(req, 'success', `pushed ${label({ origin, work, repository })} (${files} file${files === 1 ? '' : 's'}, ${dirs} empty folder${dirs === 1 ? '' : 's'})`);
     res.json({ ok: true, files, dirs });
   });
 
@@ -547,6 +576,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
 
   // The server's taskmgr.json as it is.
   app.get('/api/sync/pull/config', (req, res) => {
+    machineLog(req, 'info', 'pulled taskmgr.json');
     res.json({ ok: true, text: readConfig() });
   });
 
@@ -594,6 +624,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
     };
     walk(root, '');
     entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    machineLog(req, 'info', `pulled ${label(req.query)} (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'})`);
     res.json({ ok: true, entries });
   });
 
@@ -620,6 +651,7 @@ function createSyncApp({ dataDir, token, readConfig, writeConfig }) {
   // A refused request answers with its code (and, for MISSING_BLOBS, the blobs to upload).
   app.use('/api/sync', (err, req, res, next) => {
     if (!(err instanceof SyncError)) return next(err);
+    machineLog(req, 'failed', `${req.method} ${req.originalUrl.split('?')[0]}: ${err.message}`);
     res.status(err.status).json({ error: err.message, ...(err.code ? { code: err.code } : {}), ...(err.missing ? { missing: err.missing } : {}) });
   });
 

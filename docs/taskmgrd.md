@@ -60,7 +60,8 @@ and `tm pull` is the way to fetch from the server.
 
 On the server: set `SYNC_SERVER_TOKEN` in `.env` to a secret of your choice and restart the web UI  
 (`./start.sh`); its startup lines then say `sync : receiving from taskmgrd`. Without the token the  
-server refuses pushes. The copied files are git-ignored. A task changed in the server's web UI is  
+server refuses pushes. The copied files are git-ignored. What each machine pushes and polls is logged  
+on the server to `logs/<MACHINE_ID>.log`, in the form of the daemon's own log. A task changed in the server's web UI is  
 changed in the copy only: the next push of its folder overwrites it.  
 
 On the machine with the tasks: in `.env`, `SYNC_SERVER` is the server's URL (the one its web UI  

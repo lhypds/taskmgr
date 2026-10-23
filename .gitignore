@@ -22,7 +22,7 @@ dist/
 /data/.sync-state.json
 /data/.sync-blobs/
 
-# sync logs: the daemon's, and the one of tm push / tm pull by hand
+# sync logs: the daemon's, the one of tm push / tm pull by hand, and on a sync server one per machine
 /logs/*.log
 /.tm-sync-state.json
 /.tm-hash-cache.json

@@ -172,7 +172,9 @@ Defined in `server/sync.js`, used by `taskmgrd` (see [taskmgrd.md](taskmgrd.md))
 `Authorization: Bearer <SYNC_SERVER_TOKEN>`; 503 `SYNC_OFF` when the server has no `SYNC_SERVER_TOKEN`,  
 401 `INVALID_TOKEN` for a wrong one. Every request also carries `X-Machine-Id`, the sender's `MACHINE_ID`  
 (URI-encoded); the server keeps, in memory, when each machine was last heard from, for the `machine` field  
-of `GET /api/spaces`.  
+of `GET /api/spaces`, and logs what each machine pushes and polls to `logs/<MACHINE_ID>.log` (one line per  
+config or folder pushed, poll, config or folder pulled, and refused request; characters a file name cannot  
+hold are replaced by `_` in the name).  
 
 `GET /api/sync`  
 What the server has: `{ ok, config, spaces }`, the sha1 of the last pushed `taskmgr.json` (`null` when there is none)  
