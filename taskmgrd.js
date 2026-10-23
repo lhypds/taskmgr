@@ -294,6 +294,9 @@ function runPull() {
       child = spawn(process.execPath, [path.join(__dirname, 'pull.js')], {
         stdio: 'inherit',
         env: { ...process.env, TASKMGRD_SYNC_LOG: DAEMON_LOG },
+        // Under pm2 on Windows the daemon has no console, so a child would open one: a black window
+        // flashing up at every poll.
+        windowsHide: true,
       });
     } catch (e) {
       resolve(`cannot run pull.js: ${e.message}`);
