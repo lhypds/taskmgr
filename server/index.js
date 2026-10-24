@@ -485,6 +485,51 @@ app.post('/api/repository', (req, res) => {
   res.status(201).json(spacesBody());
 });
 
+// Reorder taskmgr.json, which is the order of the tree: put an origin before the named origin
+// `before`, a work before the work `before` of its origin, a repository before the repository
+// `before` of its work; `before` null puts it last in its list. See config.moveOrigin and the others.
+const beforeOf = (body) => {
+  const before = body.before === undefined ? null : body.before;
+  if (before !== null && typeof before !== 'string') throw new HttpError(400, '"before" must be a name or null.');
+  return before;
+};
+
+app.post('/api/origin/move', (req, res) => {
+  const { origin } = req.body || {};
+  if (typeof origin !== 'string') throw new HttpError(400, 'Missing origin.');
+  const before = beforeOf(req.body);
+  try {
+    config.moveOrigin(origin, before);
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
+app.post('/api/work/move', (req, res) => {
+  const { work } = req.body || {};
+  if (typeof work !== 'string') throw new HttpError(400, 'Missing work.');
+  const before = beforeOf(req.body);
+  try {
+    config.moveWork(work, before);
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
+app.post('/api/repository/move', (req, res) => {
+  const { work, name } = req.body || {};
+  if (typeof work !== 'string' || typeof name !== 'string') throw new HttpError(400, 'Missing work or name.');
+  const before = beforeOf(req.body);
+  try {
+    config.moveRepository(work, name, before);
+  } catch (e) {
+    throw new HttpError(400, e.message);
+  }
+  res.json(spacesBody());
+});
+
 // Open the folder a tree row shows with the OS file manager: a work's tasks folder, or a
 // repository's source code folder (its tasks folder when it has none).
 app.post('/api/space/open', (req, res) => {

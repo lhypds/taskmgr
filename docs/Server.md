@@ -103,6 +103,13 @@ Rename a repository and set its folders.
 `DELETE /api/repository?work=&name=`  
 Remove a repository from a work.  
 
+`POST /api/origin/move` `{ origin, before }`  
+`POST /api/work/move` `{ work, before }`  
+`POST /api/repository/move` `{ work, name, before }`  
+Reorder `taskmgr.json`, which is the order of the tree: put the origin before the named origin `before`, the work before  
+the work `before` of its origin, the repository before the repository `before` of its work; `before` `null` puts it last  
+in its list. Nothing moves to another list (a work to another origin, a repository to another work): 400.  
+
 `POST /api/space/create` `{ work, repository? }`  
 Create the missing tasks folder of a work or a repository. 201.  
 

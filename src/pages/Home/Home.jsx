@@ -600,6 +600,19 @@ export default function Home({ all = false }) {
     }
   }
 
+  // A row dragged to a new place in the tree (see SpaceTree): { kind: "origin", origin }, { kind:
+  // "work", work } or { kind: "repository", work, name }, with `before` the name of the sibling it
+  // goes before (null: last).
+  async function moveSpace({ kind, origin, work, name, before }) {
+    try {
+      if (kind === "origin") setSpaces(await api.moveOrigin(origin, before));
+      else if (kind === "work") setSpaces(await api.moveWork(work, before));
+      else setSpaces(await api.moveRepository(work, name, before));
+    } catch (e) {
+      showToast(e.message, 4000);
+    }
+  }
+
   function runCommand(raw) {
     const cmd = raw.trim();
     if (!cmd) return;
@@ -1134,6 +1147,7 @@ export default function Home({ all = false }) {
             onEditRepository={setEditingRepository}
             onOpenFolder={openSpaceFolder}
             onDelete={setRemoving}
+            onMove={moveSpace}
           />
         </aside>
         <button

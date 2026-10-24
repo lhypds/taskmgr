@@ -65,7 +65,53 @@
 /* One tree per origin: its name at the top, then its works and their repositories. Inside it the
    rows run on without separators so the tree lines join up; only the trees are divided. */
 .group {
+  position: relative;
   border-bottom: var(--line) solid var(--border);
+}
+
+/* One work with its repositories, so a work dragged over any of them is before or after the whole. */
+.work {
+  position: relative;
+}
+
+/* Reordering by drag: the block dragged (an origin's tree, a work with its repositories, a
+   repository's row) is faded, and the block it would go before or after shows a light grey line at
+   its top or bottom, across the whole width of the tree. */
+.group[data-dragging="true"],
+.work[data-dragging="true"],
+.row[data-dragging="true"] {
+  opacity: 0.4;
+}
+
+.group[data-drop]::after,
+.work[data-drop]::after,
+.row[data-drop]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--line);
+  background: var(--faint);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* The hairline sits on the edge between two blocks, so it is in one place whichever of the two
+   the pointer is in: the first line of the block below, which is the one right under the block
+   above. Between two trees the edge is the border, which the line covers. */
+.work[data-drop="before"]::after,
+.row[data-drop="before"]::after {
+  top: 0;
+}
+
+.work[data-drop="after"]::after,
+.row[data-drop="after"]::after,
+.group[data-drop="after"]::after {
+  bottom: calc(-1 * var(--line));
+}
+
+.group[data-drop="before"]::after {
+  top: calc(-1 * var(--line));
 }
 
 .origin {

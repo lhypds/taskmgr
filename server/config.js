@@ -349,10 +349,16 @@ function resolveConfig() {
     let g = raw.origins.find(x => named(x, 'origin', origin));
     if (!g && create) {
       g = { origin, works: [] };
-      const at = raw.origins.findIndex(x => !x || !(typeof x.origin === 'string' && x.origin.trim()));
-      raw.origins.splice(at === -1 ? raw.origins.length : at, 0, g);
+      raw.origins.splice(afterNamedOrigins(raw.origins), 0, g);
     }
     return g;
+  }
+
+  // Where a named origin goes to be last among the named ones: the index of the group of works
+  // without an origin, or the end of the list when there is none.
+  function afterNamedOrigins(list) {
+    const at = list.findIndex(x => !x || !(typeof x.origin === 'string' && x.origin.trim()));
+    return at === -1 ? list.length : at;
   }
 
   const named = (x, key, name) => x && typeof x[key] === 'string' && x[key].trim() === name;
@@ -512,9 +518,56 @@ function resolveConfig() {
     write(raw);
   }
 
+  // Reordering (the web UI's tree is in file order): each move puts an entry before the one of its
+  // list named `before`, or last in its list when `before` is null. An entry cannot move to another
+  // list: a work stays in its origin, a repository in its work. Putting an entry before itself
+  // changes nothing.
+
+  // Move a named origin, with its works, among the named ones; the works without an origin stay last.
+  function moveOrigin(origin, before) {
+    const raw = readRaw();
+    const g = origin && findRawOrigin(raw, origin, false);
+    if (!g) throw new Error(`No origin named "${origin}".`);
+    if (before !== null && !(before && findRawOrigin(raw, before, false))) throw new Error(`No origin named "${before}".`);
+    if (before === origin) return;
+    raw.origins.splice(raw.origins.indexOf(g), 1);
+    const at = before === null ? afterNamedOrigins(raw.origins) : raw.origins.findIndex(x => named(x, 'origin', before));
+    raw.origins.splice(at, 0, g);
+    write(raw);
+  }
+
+  // Move a work, with its repositories, among the works of its origin.
+  function moveWork(work, before) {
+    const raw = readRaw();
+    const { w, list } = findRawWork(raw, work);
+    if (moveIn(list, w, 'work', before, `No work named "${before}" in the origin of "${work}".`)) write(raw);
+  }
+
+  // Move a repository among the repositories of its work.
+  function moveRepository(work, name, before) {
+    const raw = readRaw();
+    const { w } = findRawWork(raw, work);
+    const list = Array.isArray(w.repositories) ? w.repositories : [];
+    const p = list.find(x => named(x, 'repository', name));
+    if (!p) throw new Error(`No repository named "${name}" in "${work}".`);
+    if (moveIn(list, p, 'repository', before, `No repository named "${before}" in "${work}".`)) write(raw);
+  }
+
+  // Put `x`, an entry of `list`, before the entry whose `key` is `before`, or last (null); `missing`
+  // is the error when there is no such entry. False when `x` is already there.
+  function moveIn(list, x, key, before, missing) {
+    if (before !== null && named(x, key, before)) return false;
+    const to = before === null ? null : list.find(y => named(y, key, before));
+    if (before !== null && !to) throw new Error(missing);
+    list.splice(list.indexOf(x), 1);
+    list.splice(to ? list.indexOf(to) : list.length, 0, x);
+    return true;
+  }
+
   return {
     configPath, port, host, dataDir, usersPath, getWorks, getOrigins, readText, writeText,
-    addOrigin, addWork, addRepository, updateWork, updateOrigin, updateRepository, removeOrigin, removeWork, removeRepository
+    addOrigin, addWork, addRepository, updateWork, updateOrigin, updateRepository, removeOrigin, removeWork, removeRepository,
+    moveOrigin, moveWork, moveRepository
   };
 }
 

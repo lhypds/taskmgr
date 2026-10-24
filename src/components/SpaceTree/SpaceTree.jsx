@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditIcon, FolderIcon, PlusIcon, TrashIcon } from "@components/icons";
 import TreeLines from "@components/TreeLines";
 import MachineDot from "@components/MachineDot";
@@ -49,7 +49,8 @@ function Top({ label, income, actions }) {
 // One space in the tree. `depth` is 0 for a work without an origin, 1 for a work under its origin
 // or a repository of a depth-0 work, and 2 for a repository of a work under an origin.
 // `machine` (see MachineDot) is the machine a remote folder was pushed from, shown as a dot after `root`.
-function Row({ to, exists, hidden, depth, through = [], last, active, focused, label, root, machine, income, actions, onSelect }) {
+// Anything else (`rest`: the drag and drop handlers and data attributes) goes on the row itself.
+function Row({ to, exists, hidden, depth, through = [], last, active, focused, label, root, machine, income, actions, onSelect, ...rest }) {
   const ref = useRef(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -68,6 +69,7 @@ function Row({ to, exists, hidden, depth, through = [], last, active, focused, l
       role="button"
       tabIndex={0}
       onClick={() => onSelect(to)}
+      {...rest}
     >
       <TreeLines depth={depth} through={through} last={last} />
       <Top label={label} income={income} actions={actions} />
@@ -84,8 +86,9 @@ function Row({ to, exists, hidden, depth, through = [], last, active, focused, l
 }
 
 // An origin's name (and income) at the top of its tree; choosing it (`to`) shows every task of its
-// works. "All origins" above the trees is one too, for every task.
-function Origin({ name, to, active, focused, income, actions, onSelect }) {
+// works. "All origins" above the trees is one too, for every task. `rest` goes on the element, as
+// for a Row.
+function Origin({ name, to, active, focused, income, actions, onSelect, ...rest }) {
   const ref = useRef(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -100,10 +103,90 @@ function Origin({ name, to, active, focused, income, actions, onSelect }) {
       role="button"
       tabIndex={0}
       onClick={() => onSelect(to)}
+      {...rest}
     >
       <Top label={name} income={income} actions={actions} />
     </div>
   );
+}
+
+// Whether the pointer is over the top or the bottom half of the element the event is on.
+const edgeOf = (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  return e.clientY < r.top + r.height / 2 ? "before" : "after";
+};
+
+// Where `moved` goes when dropped on the `edge` of `target`, both in `names` (the siblings in
+// order): the name of the sibling it goes before, null for last, or undefined when that is where
+// it already is.
+function placeBefore(names, moved, target, edge) {
+  const i = names.indexOf(target);
+  const before = edge === "before" ? names[i] : (names[i + 1] ?? null);
+  const next = names[names.indexOf(moved) + 1] ?? null;
+  return before === moved || before === next ? undefined : before;
+}
+
+// Reordering the tree by drag: an origin's name among the origins, a work (with its repositories)
+// among the works of its origin, a repository among those of its work. Each level is a list of
+// blocks; a block dragged over another of its list goes before or after it, by which half of it
+// the pointer is in, and that block shows a line there meanwhile. The hook gives the props to
+// spread on a block: `drag(item)` for the element grabbed, `drop(item)` for the block that takes it,
+// where `item` is { key, list, name, names, move }: a key unique in the tree, the list it is in (its
+// siblings are in the same list, `names` in order) and `move` what `onMove` gets, with `before`
+// added on the drop.
+function useReorder(onMove) {
+  const [drag, setDrag] = useState(null);
+  const [over, setOver] = useState(null); // { key, edge } of the block the line is on
+
+  const done = () => {
+    setDrag(null);
+    setOver(null);
+  };
+
+  const dragProps = (item) => ({
+    draggable: true,
+    onDragStart: (e) => {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", item.name);
+      setDrag(item);
+    },
+    onDragEnd: done,
+  });
+
+  const dropProps = (item) => ({
+    "data-dragging": drag?.key === item.key,
+    "data-drop": over?.key === item.key ? over.edge : undefined,
+    onDragOver: (e) => {
+      if (!drag || drag.list !== item.list) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move";
+      const edge = edgeOf(e);
+      const before = placeBefore(drag.names, drag.name, item.name, edge);
+      // The same state again keeps the object, so nothing re-renders while the pointer moves.
+      setOver((cur) => {
+        if (before === undefined) return cur === null ? cur : null;
+        return cur?.key === item.key && cur.edge === edge ? cur : { key: item.key, edge };
+      });
+    },
+    onDragLeave: (e) => {
+      // Leaving for a child keeps the line; leaving the block drops it. The pointer's place says
+      // which, as the element left for (relatedTarget) is not given by every browser.
+      const r = e.currentTarget.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) return;
+      setOver((cur) => (cur?.key === item.key ? null : cur));
+    },
+    onDrop: (e) => {
+      if (!drag || drag.list !== item.list) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const before = placeBefore(drag.names, drag.name, item.name, edgeOf(e));
+      done();
+      if (before !== undefined) onMove({ ...drag.move, before });
+    },
+  });
+
+  return { dragProps, dropProps };
 }
 
 // "All origins", then the origins as trees, each with its works and their repositories; works
@@ -111,6 +194,9 @@ function Origin({ name, to, active, focused, income, actions, onSelect }) {
 // than the task list. `onAdd` opens the add modal with what to start with: { type: "origin" } from
 // the head, a work into an origin, a repository into a work. `works` leaves out the hidden ones
 // unless `showHidden`; the checkbox under the head (with `hiddenCount`) turns that on and off.
+// Dragging reorders (see useReorder): `onMove` gets { kind: "origin", origin }, { kind: "work",
+// work } or { kind: "repository", work, name } with `before`, the name of the sibling it now goes
+// before (null: last).
 export default function SpaceTree({
   works,
   origins,
@@ -128,9 +214,12 @@ export default function SpaceTree({
   onEditRepository,
   onOpenFolder,
   onDelete,
+  onMove,
 }) {
   const { t } = useTranslation();
   const groups = groupWorksByOrigin(works, origins);
+  const { dragProps, dropProps } = useReorder(onMove);
+  const originNames = groups.filter((g) => g.origin).map((g) => g.origin);
   return (
     <div className={styles.panel}>
       <div className={styles.head} data-focused={focused}>
@@ -173,8 +262,17 @@ export default function SpaceTree({
             </div>
             {groups.map((g) => {
               const base = g.origin ? 1 : 0;
+              // A named origin's tree is a block among the origins; the works without one stay last.
+              const originItem = g.origin && {
+                key: `o:${g.origin}`,
+                list: "origins",
+                name: g.origin,
+                names: originNames,
+                move: { kind: "origin", origin: g.origin },
+              };
+              const workNames = g.works.map((w) => w.work);
               return (
-                <div key={g.origin} className={styles.group}>
+                <div key={g.origin} className={styles.group} {...(originItem ? dropProps(originItem) : {})}>
                   {g.origin && (
                     <Origin
                       name={g.origin}
@@ -199,87 +297,110 @@ export default function SpaceTree({
                           </RowButton>
                         </>
                       }
+                      {...dragProps(originItem)}
                     />
                   )}
                   {g.works.map((w, wi) => {
                     const lastWork = wi === g.works.length - 1;
-                    return [
-                      <Row
-                        key={w.work}
-                        to={api.spacePath(g.origin, w.work)}
-                        exists={w.exists}
-                        hidden={w.hidden}
-                        depth={base}
-                        last={lastWork}
-                        active={activeTo === api.spacePath(g.origin, w.work)}
-                        focused={focused}
-                        label={w.work}
-                        root={w.remote ? w.machine?.name || t("tree.remote") : w.shownPath}
-                        machine={w.remote ? w.machine : null}
-                        income={w.income}
-                        onSelect={onSelect}
-                        actions={
-                          <>
-                            <RowButton
-                              label={t("add.repositoryInto")}
-                              onClick={() => onAdd({ type: "repository", work: w.work })}
-                            >
-                              <PlusIcon />
-                            </RowButton>
-                            <RowButton label={t("work.edit")} onClick={() => onEditWork(w)}>
-                              <EditIcon />
-                            </RowButton>
-                            {w.root && (
-                              <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work })}>
-                                <FolderIcon />
-                              </RowButton>
-                            )}
-                            <RowButton label={t("work.delete")} onClick={() => onDelete({ work: w.work })}>
-                              <TrashIcon />
-                            </RowButton>
-                          </>
-                        }
-                      />,
-                      ...w.repositories.map((p, i) => (
+                    const workItem = {
+                      key: `w:${w.work}`,
+                      list: `works:${g.origin}`,
+                      name: w.work,
+                      names: workNames,
+                      move: { kind: "work", work: w.work },
+                    };
+                    const repositoryNames = w.repositories.map((p) => p.name);
+                    return (
+                      // The work and its repositories are one block.
+                      <div key={w.work} className={styles.work} {...dropProps(workItem)}>
                         <Row
-                          key={`${w.work}/${p.name}`}
-                          to={api.spacePath(g.origin, w.work, p.name)}
-                          exists={p.exists}
+                          to={api.spacePath(g.origin, w.work)}
+                          exists={w.exists}
                           hidden={w.hidden}
-                          depth={base + 1}
-                          through={g.origin ? [!lastWork] : []}
-                          last={i === w.repositories.length - 1}
-                          active={activeTo === api.spacePath(g.origin, w.work, p.name)}
+                          depth={base}
+                          last={lastWork}
+                          active={activeTo === api.spacePath(g.origin, w.work)}
                           focused={focused}
-                          label={p.name}
-                          root={p.remote ? p.machine?.name || t("tree.remote") : p.shownPath}
-                          machine={p.remote ? p.machine : null}
+                          label={w.work}
+                          root={w.remote ? w.machine?.name || t("tree.remote") : w.shownPath}
+                          machine={w.remote ? w.machine : null}
+                          income={w.income}
                           onSelect={onSelect}
                           actions={
                             <>
                               <RowButton
-                                label={t("repository.edit")}
-                                onClick={() => onEditRepository({ work: w.work, name: p.name, paths: p.paths })}
+                                label={t("add.repositoryInto")}
+                                onClick={() => onAdd({ type: "repository", work: w.work })}
                               >
+                                <PlusIcon />
+                              </RowButton>
+                              <RowButton label={t("work.edit")} onClick={() => onEditWork(w)}>
                                 <EditIcon />
                               </RowButton>
-                              <RowButton
-                                label={t("tree.openFolder")}
-                                onClick={() => onOpenFolder({ work: w.work, repository: p.name })}
-                              >
-                                <FolderIcon />
-                              </RowButton>
-                              <RowButton
-                                label={t("repository.delete")}
-                                onClick={() => onDelete({ work: w.work, repository: p.name })}
-                              >
+                              {w.root && (
+                                <RowButton label={t("tree.openFolder")} onClick={() => onOpenFolder({ work: w.work })}>
+                                  <FolderIcon />
+                                </RowButton>
+                              )}
+                              <RowButton label={t("work.delete")} onClick={() => onDelete({ work: w.work })}>
                                 <TrashIcon />
                               </RowButton>
                             </>
                           }
+                          {...dragProps(workItem)}
                         />
-                      )),
-                    ];
+                        {w.repositories.map((p, i) => {
+                          const repositoryItem = {
+                            key: `r:${w.work}/${p.name}`,
+                            list: `repositories:${w.work}`,
+                            name: p.name,
+                            names: repositoryNames,
+                            move: { kind: "repository", work: w.work, name: p.name },
+                          };
+                          return (
+                            <Row
+                              key={p.name}
+                              to={api.spacePath(g.origin, w.work, p.name)}
+                              exists={p.exists}
+                              hidden={w.hidden}
+                              depth={base + 1}
+                              through={g.origin ? [!lastWork] : []}
+                              last={i === w.repositories.length - 1}
+                              active={activeTo === api.spacePath(g.origin, w.work, p.name)}
+                              focused={focused}
+                              label={p.name}
+                              root={p.remote ? p.machine?.name || t("tree.remote") : p.shownPath}
+                              machine={p.remote ? p.machine : null}
+                              onSelect={onSelect}
+                              actions={
+                                <>
+                                  <RowButton
+                                    label={t("repository.edit")}
+                                    onClick={() => onEditRepository({ work: w.work, name: p.name, paths: p.paths })}
+                                  >
+                                    <EditIcon />
+                                  </RowButton>
+                                  <RowButton
+                                    label={t("tree.openFolder")}
+                                    onClick={() => onOpenFolder({ work: w.work, repository: p.name })}
+                                  >
+                                    <FolderIcon />
+                                  </RowButton>
+                                  <RowButton
+                                    label={t("repository.delete")}
+                                    onClick={() => onDelete({ work: w.work, repository: p.name })}
+                                  >
+                                    <TrashIcon />
+                                  </RowButton>
+                                </>
+                              }
+                              {...dragProps(repositoryItem)}
+                              {...dropProps(repositoryItem)}
+                            />
+                          );
+                        })}
+                      </div>
+                    );
                   })}
                 </div>
               );

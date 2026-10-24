@@ -78,6 +78,13 @@ export const saveOrigin = (origin, { name, income }) => request("/api/origin", j
 export const saveRepository = (work, name, { newName, sourcePath, tasksPath }) =>
   request("/api/repository", json("PUT", { work, name, newName, sourcePath, tasksPath }));
 
+// Reorder taskmgr.json, which is the tree's order: put an origin before the named origin `before`,
+// a work before the work `before` of its origin, a repository before the repository `before` of its
+// work; `before` null puts it last in its list. An entry cannot move to another list.
+export const moveOrigin = (origin, before) => request("/api/origin/move", json("POST", { origin, before }));
+export const moveWork = (work, before) => request("/api/work/move", json("POST", { work, before }));
+export const moveRepository = (work, name, before) => request("/api/repository/move", json("POST", { work, name, before }));
+
 // Remove one origin (with its works), work or repository of a work from taskmgr.json; the folders are kept.
 export const deleteOrigin = (origin) => request(`/api/origin?${q({ origin })}`, { method: "DELETE" });
 export const deleteWork = (work) => request(`/api/work?${q({ work })}`, { method: "DELETE" });
