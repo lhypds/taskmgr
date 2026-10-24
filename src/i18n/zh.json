@@ -52,7 +52,6 @@
     "onlyPending": "这里的任务都已搁置。",
     "onlyAbort": "这里的任务都已中止。",
     "onlyHidden": "这里的任务都已完成、搁置或中止。",
-    "pickSpace": "请在左侧选择一个工作或仓库。",
     "noTasks": "还没有任务。",
     "noSubtasks": "此任务没有子任务。",
     "noMatch": "没有与“{{query}}”匹配的任务。",

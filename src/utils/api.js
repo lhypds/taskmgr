@@ -122,8 +122,8 @@ export const deleteFile = (space, rel) => request(`/api/file?${q({ ...sp(space),
 export const fileUrl = (space, rel, download = false) =>
   `/api/file?${q({ ...sp(space), rel, ...(download ? { download: "1" } : {}) })}`;
 
-// Route to the tasks of every origin.
-export const allPath = "/all";
+// Route to the tasks of every origin: the root, which is also what the title links to.
+export const allPath = "/";
 
 // Route to all the tasks of an origin.
 export const originPath = (origin) => `/o/${encodeURIComponent(origin)}`;

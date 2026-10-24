@@ -52,7 +52,6 @@
     "onlyPending": "Every task here is pending.",
     "onlyAbort": "Every task here is aborted.",
     "onlyHidden": "Every task here is done, pending or aborted.",
-    "pickSpace": "Pick a work or repository on the left.",
     "noTasks": "No tasks yet.",
     "noSubtasks": "No subtasks in this task.",
     "noMatch": "No tasks match “{{query}}”.",

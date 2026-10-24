@@ -13,8 +13,8 @@ function Gate() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/all" element={<Home all />} />
+        {/* The root shows every origin's tasks; /all, the old path for that, falls through to it below. */}
+        <Route path="/" element={<Home all />} />
         <Route path="/o/:origin/:work/:repository" element={<Home />} />
         <Route path="/o/:origin/:work" element={<Home />} />
         <Route path="/o/:origin" element={<Home />} />

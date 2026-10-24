@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   SpaceTree,
   TaskList,
@@ -82,7 +82,7 @@ function writeFlag(key, value) {
 const keyOf = (space, rel) => `${space.work}/${space.repository || ""}/${rel}`;
 
 // The one page: the origins, works and repositories as a tree on the left, the tasks of the chosen
-// one on the right. What is shown is in the path (/all for every task, /o/:origin for every task of an origin,
+// one on the right. What is shown is in the path (/ for every task, /o/:origin for every task of an origin,
 // /o/:origin/:work for a work's tasks and its repositories', and one more segment for a repository) and the folder
 // inside a space in ?dir=, so back/forward and reload keep both. A work with ?dir= is a folder in
 // the work's own tasks.
@@ -91,7 +91,7 @@ export default function Home({ all = false }) {
   const { logout } = useAuth();
   const { origin = "", work = "", repository = "" } = useParams();
   const space = useMemo(() => (work ? { origin, work, repository } : null), [origin, work, repository]);
-  const spaceTo = all ? api.allPath : work ? api.spacePath(origin, work, repository) : origin ? api.originPath(origin) : null;
+  const spaceTo = all ? api.allPath : work ? api.spacePath(origin, work, repository) : api.originPath(origin);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const dir = searchParams.get("dir") || "";
@@ -267,12 +267,6 @@ export default function Home({ all = false }) {
   // The space on the right when its task folder does not exist. A list of several spaces just
   // leaves the missing ones out.
   const missing = (!scope && spaces.find((s) => s.to === spaceTo && !s.exists)) || null;
-
-  // With nothing in the path, show the first space whose folder exists.
-  useEffect(() => {
-    const first = spaces.find((s) => s.exists && s.root) || spaces[0];
-    if (!spaceTo && first) navigate(first.to, { replace: true });
-  }, [spaceTo, spaces, navigate]);
 
   const selectSpace = (to, replace = false) => {
     if (to !== spaceTo || dir) navigate(to, { replace });
@@ -644,10 +638,8 @@ export default function Home({ all = false }) {
       return true;
     }
     if (["l", "right", "enter"].includes(name)) {
-      if (spaceTo) {
-        if (view === "board") selectBoardColumn(boardStatuses[0]);
-        else setPane("tasks");
-      }
+      if (view === "board") selectBoardColumn(boardStatuses[0]);
+      else setPane("tasks");
       return true;
     }
     return false;
@@ -717,10 +709,8 @@ export default function Home({ all = false }) {
       if (pane !== "tree") {
         setTreeOpen(true);
         setPane("tree");
-      } else if (spaceTo) {
-        if (view === "board") selectBoardColumn(boardStatuses[0]);
-        else setPane("tasks");
-      }
+      } else if (view === "board") selectBoardColumn(boardStatuses[0]);
+      else setPane("tasks");
       return true;
     }
     if (name === "/") {
@@ -825,13 +815,7 @@ export default function Home({ all = false }) {
   const crumbClass = (active) => `${styles.crumb}${active ? ` ${styles.crumbActive}` : ""}`;
 
   let content;
-  if (!spaceTo) {
-    content = (
-      <div className={styles.state}>
-        <p className="muted">{works === null ? t("common.loading") : t("home.pickSpace")}</p>
-      </div>
-    );
-  } else if (missing) {
+  if (missing) {
     content = (
       <div className={styles.state}>
         <p className="muted">
@@ -918,7 +902,11 @@ export default function Home({ all = false }) {
     <div className={styles.app}>
       <header className={styles.header}>
         <div className={styles.brand}>
-          <h1 className={styles.title}>taskmgr</h1>
+          <h1 className={styles.title}>
+            <Link to={api.allPath} className={styles.titleLink}>
+              taskmgr
+            </Link>
+          </h1>
         </div>
 
         <div className={styles.search}>
@@ -1026,7 +1014,7 @@ export default function Home({ all = false }) {
 
         <main
           className={styles.main}
-          onMouseDown={() => spaceTo && setPane("tasks")}
+          onMouseDown={() => setPane("tasks")}
           // a click on the blank area (not on a task or a button) clears the selection
           onClick={(e) => {
             if (!e.target.closest('[role="button"], button, a, input, label')) setSelectedKey(null);

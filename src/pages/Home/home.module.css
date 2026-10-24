@@ -34,6 +34,12 @@
   flex: none;
 }
 
+/* The title goes to the root, every origin's tasks; it reads as the title, not as a link, hovered too. */
+.titleLink {
+  color: inherit;
+  text-decoration: none;
+}
+
 /* The middle area's section bar, as in fin: Work > Repository > subtask folders. */
 .section {
   flex: none;
@@ -70,11 +76,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-decoration: none;
-}
-
-.crumb:hover:not(:disabled) {
-  color: var(--fg);
-  text-decoration: underline;
 }
 
 .crumbActive,
