@@ -157,8 +157,9 @@ async function fileHash(abs, stat) {
 // The folder is read in one pass, each folder listed once and only files (and links) stat'ed, and
 // the calls go out side by side: on a Windows drive under WSL every one costs milliseconds, most of
 // it waiting. A folder's size comes from that same pass, and files are read (task.txt) or hashed only
-// once they are known to be kept.
-async function snapshot(root) {
+// once they are known to be kept. What is left out for its size goes to the sync log as a warning,
+// unless `warnings` is false (the pull takes a snapshot too, to compare, and says nothing).
+async function snapshot(root, { warnings = true } = {}) {
   // { files: [{ rel, abs, stat }], dirs: [rel], warnings: [message], size, isTask }, or null when
   // `dir` cannot be listed.
   const walk = async (dir, rel, inTask) => {
@@ -229,7 +230,7 @@ async function snapshot(root) {
   };
 
   const found = (await walk(root, '', false)) || { files: [], dirs: [], warnings: [] };
-  for (const w of found.warnings) syncLog('warning', w);
+  if (warnings) for (const w of found.warnings) syncLog('warning', w);
   const entries = found.dirs.map(rel => ({ path: rel, dir: true }));
   const blobs = new Map();
   const seen = new Set();

@@ -53,8 +53,11 @@ the server also has added or updated, and the tasks the server deleted since the
 so a change made on the server, or pushed to it by another machine, comes here as well. It pulls once  
 when it starts, before its first push, so what the server has is taken in first and the push that follows  
 sends the folders as merged; after that a pull comes `POLLING_INTERVAL` seconds after the last  
-one ended. Before a pull, what is waiting to be pushed goes out; while it runs nothing is pushed; after it  
-the server is asked what it has and every folder compared, as at a rescan. The pull's lines go to the  
+one ended. Before a pull, a change here still waiting out its 10 seconds is looked at and pushed, so it  
+reaches the server first. A pull never writes over a change made here: when a folder has one not pushed  
+yet (the push failed, or the change came in between), it pulls nothing and says so (see `tm pull` in the  
+README), the rescan after it pushes the change, and the next pull goes through. While it runs nothing is  
+pushed; after it the server is asked what it has and every folder compared, as at a rescan. The pull's lines go to the  
 daemon's `logs/taskmgrd.log`, and a pull that fails is only told there (and in `pm2 logs taskmgrd`):  
 the next one comes at the next interval. With `POLLING=0`, or unset, the daemon only pushes,  
 and `tm pull` is the way to fetch from the server.  

@@ -3,6 +3,7 @@ node_modules/
 .DS_Store
 .env
 taskmgr.json
+*.tmp
 
 # built web UI
 dist/

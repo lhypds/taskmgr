@@ -4,6 +4,13 @@
 // deleted unless it is a task the server deleted since the last sync (see server/syncstate.js): a file or folder
 // that exists is updated when it differs, one that does not is added.
 //
+// What is here wins: nothing is pulled while a change made here since the last sync is not pushed
+// yet. Every tasks folder is compared with what was last synced first (see changesHere); one that
+// differs (a task added, changed, deleted, renamed or moved, an attachment added, changed or deleted),
+// or was never synced and is not empty, is told, with its changes, and the pull stops with an error:
+// push first (`tm push`, or taskmgrd does), which overwrites the server's copy. A change made here
+// while the pull runs is left as it is, told the same way, and counted as failed.
+//
 //   node pull.js      (what `tm pull` runs; SYNC_SERVER and SYNC_SERVER_TOKEN in .env, as for taskmgrd)
 //
 // taskmgr.json is merged, not replaced, and only for what is already here: an origin, work or
@@ -43,7 +50,7 @@ if (!TOKEN) die('SYNC_SERVER_TOKEN is not set in .env (the same value as in the 
 // attachment is only read again once it is modified. Required after the checks above: push.js has its own.
 // syncLog is the sync log of a run by hand, logs/taskmgr.log: the start and the end of the pull go there,
 // and each file that could not be pulled.
-const { fileHash, saveHashCache, syncLog } = require('./push');
+const { fileHash, saveHashCache, syncLog, snapshot, isDir } = require('./push');
 
 // Exit with an error, logged as the end of the run.
 function fail(message) {
@@ -166,10 +173,17 @@ const readIf = (abs) => {
 async function pullSpace(s, root, stats) {
   const query = { origin: s.origin, work: s.work, repository: s.repository };
   const key = spaceKey(s);
-  const known = syncState.get(key) || {};  // what both sides had at the last push or pull
+  // What both sides had at the last push or pull, which is what is here now: the folder was compared
+  // with it before anything was pulled (see changesHere, in main). So a path here that is not what was
+  // synced was changed meanwhile.
+  const known = syncState.get(key) || {};
   const { entries } = await get('space', query);
   const onServer = syncState.manifestOf(entries);
   fs.mkdirSync(root, { recursive: true });
+  // A change made here while this runs: a path no longer what was synced, gone, or new. It is left as
+  // it is (what is here wins), told, and counted as failed: the next push mirrors it on the server,
+  // and the pull after that is whole.
+  const changedMeanwhile = (p) => { stats.failed++; report(`${label(s)}: ${p}: changed here while pulling, left as it is`); };
   // A task the server has under another status folder than here is moved, not pulled as a second copy;
   // only a task.txt not here can be one.
   const tasks = entries.filter(e => typeof e.content === 'string' && e.path.split('/').pop() === 'task.txt');
@@ -186,9 +200,8 @@ async function pullSpace(s, root, stats) {
   });
 
   // A task deleted on the server since the last sync (its task.txt known, now gone there) is deleted
-  // here too, with its folder, unless its task.txt was edited here since or a subtask is still in it.
-  // Any other file missing on the server is left alone: it may only be one taskmgrd did not push
-  // (too large), not a deleted one.
+  // here too, with its folder, unless a subtask is still in it. Any other file missing on the server is
+  // left alone: it may only be one taskmgrd did not push (too large), not a deleted one.
   const hasTask = (dir) => fs.readdirSync(dir, { withFileTypes: true }).some(d => d.isDirectory() ? hasTask(path.join(dir, d.name)) : d.name === 'task.txt');
   const gone = Object.keys(known).filter(p => !(p in onServer) && p.split('/').pop() === 'task.txt').sort((a, b) => b.length - a.length);
   for (const p of gone) {
@@ -196,11 +209,7 @@ async function pullSpace(s, root, stats) {
       const abs = safeJoin(root, p);
       const have = readIf(abs);
       if (!have) continue;
-      if (sha1(have) !== known[p]) {
-        console.error(`${label(s)}: ${p}: deleted on the server but changed here, kept`);
-        syncLog('warning', `${label(s)}: ${p}: deleted on the server but changed here, kept`);
-        continue;
-      }
+      if (sha1(have) !== known[p]) { changedMeanwhile(p); continue; }
       const dir = path.dirname(abs);
       if (dir === path.resolve(root)) fs.rmSync(abs);
       else if (fs.readdirSync(dir, { withFileTypes: true }).some(d => d.isDirectory() && hasTask(path.join(dir, d.name)))) fs.rmSync(abs);  // a subtask stays
@@ -222,11 +231,21 @@ async function pullSpace(s, root, stats) {
         return;
       }
       const have = stat && stat.isFile();
+      if (!have && e.path in known) return changedMeanwhile(e.path);  // deleted here meanwhile
+      // A file here that is neither the server's nor what was synced was changed (or added) here meanwhile.
       if (typeof e.content === 'string') {
-        if (have && stat.size === Buffer.byteLength(e.content, 'utf8') && (await fsp.readFile(abs, 'utf8')) === e.content) return;
+        if (have) {
+          const text = await fsp.readFile(abs, 'utf8');
+          if (text === e.content) return;
+          if (known[e.path] !== sha1(Buffer.from(text, 'utf8'))) return changedMeanwhile(e.path);
+        }
         await writeFileAtomic(abs, e.content);
       } else if (typeof e.blob === 'string') {
-        if (have && (typeof e.size !== 'number' || stat.size === e.size) && (await fileHash(abs, stat)) === e.blob) return;
+        if (have) {
+          const hash = await fileHash(abs, stat);
+          if (hash === e.blob) return;
+          if (known[e.path] !== hash) return changedMeanwhile(e.path);
+        }
         const data = await download(() => get('file', { ...query, path: e.path }, { raw: true, timeout: DOWNLOAD_TIMEOUT_MS }));
         if (sha1(data) !== e.blob) throw new Error('the download does not match its sha1');
         await writeFileAtomic(abs, data);
@@ -244,6 +263,23 @@ async function pullSpace(s, root, stats) {
     for (const p of Object.keys(known)) if (!(p in onServer) && fs.existsSync(safeJoin(root, p))) onServer[p] = known[p];  // kept here: still known
     syncState.set(key, onServer);
   }
+}
+
+// The changes made here since the last sync, in the folder `root` of a space: every path whose content
+// is not what was last pushed or pulled (`known`, see server/syncstate.js), gone, or new, each as
+// "path (added|changed|deleted)". `entries` is the folder as a push sends it (see snapshot in push.js);
+// a file that is here but left out of it (too large) is not a deletion.
+function changesHere(root, known, entries) {
+  const here = syncState.manifestOf(entries);
+  const changes = [];
+  for (const p of Object.keys(here)) {
+    if (!(p in known)) changes.push(`${p} (added)`);
+    else if (known[p] !== here[p]) changes.push(`${p} (changed)`);
+  }
+  for (const p of Object.keys(known)) {
+    if (!(p in here) && !fs.existsSync(path.join(root, ...p.split('/')))) changes.push(`${p} (deleted)`);
+  }
+  return changes.sort();
 }
 
 (async () => {
@@ -310,6 +346,30 @@ async function pullSpace(s, root, stats) {
       byRoot.get(key).push(s);
     }
   }
+  // What is here wins: nothing is pulled while a folder has a change not pushed yet. Each is compared
+  // with what was last synced (a folder that is not there is left to the pull, as a push leaves it to
+  // the server); when any differs, or was never synced and is not empty, every one that does is told
+  // with its changes, and the pull stops.
+  const notPushed = [];
+  for (const [root, spaces] of byRoot) {
+    if (!isDir(root)) continue;
+    const { entries } = await snapshot(root, { warnings: false });
+    for (const s of spaces) {
+      const known = syncState.get(spaceKey(s));
+      const changes = known ? changesHere(root, known, entries) : entries.length ? ['never pushed'] : [];
+      if (changes.length) notPushed.push({ s, changes });
+    }
+  }
+  if (notPushed.length) {
+    const shown = 10;
+    for (const { s, changes } of notPushed) {
+      console.error(`${label(s)}:`);
+      for (const c of changes.slice(0, shown)) console.error(`  ${c}`);
+      if (changes.length > shown) console.error(`  ... and ${changes.length - shown} more`);
+    }
+    fail(`changes here not pushed yet (${notPushed.map(({ s }) => label(s)).join(', ')}); nothing pulled. Push first: tm push, or wait for taskmgrd.`);
+  }
+
   const stats = { added: 0, updated: 0, failed: 0 };
   await Promise.all([...byRoot.values()].map(async (spaces) => {
     for (const s of spaces) {

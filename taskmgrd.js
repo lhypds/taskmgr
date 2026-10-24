@@ -133,14 +133,22 @@ async function drainQueue() {
 // ---------- watching ----------
 
 let current = null;        // the last good config: { text, hash, works }
-const roots = new Map();   // tasks folder -> { root, spaces, watcher, timer, pollTimer, missing }
+const roots = new Map();   // tasks folder -> { root, spaces, watcher, timer, pollTimer, missing, scanning }
 
 // Compare a tasks folder with what the server has and queue the spaces that differ. A folder that
 // is not there is looked for from time to time instead. `why` says what brought it on, for the log:
-// 'changed' (something in the folder did) or 'rescan' (the server was polled).
-async function scanRoot(root, why = 'changed') {
+// 'changed' (something in the folder did) or 'rescan' (the server was polled). The scan under way
+// is kept in r.scanning, so a pull can wait for it (see flushChanges).
+function scanRoot(root, why = 'changed') {
   const r = roots.get(root);
-  if (!r) return;
+  if (!r) return Promise.resolve();
+  const scan = scanRootNow(r, why).finally(() => { if (r.scanning === scan) r.scanning = null; });
+  r.scanning = scan;
+  return scan;
+}
+
+async function scanRootNow(r, why) {
+  const root = r.root;
   if (pulling) return;  // the pull is writing here; every folder is scanned again once it is through (see poll)
   if (!isDir(root)) {
     if (!r.missing) {
@@ -235,7 +243,7 @@ function reconcile() {
   for (const [root, spaces] of byRoot) {
     const r = roots.get(root);
     if (r) r.spaces = spaces;
-    else roots.set(root, { root, spaces, watcher: null, timer: null, pollTimer: null, missing: false });
+    else roots.set(root, { root, spaces, watcher: null, timer: null, pollTimer: null, missing: false, scanning: null });
   }
   // Spaces no longer in the file are pruned by the server when the config arrives.
   const keys = new Set([...byRoot.values()].flat().map(spaceKey));
@@ -309,14 +317,32 @@ function runPull() {
   });
 }
 
-// Pull from the server, then look at everything again. What is queued is pushed first, so a change
-// made here goes out before the server's copy of it comes back; nothing is pushed or scanned while
-// the pull writes the folders (a push of a folder half pulled would send the old files back). After
-// it, the server is asked what it has and every folder compared, as at a rescan. The next pull is
-// POLLING_INTERVAL_S after this one ends, so they never overlap.
+// Before a pull: a change here still waiting out its DEBOUNCE_MS (in a tasks folder, or to
+// taskmgr.json) is looked at now, and every scan under way waited for, so that what changed here is
+// queued, and goes out with the drain that follows, before the pull. (The pull itself leaves alone
+// what changed here since the last sync, see pull.js; this gets it to the server sooner.)
+async function flushChanges() {
+  if (configTimer) {
+    clearTimeout(configTimer);
+    configTimer = null;
+    reconcile();  // scans every folder
+  } else {
+    for (const r of roots.values()) {
+      if (r.timer) { clearTimeout(r.timer); r.timer = null; scanRoot(r.root); }
+    }
+  }
+  await Promise.all([...roots.values()].map(r => r.scanning).filter(Boolean));
+}
+
+// Pull from the server, then look at everything again. What changed here is pushed first (see
+// flushChanges), so a change made here goes out before the server's copy of it comes back; nothing is
+// pushed or scanned while the pull writes the folders (a push of a folder half pulled would send the
+// old files back). After it, the server is asked what it has and every folder compared, as at a
+// rescan. The next pull is POLLING_INTERVAL_S after this one ends, so they never overlap.
 async function poll() {
   if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
   if (pulling) return;
+  if (PUSHING) await flushChanges();
   await drain();
   pulling = true;
   log('polling: tm pull');
