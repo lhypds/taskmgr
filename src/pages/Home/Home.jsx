@@ -223,15 +223,10 @@ export default function Home({ all = false }) {
     return m || data.machine || null;
   }, [data.remote, data.machine, space, works]);
 
+  // The root (every origin's tasks) is just "taskmgr".
   useEffect(() => {
-    document.title = all
-      ? `taskmgr - ${t("tree.allOrigins")}`
-      : work
-        ? `taskmgr - ${work}${repository ? ` / ${repository}` : ""}`
-        : origin
-          ? `taskmgr - ${origin}`
-          : "taskmgr";
-  }, [all, origin, work, repository, t]);
+    document.title = work ? `taskmgr - ${work}${repository ? ` / ${repository}` : ""}` : origin ? `taskmgr - ${origin}` : "taskmgr";
+  }, [origin, work, repository]);
 
   // Replace old /w links with the canonical origin path once the config is available.
   useEffect(() => {
