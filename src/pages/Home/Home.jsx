@@ -287,7 +287,8 @@ export default function Home({ all = false }) {
             ? { origin: (works || []).find((item) => item.work === t.work)?.origin || "", work: t.work, repository: t.repository }
             : space;
         if (!s) return [];
-        const path = !scope ? [] : all || origin ? [s.work, s.repository].filter(Boolean) : [s.repository].filter(Boolean);
+        // On a work's page (which has the origin in its path too) a task is from its repository only.
+        const path = !scope ? [] : scope.work ? [s.repository].filter(Boolean) : [s.work, s.repository].filter(Boolean);
         const from = path.join(" / ");
         const fromParts = path.slice(-1);
         const decorate = (task) => ({
@@ -300,7 +301,7 @@ export default function Home({ all = false }) {
         });
         return decorate(t);
       }),
-    [data.tasks, space, scope, all, origin, works],
+    [data.tasks, space, scope, works],
   );
   const tasks = useMemo(() => flattenTasks(tree), [tree]);
 
