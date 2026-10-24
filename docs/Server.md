@@ -220,7 +220,7 @@ Store one file in the blob store, `data/.sync-blobs/<sha1>`. 400 when the conten
 The server's `taskmgr.json` as it is: `{ ok, text }`. Used by `tm pull`.  
 
 `GET /api/sync/pull/space?origin=&work=&repository=`  
-A space's folder listed like a push: `{ ok, entries }` with `{ path, content }` for a task file, `{ path, blob: sha1, size }` for any other file and `{ path, dir: true }` for an empty folder. 404 when the server has no tasks folder for it.  
+A space's task folders listed like a push (what is beside them in the folder, a file right in it or a folder not named by a task id, is left out as a push leaves it out): `{ ok, entries }` with `{ path, content }` for a task file, `{ path, blob: sha1, size }` for any other file and `{ path, dir: true }` for an empty folder. 404 when the server has no tasks folder for it.  
 
 `GET /api/sync/pull/file?origin=&work=&repository=&path=`  
 One file of a space, raw. Nothing on the server is changed by the pull routes.  

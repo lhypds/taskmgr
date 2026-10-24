@@ -1,6 +1,8 @@
 // Receiving end of taskmgrd (taskmgrd.js): the daemon on the machine that has the tasks pushes its
-// taskmgr.json and the tasks folder of every work and repository here, whole: task files,
-// attachments and every other file in it. The config is merged into this server's own taskmgr.json,
+// taskmgr.json and the tasks of every work and repository here: each task folder of a tasks folder
+// whole, task file, attachments and every other file in it (not what is beside the tasks: a file
+// right in the tasks folder, or a folder there not named by a task id; see taskEntries in
+// utils/taskUtils.js). The config is merged into this server's own taskmgr.json,
 // each pushed work and repository pointing at its copy of the tasks, which is kept under data/, laid
 // out like the origins tree of taskmgr.json:
 //
@@ -45,7 +47,7 @@
 //   GET /api/sync/pull/config                                -> { ok, text }
 //   GET /api/sync/pull/space?origin=&work=&repository=       -> { ok, entries }
 //   GET /api/sync/pull/file?origin=&work=&repository=&path=  -> the raw file
-//       what `tm pull` reads: this server's taskmgr.json, a space's folder listed like a push
+//       what `tm pull` reads: this server's taskmgr.json, a space's task folders listed like a push
 //       (task files as text, the others by sha1 and size), and one file of it. Nothing is changed.
 //
 // Attachments go through the blob store, data/.sync-blobs/<sha1>, so that a file the server already
@@ -65,6 +67,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { parseConfig, upgradeRaw } = require('./config');
 const { appendLog } = require('../utils/logfile');
+const { STATUS_DIRS, taskEntries } = require('../utils/taskUtils');
 
 const ORIGINS_DIR = 'origins';
 const NO_ORIGIN_DIR = '_';
@@ -154,8 +157,6 @@ function placeBlob(from, to) {
     fs.copyFileSync(from, to);
   }
 }
-
-const STATUS_DIRS = ['done', 'pending', 'aborted'];
 
 // The tasks of a snapshot (`entries`, by `path` relative to `root`) that `root` has under another
 // status folder (todo, done/, pending/, aborted/ beside each other) are moved there first, folder and all,
@@ -607,11 +608,12 @@ function createSyncApp({ dataDir, logsDir = path.join(dataDir, '..', 'logs'), to
     res.json({ ok: true, text: readConfig() });
   });
 
-  // Everything in a space's folder, in the form of a push: { path, content } for a task file, { path,
-  // blob: sha1, size } for any other file (fetched with /pull/file), { path, dir: true } for an empty folder.
+  // The task folders of a space, in the form of a push (what is beside them in the folder is left
+  // out, as a push leaves it out; see taskEntries): { path, content } for a task file, { path, blob:
+  // sha1, size } for any other file (fetched with /pull/file), { path, dir: true } for an empty folder.
   app.get('/api/sync/pull/space', (req, res) => {
     const root = rootOf(req.query);
-    const entries = [];
+    const listed = [];
     const walk = (dir, rel) => {
       let names;
       try {
@@ -635,9 +637,9 @@ function createSyncApp({ dataDir, logsDir = path.join(dataDir, '..', 'logs'), to
         } else if (stat.isFile()) {
           try {
             if (name === 'task.txt') {
-              entries.push({ path: entryRel, content: fs.readFileSync(abs, 'utf8') });
+              listed.push({ path: entryRel, content: fs.readFileSync(abs, 'utf8') });
             } else {
-              entries.push({ path: entryRel, blob: crypto.createHash('sha1').update(fs.readFileSync(abs)).digest('hex'), size: stat.size });
+              listed.push({ path: entryRel, blob: crypto.createHash('sha1').update(fs.readFileSync(abs)).digest('hex'), size: stat.size });
             }
           } catch (e) {
             continue;
@@ -647,9 +649,10 @@ function createSyncApp({ dataDir, logsDir = path.join(dataDir, '..', 'logs'), to
         }
         count++;
       }
-      if (!count && rel) entries.push({ path: rel, dir: true });
+      if (!count && rel) listed.push({ path: rel, dir: true });
     };
     walk(root, '');
+    const entries = taskEntries(listed);
     entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
     machineLog(req, 'info', `pulled ${label(req.query)} (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'})`);
     res.json({ ok: true, entries });

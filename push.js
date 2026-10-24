@@ -14,12 +14,18 @@
 //                                         so the server can show whether this machine is in touch
 //
 // taskmgr.json is pushed whole; an invalid one is not pushed. A tasks folder is pushed as a snapshot
-// of everything in it: every file (task.txt files as text, the others, attachments included, by the
-// sha1 of their content, the server asked first which of them it does not have yet and those
-// uploaded) and every empty folder; the server brings its copy to the snapshot, so after a push its
-// copy is the folder as it is here, and a renamed, moved or deleted task or attachment is mirrored
-// too. Only .DS_Store files are left out, and files over 5 MB and folders over 10 MB (never the tasks
-// folder itself) are not pushed. A tasks folder that does not exist is left as it is on the server.
+// of its tasks: the task folders right in it and in its done, pending and aborted folders, told by
+// their name alone (a task id, 12 digits, "202610191522", with or without a title after a space; see
+// taskEntries in utils/taskUtils.js), each whole: every file in it (task.txt files as text, the
+// others, attachments included, by the sha1 of their content, the server asked first which of them
+// it does not have yet and those uploaded) and every empty folder. A task folder without a task.txt
+// gets one first, with the title from its name as its text (empty for a bare id), so every task
+// pushed has its text. A file right in the tasks folder, or in a status folder, and a folder there
+// named some other way are not tasks: not pushed, not looked at. The server brings its copy to the
+// snapshot, so after a push its copy is the tasks as they are here, and a renamed, moved or deleted
+// task or attachment is mirrored too. Only .DS_Store files are left out, and files over 5 MB and
+// folders over 10 MB (never a task folder itself) are not pushed. A tasks folder that does not exist
+// is left as it is on the server.
 // More threads for the file system calls, which go out side by side (see snapshot); must be set
 // before the first one.
 process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '32';
@@ -31,7 +37,7 @@ const crypto = require('crypto');
 const { loadDotenv, parseConfig, DEFAULT_CONFIG_PATH } = require('./server/config');
 const { spaceKey } = require('./server/sync');
 const syncState = require('./server/syncstate');
-const { TASK_FILE } = require('./utils/taskUtils');
+const { TASK_FILE, STATUS_DIRS, TASK_FOLDER_RE, ensureTaskFile } = require('./utils/taskUtils');
 const { appendLog } = require('./utils/logfile');
 
 const REQUEST_TIMEOUT_MS = 30 * 1000;
@@ -148,7 +154,8 @@ async function fileHash(abs, stat) {
   return sha;
 }
 
-// Everything under a tasks folder, as the server mirrors it: every file, relative to the folder, a
+// The tasks of a tasks folder, as the server mirrors them: every file of every task folder (see
+// taskEntries in utils/taskUtils.js for which folders those are), relative to the tasks folder, a
 // task.txt as text and any other file (attachments, whatever else is there) by the sha1 of its
 // content, which the server fetches from its blob store (see pushSpace); an empty folder as a bare
 // folder. Symbolic links are followed; .DS_Store files are left out. Sorted, so the same folder
@@ -161,19 +168,35 @@ async function fileHash(abs, stat) {
 // unless `warnings` is false (the pull takes a snapshot too, to compare, and says nothing).
 async function snapshot(root, { warnings = true } = {}) {
   // { files: [{ rel, abs, stat }], dirs: [rel], warnings: [message], size, isTask }, or null when
-  // `dir` cannot be listed.
-  const walk = async (dir, rel, inTask) => {
+  // `dir` cannot be listed. `task` says `dir` is a task folder of a listing (see below).
+  const walk = async (dir, rel, inTask, task = false) => {
     let dirents;
     try {
       dirents = await fsp.readdir(dir, { withFileTypes: true });
     } catch (e) {
       return null;
     }
-    const isTask = dirents.some(d => d.name === TASK_FILE);
+    const out = { files: [], dirs: [], warnings: [], size: 0, isTask: dirents.some(d => d.name === TASK_FILE) };
+    // A task folder of a listing without a task file gets one, with the title from its name (what
+    // follows the id; nothing for a bare id) as its text, as the web UI does when it opens one
+    // (ensureTaskFile), so every task pushed has its text.
+    if (task && !out.isTask) {
+      try {
+        ensureTaskFile(path.join(dir, TASK_FILE));
+        dirents = await fsp.readdir(dir, { withFileTypes: true });
+        out.isTask = true;
+      } catch (e) {
+        out.warnings.push(`cannot create ${path.join(dir, TASK_FILE)}: ${e.message}`);
+      }
+    }
     // Only a folder inside a task can be skipped for its size; the task's own folder (and done/,
     // pending/, aborted/ and the like around it) always goes, minus whatever is too large in it.
-    inTask = inTask || isTask;
-    const out = { files: [], dirs: [], warnings: [], size: 0, isTask };
+    inTask = inTask || out.isTask;
+    // The tasks folder itself and its done, pending and aborted folders list tasks: only the task
+    // folders in them go, told by their name alone (the rule of taskEntries, applied while walking,
+    // so a file right there, or a folder named some other way, costs nothing). Inside a task,
+    // everything goes.
+    const listing = rel === '' || STATUS_DIRS.includes(rel);
     // Each entry looked at side by side: { sub } for a folder, { file } for a file, null for none.
     const found = await Promise.all(dirents.map(async (d) => {
       if (SKIPPED_FILES.has(d.name)) return null;
@@ -192,10 +215,15 @@ async function snapshot(root, { warnings = true } = {}) {
         isFile = stat.isFile();
       }
       if (isFolder) {
-        const sub = await walk(abs, entryRel, inTask);
+        // In a listing, a status folder at the root holds tasks and is walked as a listing itself;
+        // any other folder goes only as a task, told by its name.
+        const status = listing && !rel && STATUS_DIRS.includes(d.name);
+        const asTask = listing && !status;
+        if (asTask && !TASK_FOLDER_RE.test(d.name)) return null;
+        const sub = await walk(abs, entryRel, inTask || asTask, asTask);
         return sub && { abs, sub };
       }
-      if (!isFile) return null;  // a socket, a device: not a file to mirror
+      if (listing || !isFile) return null;  // a file right among the tasks, or a socket, a device: not mirrored
       try {
         stat = stat || await fsp.stat(abs);
       } catch (e) {
@@ -225,7 +253,8 @@ async function snapshot(root, { warnings = true } = {}) {
       }
       count++;
     }
-    if (!count && rel) out.dirs.push(rel);
+    // An empty folder goes as itself; not a status folder at the root with no task in it.
+    if (!count && rel && !STATUS_DIRS.includes(rel)) out.dirs.push(rel);
     return out;
   };
 

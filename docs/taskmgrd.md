@@ -22,10 +22,14 @@ data/
 ```
 
 What is pushed: `taskmgr.json` whole when it changes (an invalid one is not pushed; the folders of the  
-last good one stay watched), and each tasks folder whole, whenever anything in it changes: every file in  
-it, task files, attachments and anything else, `done` / `pending` / `aborted` folders and subtasks included, and every  
-empty folder. The server brings its copy to the snapshot: a task marked done, pending or aborted (or back to todo) is moved first, then only what differs is written and what is gone removed, so after a push its copy is the folder  
-exactly as it is here, and a renamed, moved or deleted task or attachment is mirrored too. Only `.DS_Store`  
+last good one stay watched), and the tasks of each tasks folder, whenever anything in them changes: every  
+task folder right in it and in its `done` / `pending` / `aborted` folders, told by its name alone (a task id,  
+12 digits like `202610191522`, with or without a title after a space), whole: every file in it, task file,  
+attachments and anything else, subtasks included, and every empty folder. A task folder without a `task.txt`  
+gets one first, with the title from its name as its text (empty for a bare id). What is beside the tasks  
+is not pushed, nor looked at: a file right in the tasks folder (or in a status folder), and a folder there  
+named some other way, whatever is in it. The server brings its copy to the snapshot: a task marked done, pending or aborted (or back to todo) is moved first, then only what differs is written and what is gone removed, so after a push its copy is the tasks  
+exactly as they are here, and a renamed, moved or deleted task or attachment is mirrored too. Only `.DS_Store`  
 files are left out. Task files go as text; every other file by the sha1 of its content: the daemon asks the  
 server which of them it does not have yet and uploads only those, so an unchanged attachment, or the same  
 file under a renamed task, is never sent twice (the server keeps them in `data/.sync-blobs/`).  

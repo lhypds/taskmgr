@@ -65,6 +65,23 @@ function isTaskFolder(dirAbs) {
   return TASK_FOLDER_RE.test(path.basename(dirAbs)) || fs.existsSync(path.join(dirAbs, TASK_FILE));
 }
 
+// Of a tasks folder listed for the sync (paths relative to it, "/"-separated; a file as { path },
+// an empty folder as { path, dir: true }; see snapshot in push.js), the entries that are in one of
+// its task folders: a folder right in it, or in its done, pending or aborted folder, that is a task
+// by name alone (TASK_FOLDER_RE: an id, then a title or nothing). Nothing else in a tasks folder is
+// synced: a file right in it, a folder named some other way and whatever is in it (even a task.txt:
+// the sync is stricter than isTaskFolder, so what is kept beside the tasks stays here), a file right
+// in a status folder; an empty status folder is left out too. What is in a task folder goes whole,
+// subtasks, attachments and other files alike.
+function taskEntries(entries) {
+  return entries.filter((e) => {
+    const p = String(e.path).split('/');
+    const n = STATUS_DIRS.includes(p[0]) ? 2 : 1;  // how many leading parts name the task folder
+    if (p.length < n || (p.length === n && e.dir !== true)) return false;  // a status folder itself, or a file right there
+    return TASK_FOLDER_RE.test(p[n - 1]);
+  });
+}
+
 // Read the task of a task folder. A folder without a task file (one made by
 // hand, or just "<id> title") is still a task, titled after the folder name.
 function readTaskDir(dirAbs) {
@@ -306,9 +323,11 @@ module.exports = {
   TASK_FILE,
   PROMPT_FILE,
   STATUS_DIRS,
+  TASK_FOLDER_RE,
   readPrompt,
   listDirOf,
   isTaskFolder,
+  taskEntries,
   readTaskDir,
   ensureTaskFile,
   createTask,

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-// tm pull: fetch taskmgr.json, every task.txt and every other file (attachments, files in folders)
-// from the server taskmgrd pushes to (what `tm push` sends), and put them here. Nothing local is
+// tm pull: fetch taskmgr.json and the task folders of every tasks folder, whole (every task.txt and
+// every other file: attachments, files in folders), from the server taskmgrd pushes to (what `tm push`
+// sends, and only that: a file right in a tasks folder, or a folder there not named by a task id, is
+// not pulled either; see taskEntries in utils/taskUtils.js), and put them here. Nothing local is
 // deleted unless it is a task the server deleted since the last sync (see server/syncstate.js): a file or folder
 // that exists is updated when it differs, one that does not is added.
 //
@@ -26,6 +28,7 @@ const os = require('os');
 const crypto = require('crypto');
 const syncState = require('./server/syncstate');
 const { spaceKey, moveTasks } = require('./server/sync');
+const { taskEntries } = require('./utils/taskUtils');
 const { loadDotenv, parseConfig, upgradeRaw, DEFAULT_CONFIG_PATH } = require('./server/config');
 
 const REQUEST_TIMEOUT_MS = 30 * 1000;
@@ -167,6 +170,17 @@ const readIf = (abs) => {
   }
 };
 
+// What was last synced of a space (see server/syncstate.js), the tasks only: a state written when the
+// whole folder was synced, files right in it included, must not make those files changes here, nor
+// tasks the server deleted (see taskEntries in utils/taskUtils.js). null when never synced.
+function knownOf(key) {
+  const known = syncState.get(key);
+  if (!known) return null;
+  const kept = {};
+  for (const e of taskEntries(Object.keys(known).map(p => ({ path: p, dir: known[p] === '' })))) kept[e.path] = known[e.path];
+  return kept;
+}
+
 // Every file here is looked at side by side (on a Windows drive under WSL each call costs
 // milliseconds, most of it waiting), an attachment by its size first and then its cached sha1, and
 // the downloads go DOWNLOADS_AT_ONCE at a time.
@@ -176,8 +190,9 @@ async function pullSpace(s, root, stats) {
   // What both sides had at the last push or pull, which is what is here now: the folder was compared
   // with it before anything was pulled (see changesHere, in main). So a path here that is not what was
   // synced was changed meanwhile.
-  const known = syncState.get(key) || {};
-  const { entries } = await get('space', query);
+  const known = knownOf(key) || {};
+  // The tasks only, as a push sends them: a server from before that rule lists the whole folder.
+  const entries = taskEntries((await get('space', query)).entries);
   const onServer = syncState.manifestOf(entries);
   fs.mkdirSync(root, { recursive: true });
   // A change made here while this runs: a path no longer what was synced, gone, or new. It is left as
@@ -355,7 +370,7 @@ function changesHere(root, known, entries) {
     if (!isDir(root)) continue;
     const { entries } = await snapshot(root, { warnings: false });
     for (const s of spaces) {
-      const known = syncState.get(spaceKey(s));
+      const known = knownOf(spaceKey(s));
       const changes = known ? changesHere(root, known, entries) : entries.length ? ['never pushed'] : [];
       if (changes.length) notPushed.push({ s, changes });
     }
