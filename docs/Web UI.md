@@ -23,6 +23,8 @@ and then they add a task at the top. A search or filter keeps a task whose subta
 the progress view a task's card sits in the column of its status with its subtasks' cards under  
 it as the same tree, a subtask whose status differs from the column shown in grey. `tab` (or `h` at the top of a task list) moves the  
 keyboard to the tree, `l` / `enter` back to the tasks.  
+The page re-reads the tree and the tasks every ten seconds while its tab is visible, so changes
+pushed from another machine or made with the cli show up on their own; the refresh button at the top does it at once.  
 
 Configuration: `taskmgr.json` (copy `taskmgr.json.example`; the file is git-ignored).  
 The bare `tm` command reads the same file:  

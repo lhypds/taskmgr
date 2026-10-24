@@ -203,17 +203,16 @@ export default function Home({ all = false }) {
     loadSpaces();
   }, [loadSpaces]);
 
-  // The dot beside a machine id (see MachineDot) goes grey three minutes after that machine's last
-  // push or poll, so while a space shows one, the works are re-read every half minute (when the tab
-  // is visible) to keep the dots current.
-  const hasMachines = !!works?.some((w) => w.machine || w.repositories.some((p) => p.machine));
+  // The page re-reads itself every ten seconds while the tab is visible: the tasks, for changes
+  // pushed from another machine or made with the cli, and the works, which keeps the dot beside a
+  // machine id (see MachineDot) current, since it goes grey three minutes after that machine's last
+  // push or poll.
   useEffect(() => {
-    if (!hasMachines) return undefined;
     const id = setInterval(() => {
-      if (document.visibilityState === "visible") loadSpaces();
-    }, 30 * 1000);
+      if (document.visibilityState === "visible") reload();
+    }, 10 * 1000);
     return () => clearInterval(id);
-  }, [hasMachines, loadSpaces]);
+  }, [reload]);
 
   // The machine of the space shown, for the footer: from the works list, which is kept current (see
   // above), rather than from the task list, which is not re-read for it.
