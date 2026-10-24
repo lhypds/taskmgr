@@ -204,10 +204,11 @@
   display: none;
 }
 
-/* The income in short (in 万) at the right end of the name line; the buttons take its place on hover. */
+/* The income in short (in 万) at the right end of the name line, as small as the line under the
+   name; the buttons take its place on hover. */
 .income {
   flex: none;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 16px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
