@@ -143,6 +143,17 @@
   color: var(--fg);
 }
 
+/* The from tag is a link to the task's work or repository: it looks like the tag it was until
+   hovered, when an underline says so. */
+.from {
+  text-decoration: none;
+}
+
+.from:hover,
+.from:focus-visible {
+  text-decoration: underline;
+}
+
 /* Each name in the from tag is cut short with an ellipsis past a limit, so a long work or
    repository name cannot fill the row. */
 .fromPart {

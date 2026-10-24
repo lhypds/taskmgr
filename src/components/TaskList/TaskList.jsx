@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import * as api from "@utils/api";
 import { EditIcon, FolderIcon, TrashIcon } from "@components/icons";
 import TreeLines from "@components/TreeLines";
 import { describe, formatStamp } from "@utils/task";
@@ -35,19 +37,28 @@ function RowButton({ label, className = "", onClick, children }) {
   );
 }
 
-// Where a task is from: its repository (or work) name. A long name is cut short with an ellipsis,
-// and the whole work / repository path shows on hover.
+// Where a task is from: its repository (or work) name, a link to that space. A long name is cut
+// short with an ellipsis, and the whole work / repository path shows on hover. Clicking it must not
+// select (or, doubled, open the folder of) the row around it.
 export function FromTag({ task }) {
   if (!task.from) return null;
+  const { origin, work, repository } = task.space;
+  const stop = (e) => e.stopPropagation();
   return (
-    <span className="tag" title={task.from}>
+    <Link
+      className={`tag ${styles.from}`}
+      to={api.spacePath(origin, work, repository)}
+      title={task.from}
+      onClick={stop}
+      onDoubleClick={stop}
+    >
       {task.fromParts.map((part, i) => (
         <span key={i} className={styles.fromPart}>
           {i > 0 && <span className={styles.fromSep}>/</span>}
           <span className={styles.fromName}>{part}</span>
         </span>
       ))}
-    </span>
+    </Link>
   );
 }
 
