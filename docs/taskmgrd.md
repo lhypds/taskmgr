@@ -32,7 +32,8 @@ file under a renamed task, is never sent twice (the server keeps them in `data/.
 The server merges a pushed `taskmgr.json` into its own: origins, works and repositories it  
 does not have are added, the ones it has take the pushed settings, and the ones it has that were not  
 pushed are kept, with their folders (so several machines can push to one server; a work or  
-repository renamed or removed on one machine stays on the server until removed there). In the  
+repository renamed or removed on one machine stays on the server until removed there, shown as  
+plain "remote" from then on: no longer as that machine's, with its dot). In the  
 merged file, the `tasks_path` of every pushed work (that has common tasks) and repository is its  
 copy under `data/origins/`, and a repository's `source_path` is left out, so the server's web UI  
 shows the pushed tasks. A work pushed without a `tasks_path` has none on the server either: the one  

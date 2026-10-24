@@ -29,6 +29,8 @@
 //       merges the config into this server's taskmgr.json (an invalid one is refused; see
 //       mergeConfigs), with the pushed tasks_path set to the copies under data/origins/ (see
 //       toMirror), and removes, under data/origins/, the origins, works and repositories not in it.
+//       A space the pushing machine pushed before and no longer lists (renamed or removed there)
+//       is kept, but no longer as that machine's (see machineInfo).
 //   POST /api/sync/blobs  { blobs: [sha1] }                  -> { ok, missing }
 //       which of these files the server does not have yet (see the blob store below).
 //   PUT /api/sync/blob/<sha1>   (the raw file)               -> { ok }
@@ -88,6 +90,17 @@ const sha1 = (text) => crypto.createHash('sha1').update(text).digest('hex');
 // parts can always be told apart. "" for no origin / the work's common tasks.
 function spaceKey({ origin, work, repository }) {
   return [origin || '', work, repository || ''].join('/');
+}
+
+// The keys (see spaceKey) of every space of these works (as parseConfig returns them): a work's
+// common tasks when it has a tasks folder, and each of its repositories.
+function spaceKeys(works) {
+  const keys = new Set();
+  for (const w of works) {
+    if (w.root) keys.add(spaceKey({ origin: w.origin, work: w.work, repository: '' }));
+    for (const p of w.repositories) keys.add(spaceKey({ origin: w.origin, work: w.work, repository: p.name }));
+  }
+  return keys;
 }
 
 // A folder name of the mirror: an origin, work or repository name as it is, refused when it is not
@@ -489,8 +502,9 @@ function createSyncApp({ dataDir, logsDir = path.join(dataDir, '..', 'logs'), to
   app.put('/api/sync/config', json, (req, res) => {
     const text = (req.body || {}).text;
     if (typeof text !== 'string') throw new SyncError(400, 'Missing text.');
+    let pushedWorks;
     try {
-      parseConfig(text, 'the pushed taskmgr.json');
+      pushedWorks = parseConfig(text, 'the pushed taskmgr.json').works;
     } catch (e) {
       throw new SyncError(400, e.message);
     }
@@ -506,13 +520,20 @@ function createSyncApp({ dataDir, logsDir = path.join(dataDir, '..', 'logs'), to
     const pruned = pruneOrigins(dataDir, parsed.works);
     const state = readState();
     state.config = sha1(text);
-    const keys = new Set();
-    for (const w of parsed.works) {
-      if (w.root) keys.add(spaceKey({ origin: w.origin, work: w.work, repository: '' }));
-      for (const p of w.repositories) keys.add(spaceKey({ origin: w.origin, work: w.work, repository: p.name }));
-    }
+    const keys = spaceKeys(parsed.works);
     for (const k of Object.keys(state.spaces)) if (!keys.has(k)) { delete state.spaces[k]; delete state.blobs[k]; }
     for (const k of Object.keys(state.machines)) if (!keys.has(k)) delete state.machines[k];
+    // A space this machine pushed before and its config no longer lists (a work or repository
+    // renamed or removed there) stays here, as one of this server's own (see mergeConfigs), but is
+    // no longer this machine's: the machine is forgotten, so the web UI shows the copy as plain
+    // "remote", without the dot, and so is the snapshot, so the space is pushed whole should the
+    // machine list it again. Its blobs stay referenced, so none is uploaded again then.
+    if (req.machine) {
+      const pushed = spaceKeys(pushedWorks);
+      for (const k of Object.keys(state.machines)) {
+        if (state.machines[k] === req.machine && !pushed.has(k)) { delete state.machines[k]; delete state.spaces[k]; }
+      }
+    }
     writeState(state);
     pruneBlobs(state);
     machineLog(req, 'success', `pushed taskmgr.json${pruned.length ? ` (removed here: ${pruned.join(', ')})` : ''}`);

@@ -191,7 +191,9 @@ Origins, works and repositories only on the server are kept, those only pushed a
 (same origin, same name) takes the pushed fields, its repositories merged the same way (the pushed one wins  
 for a repository in both). A work pushed without `tasks_path` loses the one it has on the server, and the copy  
 of its common tasks under `data/origins/` is removed (listed in `pruned`). A work pushed under another origin  
-moves there. 409 when the merge is invalid.  
+moves there. A space the pushing machine (`X-Machine-Id`) pushed before and no longer lists (a work or repository  
+renamed or removed there) is kept, but is no longer that machine's: its `machine` becomes `null` (plain "remote",  
+no dot) and its snapshot is forgotten, so it is pushed whole should the machine list it again. 409 when the merge is invalid.  
 
 `POST /api/sync/blobs` `{ blobs }`  
 Which of these files (sha1 hashes of their content) the server does not have yet: `{ ok, missing }`.  
