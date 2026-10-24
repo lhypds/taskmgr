@@ -11,3 +11,7 @@
   opacity: 0.9;
   max-width: 90vw;
 }
+
+.error {
+  background: var(--err);
+}

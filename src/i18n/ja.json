@@ -66,7 +66,10 @@
     "createdUploadFailed": "タスクを作成しましたが、添付ファイルのアップロードに失敗しました：{{error}}",
     "deleted": "タスクを削除しました",
     "opened": "ファイルマネージャーで開きました",
-    "notCommand": "コマンドではありません：{{cmd}}"
+    "notCommand": "コマンドではありません：{{cmd}}",
+    "copied": "{{id}} をコピーしました",
+    "copiedAmbiguous": "{{id}} をコピーしましたが、「{{name}}」は複数の work / repository に当たります：tm run には work/repository が必要です",
+    "copyFailed": "クリップボードにコピーできませんでした"
   },
   "delete": {
     "title": "タスクを削除",
@@ -160,6 +163,10 @@
     "open": {
       "keys": "進捗で enter",
       "desc": "タスクフォルダを開く"
+    },
+    "copy": {
+      "keys": "⌘c / ctrl+c",
+      "desc": "選択中のタスクの id を tm run 用にコピー（repository:id または work:id）"
     },
     "done": {
       "keys": "x",

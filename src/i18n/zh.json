@@ -66,7 +66,10 @@
     "createdUploadFailed": "任务已创建，但附件上传失败：{{error}}",
     "deleted": "任务已删除",
     "opened": "已在文件管理器中打开",
-    "notCommand": "无效命令：{{cmd}}"
+    "notCommand": "无效命令：{{cmd}}",
+    "copied": "已复制 {{id}}",
+    "copiedAmbiguous": "已复制 {{id}}，但“{{name}}”对应多个 work / repository：tm run 需要写成 work/repository",
+    "copyFailed": "无法复制到剪贴板"
   },
   "delete": {
     "title": "删除任务",
@@ -160,6 +163,10 @@
     "open": {
       "keys": "Progress 中按 enter",
       "desc": "打开任务文件夹"
+    },
+    "copy": {
+      "keys": "⌘c / ctrl+c",
+      "desc": "复制选中任务的 id，供 tm run 使用（repository:id 或 work:id）"
     },
     "done": {
       "keys": "x",

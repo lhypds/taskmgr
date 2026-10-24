@@ -8,8 +8,9 @@ export function register(show, hide) {
   };
 }
 
-export function show(message, duration = 1800, position = "bottom") {
-  handlers?.show(message, duration, position);
+// `variant` "error" shows the toast in red.
+export function show(message, duration = 1800, position = "bottom", variant = "") {
+  handlers?.show(message, duration, position, variant);
 }
 
 export function hide() {

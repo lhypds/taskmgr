@@ -12,13 +12,15 @@ const Toast = () => {
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState("");
   const [position, setPosition] = useState("bottom");
+  const [variant, setVariant] = useState("");
   const timerRef = useRef(null);
 
   useEffect(() => {
     return register(
-      (content, duration, pos = "bottom") => {
+      (content, duration, pos = "bottom", kind = "") => {
         setMessage(content);
         setPosition(pos);
+        setVariant(kind);
         setVisible(true);
         if (timerRef.current) clearTimeout(timerRef.current);
         if (duration != null) timerRef.current = setTimeout(() => setVisible(false), duration);
@@ -32,7 +34,7 @@ const Toast = () => {
 
   if (!visible) return null;
   return (
-    <div className={styles.toast} style={POSITION_STYLES[position]}>
+    <div className={variant === "error" ? `${styles.toast} ${styles.error}` : styles.toast} style={POSITION_STYLES[position]}>
       {message}
     </div>
   );

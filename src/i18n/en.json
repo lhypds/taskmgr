@@ -66,7 +66,10 @@
     "createdUploadFailed": "Task created, but an attachment failed: {{error}}",
     "deleted": "Task deleted",
     "opened": "Opened in file manager",
-    "notCommand": "Not a command: {{cmd}}"
+    "notCommand": "Not a command: {{cmd}}",
+    "copied": "Copied {{id}}",
+    "copiedAmbiguous": "Copied {{id}}, but “{{name}}” names more than one work / repository: tm run needs work/repository",
+    "copyFailed": "Could not copy to the clipboard"
   },
   "delete": {
     "title": "Delete task",
@@ -160,6 +163,10 @@
     "open": {
       "keys": "enter in progress",
       "desc": "open the task folder"
+    },
+    "copy": {
+      "keys": "⌘c / ctrl+c",
+      "desc": "copy the selected task's id for tm run (repository:id or work:id)"
     },
     "done": {
       "keys": "x",

@@ -36,10 +36,11 @@ import { showToast, Checkbox } from "@ui";
 import { useAuth } from "@store";
 import * as api from "@utils/api";
 import { ALL_MONTHS, taskMonth, taskMonths, monthLabel, previewKind, flattenTasks, filterTasks } from "@utils/task";
-import { groupWorksByOrigin } from "@utils/works";
+import { groupWorksByOrigin, runName, runId, ambiguousRunNames } from "@utils/works";
+import { copyText } from "@utils/clipboard";
 import { useTaskFiles } from "@components/Attachments";
 import MachineDot from "@components/MachineDot";
-import { useShortcuts, useWheelSteps, moveIndex } from "@utils/keys";
+import { useShortcuts, useWheelSteps, moveIndex, isTyping } from "@utils/keys";
 import styles from "./home.module.css";
 
 const EMPTY_DIR = {
@@ -695,6 +696,30 @@ export default function Home({ all = false }) {
     };
     document.addEventListener("keydown", onLayoutKeyDown);
     return () => document.removeEventListener("keydown", onLayoutKeyDown);
+  });
+
+  // cmd+c (ctrl+c elsewhere) with a task selected copies its id as `tm run` takes it,
+  // "repository:202610241655" or "work:202610241655", and says so. The browser keeps the key while
+  // text is selected or a text field has the caret, so copying text still works, and the modals
+  // keep it too. The toast is red when the name before the colon is one `tm run` cannot tell
+  // apart (see ambiguousRunNames): the id copied all the same, so the user knows to say which.
+  const ambiguousNames = useMemo(() => ambiguousRunNames(works), [works]);
+  useEffect(() => {
+    const onCopyKeyDown = (e) => {
+      if (e.defaultPrevented || e.repeat || (e.code !== "KeyC" && e.key.toLowerCase() !== "c")) return;
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || isTyping(e)) return;
+      if (!selected || window.getSelection?.()?.toString()) return;
+      if (creating || confirm || removingFile || configOpen || editingWork || editingOrigin || adding || editingRepository || analysisOpen || command !== null) return;
+      e.preventDefault();
+      const id = runId(selected);
+      copyText(id).then((ok) => {
+        if (!ok) showToast(t("toast.copyFailed"), 1800, "bottom", "error");
+        else if (ambiguousNames.has(runName(selected.space))) showToast(t("toast.copiedAmbiguous", { id, name: runName(selected.space) }), 4000, "bottom", "error");
+        else showToast(t("toast.copied", { id }));
+      });
+    };
+    document.addEventListener("keydown", onCopyKeyDown);
+    return () => document.removeEventListener("keydown", onCopyKeyDown);
   });
 
   // On the tree: j / k move through the spaces (the right side follows), l / enter go over to
