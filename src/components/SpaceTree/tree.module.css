@@ -189,6 +189,11 @@
   color: var(--fg);
 }
 
+/* Buttons sit closer to each other than to the name: the line's 8px gap pulled in to 4px. */
+.rowEdit + .rowEdit {
+  margin-left: -4px;
+}
+
 .row:hover .rowEdit,
 .origin:hover .rowEdit {
   display: inline-flex;
