@@ -35,7 +35,8 @@ pushed are kept, with their folders (so several machines can push to one server;
 repository renamed or removed on one machine stays on the server until removed there). In the  
 merged file, the `tasks_path` of every pushed work (that has common tasks) and repository is its  
 copy under `data/origins/`, and a repository's `source_path` is left out, so the server's web UI  
-shows the pushed tasks. A tasks  
+shows the pushed tasks. A work pushed without a `tasks_path` has none on the server either: the one  
+it had there is dropped, with the copy of its common tasks under `data/origins/`. A tasks  
 folder that does not exist is left as it is on the server and looked for every 30 seconds. Changes  
 go out 10 seconds after the last of them; at startup the daemon pushes `taskmgr.json` once, and  
 at startup and every 5 minutes it asks the server what it has and pushes what differs, and a push  

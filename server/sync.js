@@ -323,8 +323,11 @@ function toMirror(dataDir, pushed) {
 // The pushed config merged into the one here, both raw and in the "origins" form: an origin, work
 // or repository that is only here is kept, one that is only pushed is added. A work in both (by
 // name, in the same origin) takes the pushed fields, with its repositories merged the same way (a
-// repository in both is the pushed one). A work pushed under another origin than here moves there,
-// as work names are unique across origins. Returns the merged raw config.
+// repository in both is the pushed one). A work pushed without common tasks (no tasks_path) loses
+// the tasks_path it has here: the pushed one is what the work is, and a pull could not keep the
+// folder anyway (its copy under data/origins/ goes with it, see pruneOrigins). A work pushed under
+// another origin than here moves there, as work names are unique across origins. Returns the merged
+// raw config.
 function mergeConfigs(here, pushed) {
   const name = (v, key) => (v && typeof v[key] === 'string' ? v[key].trim() : '');
   const merged = { ...here, ...pushed, origins: (here.origins || []).map(g => ({ ...g, works: [...(g.works || [])] })) };
@@ -350,7 +353,9 @@ function mergeConfigs(here, pushed) {
         if (j < 0) repositories.push(p);
         else repositories[j] = p;
       }
-      target.works[i] = { ...target.works[i], ...w, repositories };
+      const out = { ...target.works[i], ...w, repositories };
+      if (!name(w, 'tasks_path')) delete out.tasks_path;
+      target.works[i] = out;
     }
   }
   return merged;

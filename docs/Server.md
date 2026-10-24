@@ -185,7 +185,9 @@ Merge the pushed config into the server's `taskmgr.json` and prune `data/origins
 The pushed works and repositories get their copies under `data/origins/` as `tasks_path`; `source_path` is left out.  
 Origins, works and repositories only on the server are kept, those only pushed are added; a work in both  
 (same origin, same name) takes the pushed fields, its repositories merged the same way (the pushed one wins  
-for a repository in both). A work pushed under another origin moves there. 409 when the merge is invalid.  
+for a repository in both). A work pushed without `tasks_path` loses the one it has on the server, and the copy  
+of its common tasks under `data/origins/` is removed (listed in `pruned`). A work pushed under another origin  
+moves there. 409 when the merge is invalid.  
 
 `POST /api/sync/blobs` `{ blobs }`  
 Which of these files (sha1 hashes of their content) the server does not have yet: `{ ok, missing }`.  
