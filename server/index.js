@@ -31,7 +31,7 @@ const {
   compareIdsDesc
 } = require('../utils/taskUtils');
 const { getEditor } = require('../utils/editorUtils');
-const { resolveConfig } = require('./config');
+const { resolveConfig, POLL_STATE_PATH } = require('./config');
 const { createAuthApp } = require('./auth');
 const { createSyncApp, isMirrored, spaceKey } = require('./sync');
 const { trimLogs } = require('../utils/logfile');
@@ -352,8 +352,44 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// The host of the sync server in .env (SYNC_SERVER, the URL taskmgrd pushes to), "tm.example.com"
+// or "tm.example.com:8080" for the status bar; "" when there is none.
+function syncServerHost() {
+  const url = String(process.env.SYNC_SERVER || '').trim();
+  if (!url) return '';
+  try {
+    return new URL(url).host;
+  } catch (e) {
+    return url.replace(/^[a-z]+:\/\//i, '').replace(/\/.*$/, '');
+  }
+}
+
 app.get('/api/settings', (req, res) => {
-  res.json({ configPath: config.configPath, editor: getEditor() });
+  res.json({ configPath: config.configPath, editor: getEditor(), syncServer: syncServerHost() });
+});
+
+// For the dot beside the sync server in the status bar: whether taskmgrd polls that server (POLLING=1
+// in .env, with a SYNC_SERVER) and how its last pull went, from the state the daemon writes after
+// each one (POLL_STATE_PATH, see taskmgrd's poll): `at` when it ended (ms; null when there has been
+// none), `ok` whether it went through, `error` why not, and `fresh` whether it is recent enough for
+// the daemon to be taken as running: within twice the polling interval, three minutes at least.
+const isOn = (v) => /^(1|true|yes|on)$/i.test(String(v || '').trim());
+function pollingStatus() {
+  const on = isOn(process.env.POLLING) && !!String(process.env.SYNC_SERVER || '').trim();
+  let last = null;
+  try {
+    last = JSON.parse(fs.readFileSync(POLL_STATE_PATH, 'utf8'));
+  } catch (e) {
+    // no pull yet
+  }
+  if (!last || typeof last.at !== 'number') return { on, at: null, ok: null, error: null, fresh: false };
+  const interval = Number(last.interval) || Number(process.env.POLLING_INTERVAL) || 600;
+  const staleMs = Math.max(3 * 60 * 1000, 2 * interval * 1000);
+  return { on, at: last.at, ok: last.ok === true, error: last.error || null, fresh: Date.now() - last.at < staleMs };
+}
+
+app.get('/api/polling', (req, res) => {
+  res.json(pollingStatus());
 });
 
 // The raw taskmgr.json, to edit the works and repositories from the web UI.

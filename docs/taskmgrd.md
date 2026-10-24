@@ -62,6 +62,11 @@ pushed; after it the server is asked what it has and every folder compared, as a
 daemon's `logs/taskmgrd.log`, and a pull that fails is only told there (and in `pm2 logs taskmgrd`):  
 the next one comes at the next interval. With `POLLING=0`, or unset, the daemon only pushes,  
 and `tm pull` is the way to fetch from the server.  
+After each pull the daemon writes how it went to `.tm-poll-state.json` next to `taskmgr.json` (when it ended, whether  
+it went through and, if not, the last line of the pull's error), and the web UI on this machine shows that as a dot  
+after the server's host at the right end of its status bar: green while the last pull went through within twice  
+`POLLING_INTERVAL` (three minutes at least), red when it failed or when none came in time, which means the daemon is  
+not running. The tooltip says which, with the time and the error (see `GET /api/polling` in [Server.md](Server.md)).  
 
 On the server: set `SYNC_SERVER_TOKEN` in `.env` to a secret of your choice and restart the web UI  
 (`./start.sh`); its startup lines then say `sync : receiving from taskmgrd`. Without the token the  

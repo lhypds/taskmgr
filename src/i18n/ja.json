@@ -15,7 +15,11 @@
     "todo": "ToDo",
     "done": "完了",
     "pending": "保留",
-    "aborted": "中止"
+    "aborted": "中止",
+    "pollingOk": "polling 正常：最後の pull は {{when}}",
+    "pollingFailed": "polling 失敗（{{when}}）：{{error}}",
+    "pollingStale": "polling：{{when}} 以降 pull なし。taskmgrd は動いていますか？",
+    "pollingNone": "polling：まだ pull なし"
   },
   "field": {
     "created": "作成日時",

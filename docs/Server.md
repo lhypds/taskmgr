@@ -56,7 +56,15 @@ Settings
 --------
 
 `GET /api/settings`  
-`{ configPath, editor }`: the path of `taskmgr.json` and the default text editor.  
+`{ configPath, editor, syncServer }`: the path of `taskmgr.json`, the default text editor, and the host of the server  
+this machine syncs with (`SYNC_SERVER` in `.env`, as `tm.example.com`, no scheme; `""` when it is not set).  
+
+`GET /api/polling`  
+`{ on, at, ok, error, fresh }`: whether taskmgrd polls the sync server (`POLLING=1` and a `SYNC_SERVER` in `.env`) and how  
+its last pull went, from `.tm-poll-state.json` next to `taskmgr.json`, which the daemon writes after each pull: when (ms) it  
+ended (`null` when there has been none), whether it went through, why not, and whether it is recent enough for the daemon  
+to be taken as running (within twice the polling interval, three minutes at least). The web UI shows it as a dot after the  
+server's host in the status bar.  
 
 `GET /api/config`  
 The raw `taskmgr.json`: `{ configPath, text }`.  

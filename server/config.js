@@ -48,6 +48,9 @@ const DEFAULT_CONFIG_PATH = path.join(PROJECT_ROOT, 'taskmgr.json');
 const EXAMPLE_CONFIG_PATH = path.join(PROJECT_ROOT, 'taskmgr.json.example');
 const DEFAULT_DATA_DIR = path.join(PROJECT_ROOT, 'data');
 const DEFAULT_USERS_PATH = path.join(DEFAULT_DATA_DIR, 'users.json');
+// How taskmgrd's last pull went, written by the daemon after each one (see its poll) and read by
+// the web UI server for the status bar (GET /api/polling): { at, ok, error, interval }.
+const POLL_STATE_PATH = path.join(PROJECT_ROOT, '.tm-poll-state.json');
 
 function loadDotenv() {
   let dotenv = null;
@@ -571,4 +574,4 @@ function resolveConfig() {
   };
 }
 
-module.exports = { resolveConfig, loadDotenv, parseConfig, upgradeRaw, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH, DEFAULT_DATA_DIR };
+module.exports = { resolveConfig, loadDotenv, parseConfig, upgradeRaw, DEFAULT_CONFIG_PATH, EXAMPLE_CONFIG_PATH, DEFAULT_DATA_DIR, POLL_STATE_PATH };

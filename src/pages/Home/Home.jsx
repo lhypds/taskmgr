@@ -87,6 +87,16 @@ const keyOf = (space, rel) => `${space.work}/${space.repository || ""}/${rel}`;
 // /o/:origin/:work for a work's tasks and its repositories', and one more segment for a repository) and the folder
 // inside a space in ?dir=, so back/forward and reload keep both. A work with ?dir= is a folder in
 // the work's own tasks.
+// The tooltip of the dot after the sync server in the status bar: how taskmgrd's last pull went
+// (see api.getPolling); "" when the daemon does not poll, or nothing is known yet.
+function pollingTitle(polling, t) {
+  if (!polling?.on) return "";
+  if (!polling.at) return t("status.pollingNone");
+  const when = new Date(polling.at).toLocaleTimeString();
+  if (!polling.ok) return t("status.pollingFailed", { when, error: polling.error || "" });
+  return polling.fresh ? t("status.pollingOk", { when }) : t("status.pollingStale", { when });
+}
+
 export default function Home({ all = false }) {
   const { t } = useTranslation();
   const { logout } = useAuth();
@@ -208,12 +218,33 @@ export default function Home({ all = false }) {
     }
   }, [scope, space, dir, loadKey]);
 
-  // Re-read the works as well: a task folder may have been created or removed.
-  const reload = useCallback(() => Promise.all([load(), loadSpaces()]), [load, loadSpaces]);
+  // Whether taskmgrd polls the sync server and how its last pull went (see api.getPolling), for the
+  // dot after the server's host in the status bar; null until the first answer. A failed read keeps
+  // what is shown.
+  const [polling, setPolling] = useState(null);
+  const loadPolling = useCallback(async () => {
+    try {
+      setPolling(await api.getPolling());
+    } catch {
+      /* keep the last state */
+    }
+  }, []);
+
+  // Re-read the works as well: a task folder may have been created or removed. And the polling
+  // state, which the periodic reload and the refresh button keep current this way.
+  const reload = useCallback(() => Promise.all([load(), loadSpaces(), loadPolling()]), [load, loadSpaces, loadPolling]);
 
   useEffect(() => {
     loadSpaces();
-  }, [loadSpaces]);
+    loadPolling();
+  }, [loadSpaces, loadPolling]);
+
+  // The host of the server this machine syncs with (SYNC_SERVER in .env), for the status bar's right
+  // end; "" when there is none. Read once: it changes only with a restart.
+  const [syncServer, setSyncServer] = useState("");
+  useEffect(() => {
+    api.getSettings().then((s) => setSyncServer(s.syncServer || ""), () => {});
+  }, []);
 
   // The page re-reads itself every ten seconds while the tab is visible: the tasks, for changes
   // pushed from another machine or made with the cli, and the works, which keeps the dot beside a
@@ -1306,6 +1337,18 @@ export default function Home({ all = false }) {
                 data.absDir
               )}
             </span>
+            {syncServer && (
+              <span className={`mono ${styles.server}`} title={pollingTitle(polling, t) || syncServer}>
+                {syncServer}
+                {polling?.on && (
+                  <span
+                    className="machine-dot"
+                    data-state={polling.ok && polling.fresh ? "ok" : "failed"}
+                    aria-label={pollingTitle(polling, t)}
+                  />
+                )}
+              </span>
+            )}
           </>
         )}
       </footer>

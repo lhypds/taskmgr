@@ -24,7 +24,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { spaceKey } = require('./server/sync');
-const { loadDotenv } = require('./server/config');
+const { loadDotenv, POLL_STATE_PATH } = require('./server/config');
 const { trimLogs } = require('./utils/logfile');
 
 // What .env turns on, looked at before push.js is loaded (it exits with an error when the server is
@@ -296,13 +296,15 @@ let pulling = false;
 let pollTimer = null;
 
 // Run pull.js in its own process, as `tm pull` does, its output going to this log and its sync log
-// lines to the daemon's. Resolves to null, or to what went wrong.
+// lines to the daemon's. Resolves to null, or to what went wrong: the last line pull.js wrote to
+// stderr (its error, without the "Error: "), which is passed through to this log as it comes.
 function runPull() {
   return new Promise((resolve) => {
     let child;
+    let tail = '';  // the end of what pull.js wrote to stderr
     try {
       child = spawn(process.execPath, [path.join(__dirname, 'pull.js')], {
-        stdio: 'inherit',
+        stdio: ['ignore', 'inherit', 'pipe'],
         env: { ...process.env, TASKMGRD_SYNC_LOG: DAEMON_LOG },
         // Under pm2 on Windows the daemon has no console, so a child would open one: a black window
         // flashing up at every poll.
@@ -312,9 +314,32 @@ function runPull() {
       resolve(`cannot run pull.js: ${e.message}`);
       return;
     }
+    child.stderr.on('data', (chunk) => {
+      process.stderr.write(chunk);
+      tail = (tail + chunk).slice(-4000);
+    });
     child.on('error', (e) => resolve(`cannot run pull.js: ${e.message}`));
-    child.on('exit', (code, signal) => resolve(code === 0 ? null : `tm pull ${signal ? `was stopped by ${signal}` : `exited with code ${code}`}`));
+    child.on('exit', (code, signal) => {
+      if (code === 0) return resolve(null);
+      if (signal) return resolve(`tm pull was stopped by ${signal}`);
+      const last = tail.split(/\r?\n/).map(s => s.trim()).filter(Boolean).pop() || '';
+      resolve(last.replace(/^Error:\s*/, '') || `tm pull exited with code ${code}`);
+    });
   });
+}
+
+// After each pull, how it went, for the web UI's status bar (GET /api/polling; see server/index.js):
+// when it ended (ms), whether it went through, why not, and the interval, so the reader can tell a
+// pull that is overdue. Written whole, then renamed into place, so a reader never sees half of it.
+function writePollState(state) {
+  const tmp = `${POLL_STATE_PATH}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(state));
+    fs.renameSync(tmp, POLL_STATE_PATH);
+  } catch (e) {
+    warn(`cannot write ${POLL_STATE_PATH}: ${e.message}`);
+    fs.rmSync(tmp, { force: true });
+  }
 }
 
 // Before a pull: a change here still waiting out its DEBOUNCE_MS (in a tasks folder, or to
@@ -360,6 +385,7 @@ async function poll() {
     warn(`polling: ${failed}`);
     syncLog(false, `polling: ${failed}`);
   }
+  writePollState({ at: Date.now(), ok: !failed, error: failed || null, interval: POLLING_INTERVAL_S });
   pollTimer = setTimeout(poll, POLLING_INTERVAL_S * 1000);
   if (PUSHING) await rescan();
 }

@@ -15,7 +15,11 @@
     "todo": "待办",
     "done": "完成",
     "pending": "搁置",
-    "aborted": "中止"
+    "aborted": "中止",
+    "pollingOk": "polling 正常：最近一次 pull 在 {{when}}",
+    "pollingFailed": "polling 失败（{{when}}）：{{error}}",
+    "pollingStale": "polling：自 {{when}} 起没有 pull，taskmgrd 在运行吗？",
+    "pollingNone": "polling：还没有 pull"
   },
   "field": {
     "created": "创建于",

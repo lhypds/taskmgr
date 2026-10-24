@@ -15,7 +15,11 @@
     "todo": "todo",
     "done": "done",
     "pending": "pending",
-    "aborted": "aborted"
+    "aborted": "aborted",
+    "pollingOk": "Polling OK: last pull at {{when}}",
+    "pollingFailed": "Polling failed at {{when}}: {{error}}",
+    "pollingStale": "Polling: no pull since {{when}}; is taskmgrd running?",
+    "pollingNone": "Polling: no pull yet"
   },
   "field": {
     "created": "created",

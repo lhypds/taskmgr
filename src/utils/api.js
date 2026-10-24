@@ -40,7 +40,14 @@ export async function getSession() {
 
 export const logout = () => request("/api/session", { method: "DELETE" });
 
+// { configPath, editor, syncServer }: the path of taskmgr.json, the default text editor, and the
+// host ("tm.example.com", no scheme) of the server this machine syncs with, "" when there is none.
 export const getSettings = () => request("/api/settings");
+
+// Whether taskmgrd polls the sync server and how its last pull went: { on, at, ok, error, fresh },
+// `at` (ms) null when there has been none, `fresh` whether it is recent enough for the daemon to be
+// taken as running.
+export const getPolling = () => request("/api/polling");
 
 export const listSpaces = () => request("/api/spaces");
 

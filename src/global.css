@@ -201,3 +201,13 @@ p {
 .machine-dot[data-online="true"] {
   background: #6cd184; /* a light green: a status mark, not a success message */
 }
+
+/* The dot after the sync server in the status bar: how taskmgrd's last pull went. The same green
+   while it went through recently, a light red of the same weight otherwise. */
+.machine-dot[data-state="ok"] {
+  background: #6cd184;
+}
+
+.machine-dot[data-state="failed"] {
+  background: #e57373;
+}
