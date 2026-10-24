@@ -107,8 +107,15 @@ export default function Home({ all = false }) {
   const [treeOpen, setTreeOpen] = useState(() => readFlag("panel.tree", true));
   const [detailOpen, setDetailOpen] = useState(() => readFlag("panel.detail", true));
   const [pane, setPane] = useState("tasks"); // where j / k and friends go: "tree" or "tasks"
-  const [data, setData] = useState(EMPTY_DIR);
-  const [loading, setLoading] = useState(true);
+  // The list last loaded and the path it is for. On any other path `data` is empty and `loading`
+  // until this path's own list arrives. That is decided while rendering, not in an effect after a
+  // commit, so a click on a task's from tag never shows the previous list (with the tags gone)
+  // first, not even for one frame.
+  const [loaded, setLoaded] = useState({ key: null, dir: EMPTY_DIR });
+  const [fetching, setFetching] = useState(true);
+  const loadKey = JSON.stringify([scope, space, dir]);
+  const data = loaded.key === loadKey ? loaded.dir : EMPTY_DIR;
+  const loading = fetching || loaded.key !== loadKey;
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   // The new task modal is open: { space, dir, status, parent }, where the task goes (in a task
@@ -176,25 +183,20 @@ export default function Home({ all = false }) {
   const loadSeq = useRef(0);
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
-    if (!scope && !space) {
-      setData(EMPTY_DIR);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+    setFetching(true);
     try {
       const d = scope ? await api.listAllTasks(scope) : await api.listTasks(space, dir);
       if (seq !== loadSeq.current) return;
-      setData(d);
+      setLoaded({ key: loadKey, dir: d });
       setLoadError("");
     } catch (e) {
       if (seq !== loadSeq.current) return;
-      setData(EMPTY_DIR);
+      setLoaded({ key: loadKey, dir: EMPTY_DIR });
       setLoadError(e.message);
     } finally {
-      if (seq === loadSeq.current) setLoading(false);
+      if (seq === loadSeq.current) setFetching(false);
     }
-  }, [scope, space, dir]);
+  }, [scope, space, dir, loadKey]);
 
   // Re-read the works as well: a task folder may have been created or removed.
   const reload = useCallback(() => Promise.all([load(), loadSpaces()]), [load, loadSpaces]);
@@ -239,13 +241,11 @@ export default function Home({ all = false }) {
       );
   }, [origin, work, repository, works, navigate, searchParams]);
 
-  // A new path (`load` is remade for it) empties the list at once, so until its own tasks arrive it
-  // says "loading" rather than keeping the previous path's tasks, which would first lose their from
-  // tags and then be replaced. The periodic reload and the retry button call `load` directly and
-  // keep the list.
+  // A new path (`load` is remade for it) loads its list; until it arrives the page is empty and
+  // "loading" (see `data`). The periodic reload and the retry button call `load` directly, and the
+  // list stays while they run.
   useEffect(() => {
     setQuery("");
-    setData(EMPTY_DIR);
     load();
   }, [load]);
 
