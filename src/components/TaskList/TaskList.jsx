@@ -84,8 +84,8 @@ export function TaskActions({ task, className = "", onOpen, onOpenFolder, onDele
 // its task with its `depth`, `through` and `last` (see flattenTasks), drawn with tree lines before
 // its title. `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into
 // view. A task's `from` (the work or repository it lives in, in a list of several) shows before
-// its title; its subtasks are from the same place, so they do not repeat it. With no rows the
-// column header still shows, and `empty` (the "no tasks" message) sits centred under it.
+// its title, on its subtasks too (they are from the same place). With no rows the column header
+// still shows, and `empty` (the "no tasks" message) sits centred under it.
 export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpenFolder, onToggleDone, empty }) {
   const { t: tr } = useTranslation();
   const selectedRef = useRef(null);
@@ -128,7 +128,7 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
             <div className={styles.title} style={{ "--depth": t.depth }}>
               <TreeLines depth={t.depth} through={t.through} last={t.last} />
               <div className={styles.titleLines}>
-                {t.depth === 0 && <FromTag task={t} />}
+                <FromTag task={t} />
                 <span className={styles.titleText}>
                   {t.title || <span className="muted">{tr("common.untitled")}</span>}
                   {detail && <span className={styles.detail}>{detail}</span>}

@@ -141,7 +141,7 @@ function Column({
                 onDoubleClick={() => onOpenFolder(t)}
               >
                 <div className={styles.cardTitle}>
-                  {!t.depth && <FromTag task={t} />}
+                  <FromTag task={t} />
                   <span className={styles.cardName}>{t.title || <span className="muted">{tr("common.untitled")}</span>}</span>
                   {detail && <span className={styles.cardDetail}>{detail}</span>}
                 </div>
