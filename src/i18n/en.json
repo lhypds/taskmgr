@@ -304,5 +304,33 @@
     "originOwn": "{{origin}} (own)",
     "none": "No income.",
     "noneInYear": "No income in {{year}}."
+  },
+  "ai": {
+    "run": "Run with Claude Code",
+    "show": "Show the run",
+    "again": "Run again",
+    "stop": "Stop Claude Code",
+    "dismiss": "Clear this run",
+    "titleOf": "Claude: {{title}}",
+    "starting": "starting",
+    "running": "running",
+    "waiting": "waiting for your answer",
+    "done": "done in {{time}}",
+    "failed": "failed",
+    "stopped": "stopped",
+    "asks": "Claude asks about “{{title}}”",
+    "permission": "Claude wants to use {{tool}}",
+    "allow": "Allow",
+    "deny": "Deny",
+    "allowed": "allowed",
+    "denied": "denied",
+    "cancelled": "cancelled",
+    "other": "Or type an answer",
+    "submit": "Answer",
+    "showOutput": "Show the output",
+    "hideOutput": "Hide the output",
+    "noOutput": "(no output)",
+    "turns_one": "{{count}} turn",
+    "turns_other": "{{count}} turns"
   }
 }

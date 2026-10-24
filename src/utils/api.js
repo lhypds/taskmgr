@@ -155,3 +155,21 @@ export const originPath = (origin) => `/o/${encodeURIComponent(origin)}`;
 export const spacePath = (origin, work, repository) =>
   (origin ? `${originPath(origin)}/${encodeURIComponent(work)}` : `/w/${encodeURIComponent(work)}`) +
   (repository ? `/${encodeURIComponent(repository)}` : "");
+
+// The runs of Claude Code on tasks (server/ai.js): starting one, answering what Claude asks, stopping
+// and forgetting a run. The runs themselves arrive live on the event stream (see hooks/useRuns).
+
+// The event stream of every run: GET /api/ai/events.
+export const runEventsUrl = "/api/ai/events";
+
+// Start Claude Code on the task at `rel` in the space; resolves to { run } with its transcript (409
+// while the task has a run going).
+export const startRun = (space, rel) => request("/api/ai/run", json("POST", { ...sp(space), rel }));
+
+// Answer the run's pending question `pending`: { decision: "allow" | "deny" } for a permission,
+// { answers: { "<question>": "<answer>" } } for a question. { run }.
+export const answerRun = (id, pending, body) => request(`/api/ai/runs/${encodeURIComponent(id)}/answer`, json("POST", { pending, ...body }));
+
+export const stopRun = (id) => request(`/api/ai/runs/${encodeURIComponent(id)}/stop`, json("POST", {}));
+
+export const dismissRun = (id) => request(`/api/ai/runs/${encodeURIComponent(id)}`, { method: "DELETE" });

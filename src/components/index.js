@@ -9,6 +9,8 @@ export { default as Attachments, useTaskFiles } from "./Attachments";
 export { default as FilePreviewModal } from "./FilePreviewModal";
 export { default as TaskPreviewModal } from "./TaskPreviewModal";
 export { default as TaskPanel } from "./TaskPanel";
+export { default as RunButton } from "./RunButton";
+export { default as RunModal } from "./RunModal";
 export { default as ConfigEditorModal } from "./ConfigEditorModal";
 export { default as LanguageSwitcher } from "./LanguageSwitcher";
 export { default as UserMenu } from "./UserMenu";

@@ -19,6 +19,7 @@ import {
   IncomeAnalysisModal,
   LanguageSwitcher,
   UserMenu,
+  RunModal,
 } from "@components";
 import {
   PlusIcon,
@@ -39,7 +40,7 @@ import { ALL_MONTHS, taskMonth, taskMonths, monthLabel, previewKind, flattenTask
 import { groupWorksByOrigin, runName, runId, ambiguousRunNames } from "@utils/works";
 import { copyText } from "@utils/clipboard";
 import { useTaskFiles } from "@components/Attachments";
-import { RunModal, useRuns } from "@ai";
+import useRuns from "@hooks/useRuns";
 import MachineDot from "@components/MachineDot";
 import { useShortcuts, useWheelSteps, moveIndex, isTyping } from "@utils/keys";
 import styles from "./home.module.css";
@@ -385,7 +386,8 @@ export default function Home({ all = false }) {
   const selectedIndex = visible.findIndex((t) => t.key === selectedKey);
   const selected = visible[selectedIndex] || null;
 
-  // The runs of Claude Code on tasks (the run button beside a prompt, see ai/web), followed live.
+  // The runs of Claude Code on tasks (started by the run button beside a prompt), followed live by
+  // useRuns.
   // The run button opens the run's dialog (`runKey`: the task whose run it shows), starting a run
   // when the task has none; the dialog shows the run as it is now, so a new run on the same task
   // shows there too. A question Claude asks, on whatever task, shows as a toast.

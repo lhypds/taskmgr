@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { BrainIcon, TrashIcon } from "@components/icons";
 import Attachments from "@components/Attachments";
-import { RunButton } from "@ai";
+import RunButton from "@components/RunButton";
 import styles from "./panel.module.css";
 
 // The selected task beside the list: its task.txt as written, editable in place. It is saved
@@ -14,7 +14,7 @@ import styles from "./panel.module.css";
 // prompt.txt (`promptOpen`): the text is then split in two, the prompt under a divider that says
 // "Prompt" and carries the prompt's own delete (onDeletePrompt(task) asks first).
 // Typing a prompt creates the file, onSavePrompt(task, text) writing it; a blank one deletes it.
-// The divider also carries the run button (see ai/web), greyed out until the task has a prompt:
+// The divider also carries the run button (RunButton), greyed out until the task has a prompt:
 // onRun(task) starts Claude Code on the task and opens the run's dialog, or opens the dialog of the
 // run the task has (`run`, see useRuns), which the button shows with a dot while it goes.
 // `section` is the text the keyboard is on, "task" or "prompt" (null while an attachment is), shown

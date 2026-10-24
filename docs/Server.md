@@ -190,8 +190,8 @@ Write one attachment as text, as the web UI's preview edits a text file (not `ta
 AI
 --
 
-Defined in `ai/routes.js` (every AI-related piece of tm is in `ai/`): runs of Claude Code on a task, started from the Task panel  
-and followed in the browser, through the Claude Agent SDK (see `ai/session.js`). A run, as answered:  
+Defined in `server/ai.js`: runs of Claude Code on a task, started from the Task panel and followed in the browser, through  
+the Claude Agent SDK (the runs themselves live in `ai/session.js`). A run, as answered:  
 ```
 { "id": "b6f397354f17", "task": { "work": "acme", "repository": "alpha", "rel": "202610241655 Fix mail", "id": "202610241655", "title": "Fix mail", "key": "acme/alpha/202610241655 Fix mail" },
   "cwd": "/home/me/acme/alpha", "taskDir": "/home/me/acme/alpha/tasks/202610241655 Fix mail",

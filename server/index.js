@@ -34,7 +34,7 @@ const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig, POLL_STATE_PATH } = require('./config');
 const { createAuthApp } = require('./auth');
 const { createSyncApp, isMirrored, spaceKey } = require('./sync');
-const { createAiApp } = require('../ai/routes');
+const { createAiApp } = require('./ai');
 const { trimLogs } = require('../utils/logfile');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -775,7 +775,7 @@ app.put('/api/file', (req, res) => {
   res.json({ files: listFiles(root, taskDir) });
 });
 
-// Running Claude Code on a task from the panel, and answering what it asks (see ai/routes.js).
+// Running Claude Code on a task from the panel, and answering what it asks (see ai.js).
 app.use(createAiApp({ config, logFile: path.join(PROJECT_ROOT, 'logs', 'ai.log') }));
 
 app.use('/api', (req, res) => { throw new HttpError(404, 'Unknown API route.'); });

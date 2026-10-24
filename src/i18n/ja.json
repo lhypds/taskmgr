@@ -304,5 +304,33 @@
     "originOwn": "{{origin}}（本体）",
     "none": "収入がありません。",
     "noneInYear": "{{year}} 年の収入はありません。"
+  },
+  "ai": {
+    "run": "Claude Code で実行",
+    "show": "実行を表示",
+    "again": "もう一度実行",
+    "stop": "Claude Code を停止",
+    "dismiss": "この実行を消す",
+    "titleOf": "Claude：{{title}}",
+    "starting": "開始中",
+    "running": "実行中",
+    "waiting": "回答待ち",
+    "done": "完了（{{time}}）",
+    "failed": "失敗",
+    "stopped": "停止しました",
+    "asks": "Claude が「{{title}}」について質問しています",
+    "permission": "Claude が {{tool}} を使おうとしています",
+    "allow": "許可",
+    "deny": "拒否",
+    "allowed": "許可済み",
+    "denied": "拒否済み",
+    "cancelled": "キャンセル",
+    "other": "または回答を入力",
+    "submit": "回答する",
+    "showOutput": "出力を表示",
+    "hideOutput": "出力を隠す",
+    "noOutput": "（出力なし）",
+    "turns_one": "{{count}} ターン",
+    "turns_other": "{{count}} ターン"
   }
 }

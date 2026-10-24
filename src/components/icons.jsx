@@ -186,3 +186,21 @@ export function PieIcon({ className }) {
     </Icon>
   );
 }
+
+// Run (Claude Code on a task): a play triangle.
+export function PlayIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <polygon points="6 4 20 12 6 20 6 4" />
+    </Icon>
+  );
+}
+
+// Stop a run: a square.
+export function StopIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <rect x="6" y="6" width="12" height="12" />
+    </Icon>
+  );
+}

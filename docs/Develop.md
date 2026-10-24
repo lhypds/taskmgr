@@ -22,9 +22,11 @@ The server's APIs are listed in [Server.md](Server.md).
 AI
 --
 
-Everything about Claude Code is in `ai/`: `task.js` finds a task and makes its first prompt (shared by the terminal and  
-the web UI), `run.js` is `tm run` (the `run.js` at the root only requires it), `session.js` runs Claude Code for the web UI  
-through the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`, which brings its own copy of Claude Code and uses the  
-login in `~/.claude`), keeping the runs and relaying what Claude asks, `routes.js` is their API (see [Server.md](Server.md)),  
-and `web/` the React side: the run button, the run shown under a prompt, the hook that follows the runs, and their texts  
-(imported as `@ai`, merged into the translations by `src/i18n/index.js`). What claude writes to stderr goes to `logs/ai.log`.    
+The Claude Code integration itself is in `ai/`: `task.js` finds a task and makes its first prompt (shared by the terminal  
+and the web UI), `run.js` is `tm run` (the `run.js` at the root only requires it), and `session.js` runs Claude Code for the  
+web UI through the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`, which brings its own copy of Claude Code and uses  
+the login in `~/.claude`), keeping the runs and relaying what Claude asks. Everything around it sits with its own layer:  
+the API is `server/ai.js` (see [Server.md](Server.md)), the browser's calls to it are the `*Run` functions of  
+`src/utils/api.js`, the hook that follows the runs is `src/hooks/useRuns.js`, the components that show them are  
+`src/components/RunButton` (beside a prompt) and `src/components/RunModal`, and their texts are the `ai` keys of the  
+translations in `src/i18n`. What claude writes to stderr goes to `logs/ai.log`.    

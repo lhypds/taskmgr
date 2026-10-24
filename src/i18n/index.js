@@ -3,7 +3,6 @@ import { initReactI18next } from "react-i18next";
 import en from "./en.json";
 import zh from "./zh.json";
 import ja from "./ja.json";
-import ai from "../../ai/web/locales"; // the texts of the AI parts of the UI, kept with them (the "ai" keys)
 
 function savedLang() {
   try {
@@ -24,9 +23,9 @@ i18n.on("languageChanged", (lng) => {
 
 i18n.use(initReactI18next).init({
   resources: {
-    en: { translation: { ...en, ai: ai.en } },
-    zh: { translation: { ...zh, ai: ai.zh } },
-    ja: { translation: { ...ja, ai: ai.ja } },
+    en: { translation: en },
+    zh: { translation: zh },
+    ja: { translation: ja },
   },
   lng: defaultLang,
   fallbackLng: "en",

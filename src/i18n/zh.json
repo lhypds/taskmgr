@@ -304,5 +304,33 @@
     "originOwn": "{{origin}}（本身）",
     "none": "没有收入。",
     "noneInYear": "{{year}} 年没有收入。"
+  },
+  "ai": {
+    "run": "用 Claude Code 执行",
+    "show": "查看运行",
+    "again": "再次运行",
+    "stop": "停止 Claude Code",
+    "dismiss": "清除本次运行",
+    "titleOf": "Claude：{{title}}",
+    "starting": "启动中",
+    "running": "运行中",
+    "waiting": "等待你的回答",
+    "done": "完成，用时 {{time}}",
+    "failed": "失败",
+    "stopped": "已停止",
+    "asks": "Claude 在“{{title}}”上有问题要问你",
+    "permission": "Claude 想使用 {{tool}}",
+    "allow": "允许",
+    "deny": "拒绝",
+    "allowed": "已允许",
+    "denied": "已拒绝",
+    "cancelled": "已取消",
+    "other": "或者输入你的回答",
+    "submit": "回答",
+    "showOutput": "显示输出",
+    "hideOutput": "隐藏输出",
+    "noOutput": "（无输出）",
+    "turns_one": "{{count}} 轮",
+    "turns_other": "{{count}} 轮"
   }
 }

@@ -1,5 +1,5 @@
-// The web UI's API for running Claude Code on a task (see ai/session.js), mounted by server/index.js
-// under /api after the login guard, so every route needs a session:
+// The web UI's API for running Claude Code on a task (the runs themselves live in ai/session.js),
+// mounted by index.js under /api after the login guard, so every route needs a session:
 //
 //   GET    /api/ai/events            the runs, live: a text/event-stream (SSE) of events (see below)
 //   GET    /api/ai/runs              the runs, with their transcripts: { runs }
@@ -14,8 +14,8 @@
 // `remove` { run } as they happen, with a comment every 25 seconds to keep the connection.
 const express = require('express');
 
-const { isDirectory, spaceOf, taskDirIn } = require('./task');
-const session = require('./session');
+const { isDirectory, spaceOf, taskDirIn } = require('../ai/task');
+const session = require('../ai/session');
 
 function httpError(status, message) {
   const e = new Error(message);

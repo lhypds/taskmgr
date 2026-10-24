@@ -3,7 +3,7 @@
 // the terminal, and the task gets the same first prompt as `tm run` (see ai/task.js).
 //
 // What the terminal would show goes into the run's transcript, a list of items the browser follows
-// live (GET /api/ai/events in ai/routes.js streams them): Claude's text as it is written, the tools
+// live (GET /api/ai/events in server/ai.js streams them): Claude's text as it is written, the tools
 // it calls with their results, and the questions it asks. What Claude would ask in the terminal is
 // asked in the browser instead: a permission for a tool (file edits are allowed as they come,
 // permissionMode acceptEdits; a command and the rest wait for an answer) and a question of Claude's

@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "@ui";
-import { XIcon } from "@components/icons";
-import { PlayIcon, StopIcon } from "./icons";
+import { XIcon, PlayIcon, StopIcon } from "@components/icons";
 import styles from "./run.module.css";
 
 // The run of Claude Code on a task, in a dialog sized as the task preview's: opened by the run button

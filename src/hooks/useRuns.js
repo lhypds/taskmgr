@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { showToast } from "@ui";
-import * as api from "./api";
+import * as api from "@utils/api";
 
 // The runs of Claude Code (see ai/session.js), followed live over the server's event stream for as
 // long as the page is open: `runs` is every run the server has, by id, each with its transcript
@@ -14,7 +14,7 @@ export default function useRuns({ onAsk } = {}) {
   const asked = useRef(new Set()); // the ids of the questions onAsk was called for, each once
 
   useEffect(() => {
-    const es = new EventSource(api.eventsUrl);
+    const es = new EventSource(api.runEventsUrl);
     const parse = (e) => JSON.parse(e.data);
     // The server's state, whole: on connecting, and again after a reconnection (the browser's own).
     es.addEventListener("snapshot", (e) => {
