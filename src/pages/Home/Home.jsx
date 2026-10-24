@@ -110,13 +110,17 @@ export default function Home({ all = false }) {
   // The list last loaded and the path it is for. On any other path `data` is empty and `loading`
   // until this path's own list arrives. That is decided while rendering, not in an effect after a
   // commit, so a click on a task's from tag never shows the previous list (with the tags gone)
-  // first, not even for one frame.
+  // first, not even for one frame. Re-reading the path shown (the periodic reload, the refresh
+  // button) is not "loading": what is shown stays, even an empty list's "no tasks", until the
+  // list that arrives differs (see `load`), so nothing flickers while nothing changed.
   const [loaded, setLoaded] = useState({ key: null, dir: EMPTY_DIR });
-  const [fetching, setFetching] = useState(true);
   const loadKey = JSON.stringify([scope, space, dir]);
   const data = loaded.key === loadKey ? loaded.dir : EMPTY_DIR;
-  const loading = fetching || loaded.key !== loadKey;
+  const loading = loaded.key !== loadKey;
   const [loadError, setLoadError] = useState("");
+  // How many lists arrived, changed or not: the selected task's attachments re-read themselves on
+  // it (see useTaskFiles), since a file pushed from another machine changes no list.
+  const [loads, setLoads] = useState(0);
   const [query, setQuery] = useState("");
   // The new task modal is open: { space, dir, status, parent }, where the task goes (in a task
   // folder with `parent`, the task it is a subtask of) and the board column it belongs to.
@@ -183,18 +187,18 @@ export default function Home({ all = false }) {
   const loadSeq = useRef(0);
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
-    setFetching(true);
     try {
       const d = scope ? await api.listAllTasks(scope) : await api.listTasks(space, dir);
       if (seq !== loadSeq.current) return;
-      setLoaded({ key: loadKey, dir: d });
+      // The same list again (most periodic reloads) keeps the state it has: nothing re-renders,
+      // and nothing that follows `data` (the selected task's attachments) re-reads itself.
+      setLoaded((prev) => (prev.key === loadKey && JSON.stringify(prev.dir) === JSON.stringify(d) ? prev : { key: loadKey, dir: d }));
+      setLoads((n) => n + 1);
       setLoadError("");
     } catch (e) {
       if (seq !== loadSeq.current) return;
       setLoaded({ key: loadKey, dir: EMPTY_DIR });
       setLoadError(e.message);
-    } finally {
-      if (seq === loadSeq.current) setFetching(false);
     }
   }, [scope, space, dir, loadKey]);
 
@@ -339,7 +343,7 @@ export default function Home({ all = false }) {
   const selected = visible[selectedIndex] || null;
 
   // The selected task's attachments; on the Task panel j / k walk them and space opens one.
-  const attachments = useTaskFiles(selected?.space, selected?.rel, data);
+  const attachments = useTaskFiles(selected?.space, selected?.rel, loads);
   const [fileRel, setFileRel] = useState(null);
   const fileList = attachments.files.filter((f) => !f.isDir);
   const fileIndex = fileList.findIndex((f) => f.rel === fileRel);
@@ -348,7 +352,7 @@ export default function Home({ all = false }) {
   // peek holds the key; the task itself is read fresh, so a saved edit shows at once
   const peekTask = tasks.find((task) => task.key === peek?.key) || peek;
   const [peekEditing, setPeekEditing] = useState(false); // the preview's text is being edited
-  const peekAttachments = useTaskFiles(peekTask?.space, peekTask?.rel, data);
+  const peekAttachments = useTaskFiles(peekTask?.space, peekTask?.rel, loads);
   const peekFiles = peekAttachments.files.filter((f) => !f.isDir);
   const [peekFileRel, setPeekFileRel] = useState(null);
   const peekFile = peekFiles.find((f) => f.rel === peekFileRel) || null;
