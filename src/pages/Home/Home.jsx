@@ -239,8 +239,13 @@ export default function Home({ all = false }) {
       );
   }, [origin, work, repository, works, navigate, searchParams]);
 
+  // A new path (`load` is remade for it) empties the list at once, so until its own tasks arrive it
+  // says "loading" rather than keeping the previous path's tasks, which would first lose their from
+  // tags and then be replaced. The periodic reload and the retry button call `load` directly and
+  // keep the list.
   useEffect(() => {
     setQuery("");
+    setData(EMPTY_DIR);
     load();
   }, [load]);
 
@@ -274,8 +279,8 @@ export default function Home({ all = false }) {
   // shape, `tasks` is every task as a row under its parent, in the list's order.
   const tree = useMemo(
     () =>
-      // Until the new path's list arrives, the previous one may still be here; a task of one space
-      // has no space of its own to show on an origin's page, so it is left out.
+      // A task of one space has no space of its own to show on an origin's page (which can only
+      // happen with a list that is not this path's), so it is left out.
       data.tasks.flatMap((t) => {
         const s =
           t.work !== undefined
