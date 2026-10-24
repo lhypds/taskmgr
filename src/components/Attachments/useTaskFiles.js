@@ -5,12 +5,16 @@ import * as api from "@utils/api";
 
 const attachmentsOf = (files) => files.filter((f) => !f.isSubtask);
 
-// The attachments of one task folder, loaded while `rel` is set, with upload and delete (remove asks first unless ask is false, and says whether it deleted).
+// The attachments of one task folder, loaded while `rel` is set, with upload and delete (remove asks first unless ask is false, and says whether it deleted),
+// and the task's prompt, its prompt.txt: `prompt` is undefined until the folder is read, null when
+// there is no file, else its text; savePrompt(text) writes it (a blank text deletes the file) and
+// says whether it did.
 // `version` re-reads them when it changes (e.g. after the task list reloads); the files shown stay
 // until the fresh ones arrive, so nothing flickers. Another task (by work, repository and rel, not
 // by the identity of `space`, which the list remakes) starts from no files.
 export default function useTaskFiles(space, rel, version) {
   const [files, setFiles] = useState([]);
+  const [prompt, setPrompt] = useState(undefined);
   const [uploading, setUploading] = useState(false);
   const taskKey = space && rel ? `${space.work}/${space.repository || ""}/${rel}` : null;
   const shown = useRef(null); // the taskKey the files are of
@@ -19,12 +23,17 @@ export default function useTaskFiles(space, rel, version) {
     if (shown.current !== taskKey) {
       shown.current = taskKey;
       setFiles([]);
+      setPrompt(undefined);
     }
     if (!taskKey) return;
     let stale = false;
     api
       .getTask(space, rel)
-      .then((d) => !stale && setFiles(attachmentsOf(d.files)))
+      .then((d) => {
+        if (stale) return;
+        setFiles(attachmentsOf(d.files));
+        setPrompt(d.prompt ?? null);
+      })
       .catch(() => {});
     return () => {
       stale = true;
@@ -62,5 +71,23 @@ export default function useTaskFiles(space, rel, version) {
     [space],
   );
 
-  return { files, uploading, add, remove };
+  const savePrompt = useCallback(
+    async (text) => {
+      try {
+        const d = await api.saveTaskPrompt(space, rel, text);
+        // the answer is this task's; by now another one may be shown (the save ran on blur)
+        if (shown.current === taskKey) {
+          setFiles(attachmentsOf(d.files));
+          setPrompt(d.prompt ?? null);
+        }
+        return true;
+      } catch (e) {
+        showToast(e.message, 4000);
+        return false;
+      }
+    },
+    [space, rel, taskKey],
+  );
+
+  return { files, prompt, uploading, add, remove, savePrompt };
 }

@@ -92,10 +92,14 @@
     "none": "未选择任务。",
     "undo": "撤销",
     "redo": "重做",
+    "prompt": "Prompt",
+    "showPrompt": "显示 prompt（prompt.txt）",
+    "hidePrompt": "隐藏 prompt",
+    "deletePrompt": "删除 prompt",
     "dropFiles": "拖放文件以添加到此任务"
   },
   "attach": {
-    "title": "附件",
+    "title": "文件",
     "folder": "文件夹",
     "remove": "移除 {{name}}",
     "deleteConfirm": "删除 {{name}}？",
@@ -167,7 +171,11 @@
     },
     "files": {
       "keys": "在 Task 中 j / k, space",
-      "desc": "选择附件并预览"
+      "desc": "选择文件并预览"
+    },
+    "prompt": {
+      "keys": "显示 prompt 时在 Task 中 j / k, enter",
+      "desc": "在正文、prompt 和文件之间移动；enter 编辑所选"
     },
     "pending": {
       "keys": "p",

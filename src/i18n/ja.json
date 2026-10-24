@@ -92,10 +92,14 @@
     "none": "タスクが選択されていません。",
     "undo": "元に戻す",
     "redo": "やり直す",
+    "prompt": "プロンプト",
+    "showPrompt": "プロンプトを表示（prompt.txt）",
+    "hidePrompt": "プロンプトを隠す",
+    "deletePrompt": "プロンプトを削除",
     "dropFiles": "ファイルをドロップしてこのタスクに添付"
   },
   "attach": {
-    "title": "添付ファイル",
+    "title": "ファイル",
     "folder": "フォルダ",
     "remove": "{{name}} を削除",
     "deleteConfirm": "{{name}} を削除しますか？",
@@ -167,7 +171,11 @@
     },
     "files": {
       "keys": "Task で j / k, space",
-      "desc": "添付ファイルを選択してプレビュー"
+      "desc": "ファイルを選択してプレビュー"
+    },
+    "prompt": {
+      "keys": "プロンプト表示中の Task で j / k, enter",
+      "desc": "本文・プロンプト・ファイルの間を移動し、enter で編集"
     },
     "pending": {
       "keys": "p",

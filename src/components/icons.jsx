@@ -141,6 +141,18 @@ export function RedoIcon({ className }) {
   );
 }
 
+// A brain, as liveboard's generate button: two lobes and a midline, which stay a brain at 12px with
+// a stroke 2 wide (q's five-path outline closes into a blob that small). The prompt for an AI agent.
+export function BrainIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M12 4.5A4.5 4.5 0 0 0 4 7.3 4 4 0 0 0 3.2 14 4.6 4.6 0 0 0 12 19.5" />
+      <path d="M12 4.5A4.5 4.5 0 0 1 20 7.3 4 4 0 0 1 20.8 14 4.6 4.6 0 0 1 12 19.5" />
+      <path d="M12 4.5v15" />
+    </Icon>
+  );
+}
+
 export function UserIcon({ className }) {
   return (
     <Icon className={className}>

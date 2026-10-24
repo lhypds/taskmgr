@@ -11,40 +11,20 @@
   height: 100%;
 }
 
-/* The open folder and delete buttons at the top left of the header: icons alone, grey like the
-   close button on the right and black under the mouse. */
+/* The open folder, brain, undo, redo and delete buttons at the top left of the header, framed as
+   the Task panel's are (global .btn); the prompt's head holds its own undo, redo and delete the same way. */
 .headerButtons {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.headerButton {
-  display: inline-flex;
+/* Above the prompt: its name, in the text's black, with its buttons right beside it. */
+.promptHead {
+  flex: none;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  line-height: 0;
-}
-
-.headerButton svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.headerButton:hover,
-.headerButton:focus-visible {
-  color: var(--fg);
+  gap: 8px;
 }
 
 .files {
@@ -69,6 +49,7 @@
   text-decoration: underline;
 }
 
+/* The task's text; with the prompt shown, the prompt's too, the two sharing the height equally. */
 .text {
   flex: 1;
   min-height: 0;
@@ -95,6 +76,11 @@ textarea.text {
   resize: none;
   outline: none;
   color: inherit;
+}
+
+/* The prompt while the keyboard is on it (j / k), as a chosen attachment's row. */
+.text[data-selected="true"] {
+  background-color: var(--bg-hover);
 }
 
 .files li[data-selected="true"] {

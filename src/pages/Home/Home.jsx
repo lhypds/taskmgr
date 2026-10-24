@@ -126,7 +126,10 @@ export default function Home({ all = false }) {
   // folder with `parent`, the task it is a subtask of) and the board column it belongs to.
   const [creating, setCreating] = useState(null);
   const searchRef = useRef(null);
-  const [focusKey, setFocusKey] = useState(null); // the task whose text the panel should focus
+  const [focusing, setFocusing] = useState(null); // { key, area }: the task whose text ("task") or prompt ("prompt") the panel should focus
+  const [promptOpen, setPromptOpen] = useState(() => readFlag("panel.prompt", false)); // the panel shows the task's prompt.txt under its text
+  const [peekPromptOpen, setPeekPromptOpen] = useState(() => readFlag("preview.prompt", false)); // and the preview, on its own
+  const [section, setSection] = useState("task"); // with the prompt shown, the text the keyboard is on in the panel: "task" or "prompt"
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(null); // task to delete
   const [deleting, setDeleting] = useState(false);
@@ -151,6 +154,8 @@ export default function Home({ all = false }) {
 
   useEffect(() => writeFlag("panel.tree", treeOpen), [treeOpen]);
   useEffect(() => writeFlag("panel.detail", detailOpen), [detailOpen]);
+  useEffect(() => writeFlag("panel.prompt", promptOpen), [promptOpen]);
+  useEffect(() => writeFlag("preview.prompt", peekPromptOpen), [peekPromptOpen]);
   useEffect(() => writeFlag("tree.showHidden", showHidden), [showHidden]);
   useEffect(() => writeFlag("tasks.showDone", showDone), [showDone]);
   useEffect(() => writeFlag("tasks.showPending", showPending), [showPending]);
@@ -351,7 +356,8 @@ export default function Home({ all = false }) {
   // The same for the task preview opened with space: j / k pick a file, enter opens it.
   // peek holds the key; the task itself is read fresh, so a saved edit shows at once
   const peekTask = tasks.find((task) => task.key === peek?.key) || peek;
-  const [peekEditing, setPeekEditing] = useState(false); // the preview's text is being edited
+  const [peekEditing, setPeekEditing] = useState(null); // the preview's text being edited: "task", "prompt" or null
+  const [peekSection, setPeekSection] = useState("task"); // with the prompt shown, the text the keyboard is on in the preview: "task" or "prompt"
   const peekAttachments = useTaskFiles(peekTask?.space, peekTask?.rel, loads);
   const peekFiles = peekAttachments.files.filter((f) => !f.isDir);
   const [peekFileRel, setPeekFileRel] = useState(null);
@@ -359,17 +365,58 @@ export default function Home({ all = false }) {
   const closePeek = () => {
     setPeek(null);
     setPeekFileRel(null);
-    setPeekEditing(false);
+    setPeekEditing(null);
+    setPeekSection("task");
   };
   // d on a file asks in a popup; confirming (d again, or the button) deletes it and moves the highlight to its neighbour.
-  const [removingFile, setRemovingFile] = useState(null); // { hook, list, file, setRel }
+  // The same popup asks before the task's prompt.txt is deleted (`prompt`: the divider's delete, or
+  // d on the prompt); deleting it is saving a blank prompt (see useTaskFiles).
+  const [removingFile, setRemovingFile] = useState(null); // { hook, list, file, setRel } or { hook, file, prompt: true }
   const deleteFile = (hook, list, file, setRel) => setRemovingFile({ hook, list, file, setRel });
+  // `after` runs once the prompt is deleted: the panel or the preview it was deleted from hides the prompt.
+  const deletePrompt = (hook, task, after) => setRemovingFile({ hook, file: { name: "prompt.txt", rel: `${task.rel}/prompt.txt` }, prompt: true, after });
   const confirmDeleteFile = async () => {
-    const { hook, list, file, setRel } = removingFile;
+    const { hook, list, file, setRel, prompt, after } = removingFile;
     setRemovingFile(null);
+    if (prompt) {
+      if (!(await hook.savePrompt(""))) return;
+      setLoads((n) => n + 1); // the other reader of the folder (panel or preview) follows
+      after?.();
+      return;
+    }
     const i = list.indexOf(file);
     if (await hook.remove(file, false)) setRel((list[i + 1] || list[i - 1] || null)?.rel ?? null);
   };
+
+  // The brain on the panel shows and hides the prompt under the task's text, the one on the preview
+  // the prompt there, each on its own (and kept across sessions, as the panes are); hidden, the
+  // keyboard is back on the task's text. Deleting a prompt hides it too (see confirmDeleteFile).
+  function showPrompt(open) {
+    setPromptOpen(open);
+    if (!open) setSection("task");
+  }
+  function showPeekPrompt(open) {
+    setPeekPromptOpen(open);
+    if (!open) setPeekSection("task");
+  }
+
+  // The text the keyboard is on in the panel, also when a text is clicked into: the task's or its
+  // prompt's, which takes the highlight off an attachment. `detailSection` is what the panel shows
+  // as such: null while an attachment is chosen, the task's text while the prompt is hidden.
+  const selectSection = (area) => {
+    setSection(area);
+    setFileRel(null);
+  };
+  const detailSection = selectedFile ? null : promptOpen ? section : "task";
+
+  // The prompt edited under the task's text, in the panel or the preview, its prompt.txt: typing
+  // one creates the file, a blank one deletes it (see useTaskFiles.savePrompt). `hook` is the
+  // editor's useTaskFiles; the folder is re-read after, so the other one shows the new prompt too.
+  async function savePrompt(hook, task, text) {
+    if (!(await hook.savePrompt(text))) return;
+    setLoads((n) => n + 1);
+    showToast(t("toast.saved"));
+  }
   const openFile = (file, task = selected) => {
     if (previewKind(file.name)) setPreview({ ...file, space: task.space });
     else window.open(api.fileUrl(task.space, file.rel), "_blank", "noreferrer");
@@ -394,12 +441,13 @@ export default function Home({ all = false }) {
     setPane("tasks");
   });
 
-  // Edit a task in the panel: select it, show the panel and put the caret in its text.
-  const openEditor = (task) => {
+  // Edit a task in the panel: select it, show the panel and put the caret in its text (or, with
+  // `area` "prompt", in its prompt, which is shown).
+  const openEditor = (task, area = "task") => {
     setSelectedKey(task.key);
     setDetailOpen(true);
     setPane("detail");
-    setFocusKey(task.key);
+    setFocusing({ key: task.key, area });
   };
 
   async function setStatus(task, status) {
@@ -698,19 +746,34 @@ export default function Home({ all = false }) {
       return true;
     }
     if (peek) {
-      if (["e", "i"].includes(name)) {
-        setPeekEditing(true);
+      // j / k walk the attachments; with the prompt shown, the task's text and its prompt first,
+      // as on the Task panel. e / i edit the text chosen (the task's, with none or an attachment
+      // chosen); enter opens the attachment chosen, and otherwise closes the preview, as q and space do.
+      const rows = peekPromptOpen ? ["task", "prompt", ...peekFiles.map((f) => f.rel)] : peekFiles.map((f) => f.rel);
+      const at = peekFile ? rows.indexOf(peekFile.rel) : peekPromptOpen ? rows.indexOf(peekSection) : -1;
+      const move = moveIndex(name, at, rows.length);
+      if (move !== null) {
+        if (move >= 0) {
+          const row = rows[move];
+          if (row === "task" || row === "prompt") {
+            setPeekSection(row);
+            setPeekFileRel(null);
+          } else setPeekFileRel(row);
+        }
         return true;
       }
-      const move = moveIndex(name, peekFiles.indexOf(peekFile), peekFiles.length);
-      if (move !== null) {
-        if (move >= 0) setPeekFileRel(peekFiles[move].rel);
+      const text = peekFile ? null : peekPromptOpen ? peekSection : "task"; // the text chosen, when not an attachment
+      if (["e", "i"].includes(name)) {
+        setPeekEditing(text || "task");
         return true;
       }
       if (name === "d") {
-        // the chosen attachment, else the task itself; each asks first
+        // the chosen attachment or prompt (nothing to delete without a prompt.txt), else the task
+        // itself; each asks first
         if (peekFile) deleteFile(peekAttachments, peekFiles, peekFile, setPeekFileRel);
-        else setConfirm(peekTask);
+        else if (text === "prompt") {
+          if (peekAttachments.prompt != null) deletePrompt(peekAttachments, peekTask, () => showPeekPrompt(false));
+        } else setConfirm(peekTask);
         return true;
       }
       if (["enter", "space"].includes(name) && peekFile) {
@@ -718,8 +781,7 @@ export default function Home({ all = false }) {
         return true;
       }
       if (!["q", "enter", "space"].includes(name)) return false;
-      setPeekFileRel(null);
-      setPeek(null);
+      closePeek();
       return true;
     }
     // the help closes with the keys that close it in the terminal
@@ -768,22 +830,44 @@ export default function Home({ all = false }) {
     if (pane === "tree") return treeKey(name);
 
     if (pane === "detail") {
-      const move = moveIndex(name, fileIndex, fileList.length);
+      // j / k walk the attachments; with the prompt shown, the task's text and its prompt first,
+      // so the keyboard moves between the two texts (where enter, e and i put the caret) and on
+      // down to the attachments. The highlight starts on the task's text then, else on nothing.
+      const rows = promptOpen && selected ? ["task", "prompt", ...fileList.map((f) => f.rel)] : fileList.map((f) => f.rel);
+      const at = selectedFile ? rows.indexOf(selectedFile.rel) : promptOpen && selected ? rows.indexOf(section) : -1;
+      const move = moveIndex(name, at, rows.length);
       if (move !== null) {
-        if (move >= 0) setFileRel(fileList[move].rel);
+        if (move >= 0) {
+          const row = rows[move];
+          if (row === "task" || row === "prompt") selectSection(row);
+          else setFileRel(row);
+        }
         return true;
       }
-      if (["space", "enter"].includes(name)) {
-        if (selectedFile) openFile(selectedFile);
-        return true;
-      }
-      if (name === "d" && selectedFile) {
-        deleteFile(attachments, fileList, selectedFile, setFileRel);
-        return true;
-      }
-      if (name === "escape" && selectedFile) {
-        setFileRel(null);
-        return true;
+      if (selectedFile) {
+        if (["space", "enter"].includes(name)) {
+          openFile(selectedFile);
+          return true;
+        }
+        if (name === "d") {
+          deleteFile(attachments, fileList, selectedFile, setFileRel);
+          return true;
+        }
+        if (name === "escape") {
+          setFileRel(null);
+          return true;
+        }
+      } else {
+        if (["enter", "e", "i"].includes(name)) {
+          if (selected) openEditor(selected, detailSection);
+          return true;
+        }
+        if (name === "space") return true; // the preview is for the list; here nothing is chosen to open
+        if (name === "d" && detailSection === "prompt") {
+          // the prompt, not the task; nothing to delete without a prompt.txt
+          if (selected && attachments.prompt != null) deletePrompt(attachments, selected, () => showPrompt(false));
+          return true;
+        }
       }
     }
 
@@ -1037,14 +1121,8 @@ export default function Home({ all = false }) {
           {treeOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
         </button>
 
-        <main
-          className={styles.main}
-          onMouseDown={() => setPane("tasks")}
-          // a click on the blank area (not on a task or a button) clears the selection
-          onClick={(e) => {
-            if (!e.target.closest('[role="button"], button, a, input, label')) setSelectedKey(null);
-          }}
-        >
+        {/* a click on the blank area keeps the selection; only esc drops it */}
+        <main className={styles.main} onMouseDown={() => setPane("tasks")}>
           {(all || origin || space) && (
             <nav className={styles.section} aria-label={t("header.location")}>
               {(all || origin) && (
@@ -1135,13 +1213,20 @@ export default function Home({ all = false }) {
             <TaskPanel
               task={selected}
               focused={pane === "detail"}
-              focusKey={focusKey}
-              onFocused={() => setFocusKey(null)}
+              focusKey={focusing?.key}
+              focusArea={focusing?.area}
+              onFocused={() => setFocusing(null)}
               onSave={saveText}
               onDelete={setConfirm}
               onPreview={(file) => selected && setPreview({ ...file, space: selected.space })}
               attachments={attachments}
               selectedFile={selectedFile?.rel}
+              promptOpen={promptOpen}
+              onTogglePrompt={() => showPrompt(!promptOpen)}
+              section={detailSection}
+              onSection={selectSection}
+              onSavePrompt={(task, text) => savePrompt(attachments, task, text)}
+              onDeletePrompt={(task) => deletePrompt(attachments, task, () => showPrompt(false))}
             />
           )}
         </aside>
@@ -1276,7 +1361,27 @@ export default function Home({ all = false }) {
         onPreview={(file) => setPreview({ ...file, space: creating.space })}
       />
 
-      <TaskPreviewModal task={peekTask} editing={peekEditing} onEdit={() => setPeekEditing(true)} onEndEdit={() => setPeekEditing(false)} onSave={saveText} onOpenFile={(file) => openFile(file, peek)} onOpenFolder={openFolder} onDelete={setConfirm} files={peekFiles} selectedRel={peekFile?.rel} onUnselect={() => setPeekFileRel(null)} onClose={closePeek} />
+      {/* its brain shows the prompt here on its own, apart from the panel's */}
+      <TaskPreviewModal
+        task={peekTask}
+        editing={peekEditing}
+        onEdit={setPeekEditing}
+        onEndEdit={() => setPeekEditing(null)}
+        onSave={saveText}
+        onSavePrompt={(task, text) => savePrompt(peekAttachments, task, text)}
+        onOpenFile={(file) => openFile(file, peek)}
+        onOpenFolder={openFolder}
+        onDelete={setConfirm}
+        onDeletePrompt={(task) => deletePrompt(peekAttachments, task, () => showPeekPrompt(false))}
+        files={peekFiles}
+        selectedRel={peekFile?.rel}
+        onUnselect={() => setPeekFileRel(null)}
+        onClose={closePeek}
+        prompt={peekAttachments.prompt}
+        promptOpen={peekPromptOpen}
+        onTogglePrompt={() => showPeekPrompt(!peekPromptOpen)}
+        section={peekFile ? null : peekPromptOpen ? peekSection : "task"}
+      />
 
       {/* after the task preview, so it stacks in front of it */}
       <FilePreviewModal space={preview?.space} file={preview} onClose={() => setPreview(null)} />

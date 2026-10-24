@@ -92,7 +92,13 @@ export const listAllTasks = (scope) => request(`/api/tasks/all?${q(scope)}`);
 // fields: { status, details }
 export const createTask = (space, dir, fields) => request("/api/tasks", json("POST", { ...sp(space), dir, ...fields }));
 
+// One task with its attachments and its prompt: { task, files, prompt }, prompt being the prompt.txt
+// text, or null when the task has none.
 export const getTask = (space, rel) => request(`/api/task?${q({ ...sp(space), rel })}`);
+
+// Write the task's prompt.txt as typed; a blank text deletes it. Resolves to { prompt, files } as
+// they are after the write (prompt null when there is no file).
+export const saveTaskPrompt = (space, rel, text) => request("/api/task/prompt", json("PUT", { ...sp(space), rel, text }));
 
 export const updateTask = (space, rel, fields) => request("/api/task", json("PUT", { ...sp(space), rel, ...fields }));
 

@@ -123,6 +123,23 @@ p {
   stroke-linejoin: round;
 }
 
+/* A dot in a button's top right corner says there is something behind it: the brain of a task that
+   has a prompt.txt, shown or not. */
+.btn[data-dot="true"] {
+  position: relative;
+}
+
+.btn[data-dot="true"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 .input,
 .select {
   display: block;

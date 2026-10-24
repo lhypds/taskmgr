@@ -130,7 +130,11 @@ Create a task in `dir`; the folder is named after the first line of `details`. 2
 Create a task in `dir` from the whole `task.txt` text. 201 `{ task }`.  
 
 `GET /api/task?work=&repository=&rel=`  
-One task and its files: `{ task, files }`, each file `{ name, rel, isDir, isSubtask, size }`.  
+One task, its files and its prompt: `{ task, files, prompt }`, each file `{ name, rel, isDir, isSubtask, size }`  
+(`task.txt` and `prompt.txt` are not among them), `prompt` the text of the task's `prompt.txt`, or `null` when it has none.  
+
+`PUT /api/task/prompt` `{ work, repository?, rel, text }`  
+Write the task's `prompt.txt` as typed; a blank `text` deletes the file instead. `{ prompt, files }` as they are after it.  
 
 `PUT /api/task` `{ work, repository?, rel, details?, status? }`  
 Set a task's details and status; the folder is renamed after the first line and moved by the status. `{ task }`.  

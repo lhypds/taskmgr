@@ -12,7 +12,9 @@ const express = require('express');
 
 const {
   TASK_FILE,
+  PROMPT_FILE,
   STATUS_DIRS,
+  readPrompt,
   listDirOf,
   isTaskFolder,
   readTaskDir,
@@ -112,6 +114,18 @@ function resolveTaskDir(root, rel) {
 
 // A task folder without a task file still reads as a task (see readTaskDir).
 const taskFromDir = readTaskDir;
+
+// A task's prompt, prompt.txt beside its task.txt (PROMPT_FILE and readPrompt are in taskUtils, shared
+// with `tm run`): edited under the task's text in the web UI's Task panel. It is not an attachment
+// (listFiles leaves it out); GET /api/task answers it and PUT /api/task/prompt writes it.
+
+// Write a task's prompt.txt as typed; a blank text removes the file instead, so an emptied prompt
+// leaves nothing behind.
+function writePrompt(taskDirAbs, text) {
+  const p = path.join(taskDirAbs, PROMPT_FILE);
+  if (text.trim()) fs.writeFileSync(p, text, 'utf8');
+  else if (readPrompt(taskDirAbs) !== null) fs.unlinkSync(p);
+}
 
 function firstDetailLine(details) {
   return (details || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
@@ -280,7 +294,7 @@ function listFiles(root, taskDirAbs) {
   const entries = fs.readdirSync(taskDirAbs, { withFileTypes: true });
   const files = [];
   for (const e of entries) {
-    if (e.name === TASK_FILE) continue;
+    if (e.name === TASK_FILE || e.name === PROMPT_FILE) continue;  // the task's own files, not attachments
     if (e.name.startsWith('.')) continue;
     if (e.isDirectory() && STATUS_DIRS.includes(e.name)) continue;  // holds done / pending / aborted subtasks
     const abs = path.join(taskDirAbs, e.name);
@@ -530,10 +544,22 @@ app.post('/api/tasks', (req, res) => {
   res.status(201).json({ task: serializeTask(root, taskFromDir(taskDir)) });
 });
 
+// One task with its attachments and its prompt (the prompt.txt text, null when it has none).
 app.get('/api/task', (req, res) => {
   const { root } = spaceFrom(req.query);
   const taskDir = resolveTaskDir(root, String(req.query.rel || ''));
-  res.json({ task: serializeTask(root, taskFromDir(taskDir)), files: listFiles(root, taskDir) });
+  res.json({ task: serializeTask(root, taskFromDir(taskDir)), files: listFiles(root, taskDir), prompt: readPrompt(taskDir) });
+});
+
+// Write a task's prompt.txt as typed; a blank text deletes it. Answers the prompt as it is now
+// (null when there is no file) and the task's attachments.
+app.put('/api/task/prompt', (req, res) => {
+  const body = req.body || {};
+  const { root } = spaceFrom(body);
+  const taskDir = resolveTaskDir(root, body.rel);
+  if (typeof body.text !== 'string') throw new HttpError(400, 'Missing text.');
+  writePrompt(taskDir, body.text.replace(/\r\n/g, '\n'));
+  res.json({ prompt: readPrompt(taskDir), files: listFiles(root, taskDir) });
 });
 
 app.put('/api/task', (req, res) => {

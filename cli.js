@@ -1143,12 +1143,16 @@ function createTaskView(screen, onBack) {
   return { open, close };
 }
 
-const USAGE = `Usage: tm [<folder> | config | push | pull | start | stop | restart | status | help]
+const USAGE = `Usage: tm [<folder> | config | run | push | pull | start | stop | restart | status | help]
 
   tm              pick a work and a repository from taskmgr.json, then open its tasks
   tm <folder>     open that folder as a task list (e.g. tm . or tm ~/tasks)
   tm config       open taskmgr.json in the editor (created from taskmgr.json.example if missing)
-  tm push         push taskmgr.json and the tasks folders to the server of taskmgrd now (SYNC_SERVER in .env)
+  tm run <work | repository | work/repository | folder>:<id> [claude options...]
+                  start Claude Code on that task (e.g. tm run develop:202610241655): its task.txt, its prompt.txt and
+                  the list of its files make the first prompt, in the repository's source folder (else the task
+                  folder); --dry-run shows it without running (tm run --help)
+  tm push        push taskmgr.json and the tasks folders to the server of taskmgrd now (SYNC_SERVER in .env)
   tm pull         fetch taskmgr.json, the tasks and their files from the server, adding, updating and deleting the tasks the server deleted
   tm start        start the web UI under pm2, and taskmgrd, the sync daemon, with it when SYNC_SERVER is set in .env (start.sh / start.bat)
   tm stop         stop both (stop.sh / stop.bat)
@@ -1156,7 +1160,7 @@ const USAGE = `Usage: tm [<folder> | config | push | pull | start | stop | resta
   tm status       show whether the web UI and taskmgrd run under pm2: state, pid, uptime, restarts, memory (exits with 1 when one is not online)
   tm help         show this help (also -h, --help)
 
-To open a folder named like a command ("config", "status", ...), prefix it: tm ./config
+To open a folder named like a command ("config", "run", "status", ...), prefix it: tm ./config
 
 The editor is EDITOR (or VISUAL) from .env / the environment; default: ${process.platform === 'win32' ? 'notepad' : 'vim'}.
 Config file: ${DEFAULT_CONFIG_PATH}.
@@ -1309,6 +1313,10 @@ function main() {
   }
   if (command === 'config') {
     editConfig();
+    return;
+  }
+  if (command === 'run') {
+    require('./run').main(args.slice(1));
     return;
   }
   if (command === 'push') {

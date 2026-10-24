@@ -4,6 +4,21 @@ const { spawnSync } = require('child_process');
 
 const TASK_FILE = 'task.txt';
 
+// A task's prompt, prompt.txt beside its task.txt: the text for an AI agent working on the task,
+// edited under the task's text in the web UI's Task panel and run by `tm run`. It is not an
+// attachment.
+const PROMPT_FILE = 'prompt.txt';
+
+// The prompt.txt text of a task folder, or null when it has none.
+function readPrompt(taskDirAbs) {
+  const p = path.join(taskDirAbs, PROMPT_FILE);
+  try {
+    return fs.statSync(p).isFile() ? fs.readFileSync(p, 'utf8') : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // A task's status is where its folder is: right in a folder of tasks it is todo, in that
 // folder's "done", "pending" or "aborted" folder it is done, pending or aborted.
 const STATUS_DIRS = ['done', 'pending', 'aborted'];
@@ -289,7 +304,9 @@ function openFolder(dir) {
 
 module.exports = {
   TASK_FILE,
+  PROMPT_FILE,
   STATUS_DIRS,
+  readPrompt,
   listDirOf,
   isTaskFolder,
   readTaskDir,
@@ -303,6 +320,7 @@ module.exports = {
   openTask,
   openFolder,
   parseTask,
+  folderId,
   readTasks,
   hasSubtask,
   compareIdsDesc

@@ -18,11 +18,12 @@ the done, the pending and the aborted tasks out of the list and back (the progre
 todo, done and pending columns; its "aborted" box shows and hides the aborted column); the mouse wheel over the list moves the selection, as in the terminal. A subtask is a task inside a task (a task folder in  
 the task's own folder); the list is a tree like the one on the left, each subtask under its task  
 with tree lines before its title. With a task selected, "New task" (and `a` / `n`) adds a subtask  
-of it (the button says "New subtask"); `esc` drops the selection, as does a click on the blank area,  
+of it (the button says "New subtask"); `esc` drops the selection (a click on the blank area keeps it),  
 and then they add a task at the top. A search or filter keeps a task whose subtask matches. In  
 the progress view a task's card sits in the column of its status with its subtasks' cards under  
 it as the same tree, a subtask whose status differs from the column shown in grey. `tab` (or `h` at the top of a task list) moves the  
 keyboard to the tree, `l` / `enter` back to the tasks.  
+The Task panel on the right shows the selected task's `task.txt`, editable in place (saved when the text loses the focus, on ⌘S / Ctrl+S or `esc`), with undo, redo and delete at the top right, and its attachments under it. The brain button there shows the task's prompt, its `prompt.txt` (a prompt for an AI agent working on the task), under the text, past a divider that says "Prompt" and carries the prompt's own undo, redo and delete: typing a prompt creates the file, emptying or deleting it removes it. Whether the prompt is shown is kept across sessions, as the panes are, and deleting the prompt hides it again; the brain shows a dot while the task has a prompt.txt, shown or hidden. The task preview (`space`) has a brain of its own at its top left, showing the prompt under the text the same way (apart from the panel's); a double click on either text (or `e` / `i`, on the one `j` / `k` chose) edits it, with undo and redo for the text beside the brain and the prompt's own undo, redo and delete above the prompt, as on the panel (`d` on the prompt asks before deleting it too). With the prompt shown, `j` / `k` on the panel move between the text, the prompt and the attachments (the highlight on the "Task" head or the "Prompt" divider says which); `enter`, `e` or `i` edit the text chosen, and `d` on the prompt asks before deleting it.  
 The page re-reads the tree and the tasks every ten seconds while its tab is visible, so changes
 pushed from another machine or made with the cli show up on their own; the refresh button at the top does it at once.  
 

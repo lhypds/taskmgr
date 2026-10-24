@@ -6,10 +6,11 @@
   min-height: 100%;
 }
 
-/* The attachments under the text, and the overlay while files are dragged over the panel. */
+/* The files under the text (their "Files" head close under the line), and the overlay while files
+   are dragged over the panel. */
 .files {
   flex: none;
-  padding: 12px;
+  padding: 8px 12px 12px;
   border-top: var(--line) solid var(--border);
 }
 
@@ -56,6 +57,25 @@
   gap: 4px;
 }
 
+/* Between the task's text and its prompt: "Prompt", with the prompt's undo, redo and delete at its
+   right, highlighted as the head is while the keyboard is on the prompt. */
+.divider {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--bg);
+  border-top: var(--line) solid var(--border);
+  border-bottom: var(--line) solid var(--border);
+}
+
+.divider[data-focused="true"] {
+  background: var(--bg-hover);
+}
+
 .empty {
   flex: 1;
   display: flex;
@@ -65,9 +85,10 @@
   text-align: center;
 }
 
-/* The task's text fills the rest of the pane, over a faint grid as liveboard's Note: a cell is
-   two characters wide and one line tall, so an indent of two spaces is one cell. The grid starts
-   where the text does (inside the padding) and scrolls with it. */
+/* The task's text fills the rest of the pane (shared equally with the prompt's, when shown), over
+   a faint grid as liveboard's Note: a cell is two characters wide and one line tall, so an indent
+   of two spaces is one cell. The grid starts where the text does (inside the padding) and scrolls
+   with it. */
 .text {
   flex: 1;
   width: 100%;

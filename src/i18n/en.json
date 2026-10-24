@@ -92,10 +92,14 @@
     "none": "No task selected.",
     "undo": "Undo",
     "redo": "Redo",
+    "prompt": "Prompt",
+    "showPrompt": "Show the prompt (prompt.txt)",
+    "hidePrompt": "Hide the prompt",
+    "deletePrompt": "Delete the prompt",
     "dropFiles": "Drop files to attach them to this task"
   },
   "attach": {
-    "title": "Attachments",
+    "title": "Files",
     "folder": "folder",
     "remove": "Remove {{name}}",
     "deleteConfirm": "Delete {{name}}?",
@@ -167,7 +171,11 @@
     },
     "files": {
       "keys": "j / k, space on Task",
-      "desc": "select an attachment, open its preview"
+      "desc": "select a file, open its preview"
+    },
+    "prompt": {
+      "keys": "j / k, enter on Task with the prompt shown",
+      "desc": "move between the text, the prompt and the files; enter edits the one chosen"
     },
     "pending": {
       "keys": "p",

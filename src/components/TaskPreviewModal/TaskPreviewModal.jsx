@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "@ui";
-import { FolderIcon, TrashIcon } from "@components/icons";
+import { BrainIcon, FolderIcon, RedoIcon, TrashIcon, UndoIcon } from "@components/icons";
 import { fileUrl } from "@utils/api";
 import { formatSize, previewKind } from "@utils/task";
 import styles from "./taskPreview.module.css";
@@ -19,10 +19,10 @@ function previewText(details) {
     .join("\n");
 }
 
-// task.txt in a textarea, caret at the end. A blur saves and ends the edit, and so does esc; cmd/ctrl+s saves and keeps editing.
-function Editor({ task, textRef, onSave, onEndEdit }) {
-  const { t } = useTranslation();
-  const [draft, setDraft] = useState(task.details);
+// A text (task.txt, or prompt.txt) in a textarea, caret at the end. A blur saves (onSave(text), when
+// it changed) and ends the edit, and so does esc; cmd/ctrl+s saves and keeps editing.
+function Editor({ value, placeholder, textRef, onSave, onEndEdit }) {
+  const [draft, setDraft] = useState(value);
 
   useEffect(() => {
     const el = textRef.current;
@@ -31,7 +31,7 @@ function Editor({ task, textRef, onSave, onEndEdit }) {
   }, [textRef]);
 
   const save = () => {
-    if (draft !== task.details) onSave(task, draft);
+    if (draft !== value) onSave(draft);
   };
 
   return (
@@ -39,7 +39,7 @@ function Editor({ task, textRef, onSave, onEndEdit }) {
       ref={textRef}
       className={styles.text}
       value={draft}
-      placeholder={t("common.untitled")}
+      placeholder={placeholder}
       spellCheck={false}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
@@ -56,26 +56,100 @@ function Editor({ task, textRef, onSave, onEndEdit }) {
   );
 }
 
-// An icon button at the left end of the header, grey until hovered like the close button.
-function HeaderButton({ label, onClick, children }) {
+// An icon button at the left end of the header, framed as the Task panel's (`.btn`); `dot` marks it.
+// It never keeps the focus, so space and enter stay the preview's keys (close it) rather than
+// pressing the button again: with `keepFocus` it does not take it on mousedown, so a text being
+// edited stays in edit (undo, redo); the others take it for the click (a text being edited is
+// saved on the blur first) and let it go after.
+function HeaderButton({ label, dot, disabled, keepFocus, onClick, children }) {
   return (
-    <button type="button" className={styles.headerButton} title={label} aria-label={label} onClick={onClick}>
+    <button
+      type="button"
+      className="btn"
+      tabIndex={-1}
+      data-dot={dot}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      onMouseDown={keepFocus ? (e) => e.preventDefault() : undefined}
+      onClick={(e) => {
+        if (!keepFocus) e.currentTarget.blur();
+        onClick();
+      }}
+    >
       {children}
     </button>
   );
 }
 
-// Look at a task's task.txt, with its attachments under it (`files`, the one at
-// `selectedRel` marked; Home moves it with j / k and opens it with enter; esc calls onUnselect first; double click or `onEdit` starts the edit; with `editing`, e / i in Home, the text is a textarea saved by onSave), a click on a file (or enter) opens it through `onOpenFile`, which previews a PDF, image or text file instead of downloading it; the buttons at the top left open the task's folder (`onOpenFolder`) and delete the task (`onDelete`, which asks first); opened with space or a double click on the task and closed with space, q, enter or escape.
-export default function TaskPreviewModal({ task, files, selectedRel, onUnselect, editing, onEdit, onEndEdit, onSave, onOpenFile, onOpenFolder, onDelete, onClose }) {
+// Look at a task's task.txt, with its attachments under it (`files`, the one at `selectedRel` marked;
+// Home moves it with j / k and opens it with enter; esc calls onUnselect first), a click on a file
+// (or enter) opening it through `onOpenFile`, which previews a PDF, image or text file instead of
+// downloading it. A double click on a text (or `onEdit(area)`, e / i in Home) starts editing it:
+// `editing` is "task" or "prompt" while one is a textarea, saved by onSave(task, text) or
+// onSavePrompt(task, text). The buttons at the top left open the task's folder (`onOpenFolder`),
+// show the task's prompt (the brain, `onTogglePrompt`: with `promptOpen`, `prompt`, its prompt.txt
+// text, null for none, undefined until read, is shown under the text, as the Task panel shows it;
+// the brain carries a dot while the task has one), undo and redo in the task's text while it is
+// edited, and delete the task (`onDelete`, which asks first). The prompt's head carries its own
+// undo, redo and delete (`onDeletePrompt(task)`, which asks first), as the panel's divider does.
+// `section` is the text the keyboard is on, "task" or "prompt" (null while an attachment is); the
+// prompt is highlighted while it is. Opened with space or a double click on the task and closed
+// with space, q, enter or escape.
+export default function TaskPreviewModal({
+  task,
+  files,
+  selectedRel,
+  onUnselect,
+  editing,
+  onEdit,
+  onEndEdit,
+  onSave,
+  onSavePrompt,
+  onOpenFile,
+  onOpenFolder,
+  onDelete,
+  onDeletePrompt,
+  onClose,
+  prompt,
+  promptOpen,
+  onTogglePrompt,
+  section,
+}) {
   const { t } = useTranslation();
-  const textRef = useRef(null);
+  const textRef = useRef(null); // the textarea being edited, task or prompt (one at a time)
   const onEscape = editing ? () => textRef.current?.blur() : selectedRel ? onUnselect : undefined;
+
+  // The textarea's own undo history, the one cmd/ctrl+z walks, so the buttons and the keys agree.
+  function edit(command) {
+    const el = textRef.current;
+    if (!el) return;
+    el.focus();
+    document.execCommand(command);
+  }
+
+  // Undo and redo for the text `area` ("task" or "prompt"): only while that one is being edited,
+  // since the textarea (and its history) is there only then.
+  const editButtons = (area) => (
+    <>
+      <HeaderButton label={t("panel.undo")} disabled={editing !== area} keepFocus onClick={() => edit("undo")}>
+        <UndoIcon />
+      </HeaderButton>
+      <HeaderButton label={t("panel.redo")} disabled={editing !== area} keepFocus onClick={() => edit("redo")}>
+        <RedoIcon />
+      </HeaderButton>
+    </>
+  );
+
   const actions = task && (
     <div className={styles.headerButtons}>
       <HeaderButton label={t("tree.openFolder")} onClick={() => onOpenFolder(task)}>
         <FolderIcon />
       </HeaderButton>
+      <HeaderButton label={t(promptOpen ? "panel.hidePrompt" : "panel.showPrompt")} dot={prompt != null} onClick={onTogglePrompt}>
+        <BrainIcon />
+      </HeaderButton>
+      {editButtons("task")}
       <HeaderButton label={t("delete.title")} onClick={() => onDelete(task)}>
         <TrashIcon />
       </HeaderButton>
@@ -84,12 +158,48 @@ export default function TaskPreviewModal({ task, files, selectedRel, onUnselect,
   return (
     <Modal isOpen={!!task} onClose={onClose} onEscape={onEscape} className={styles.modal} headerLeft={actions}>
       <div className={styles.body}>
-        {editing && task ? (
-          <Editor key={task.key} task={task} textRef={textRef} onSave={onSave} onEndEdit={onEndEdit} />
+        {editing === "task" && task ? (
+          <Editor
+            key={`task:${task.key}`}
+            value={task.details}
+            placeholder={t("common.untitled")}
+            textRef={textRef}
+            onSave={(text) => onSave(task, text)}
+            onEndEdit={onEndEdit}
+          />
         ) : (
-          <pre className={styles.text} onDoubleClick={onEdit}>
+          <pre className={styles.text} onDoubleClick={() => onEdit("task")}>
             {previewText(task?.details)}
           </pre>
+        )}
+        {promptOpen && task && (
+          <>
+            {/* the prompt's head, as the panel's divider: its name, with its undo, redo and delete beside it */}
+            <div className={styles.promptHead}>
+              <span>{t("panel.prompt")}</span>
+              <div className={styles.headerButtons}>
+                {editButtons("prompt")}
+                <HeaderButton label={t("panel.deletePrompt")} disabled={prompt == null} onClick={() => onDeletePrompt(task)}>
+                  <TrashIcon />
+                </HeaderButton>
+              </div>
+            </div>
+            {editing === "prompt" ? (
+              <Editor
+                key={`prompt:${task.key}`}
+                value={prompt ?? ""}
+                textRef={textRef}
+                onSave={(text) => onSavePrompt(task, text)}
+                onEndEdit={onEndEdit}
+              />
+            ) : (
+              /* as written, not trimmed as task.txt is: a prompt's indents may matter; empty when
+                 there is no file (or until it is read) */
+              <pre className={styles.text} data-selected={section === "prompt"} onDoubleClick={() => onEdit("prompt")}>
+                {prompt ?? ""}
+              </pre>
+            )}
+          </>
         )}
         {task && files.length > 0 && (
           <div className={styles.files}>

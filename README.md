@@ -105,6 +105,9 @@ a repository row opens that repository. `h` at the top of a task list goes back 
 Opens `taskmgr.json` in the editor (`EDITOR` in `.env`, see above). If the file does not exist yet,  
 it is created from `taskmgr.json.example` first.  
 
+`tm run <work | repository | work/repository | folder>:<id>`  
+Starts Claude Code (`claude`, installed separately) on one task, e.g. `tm run develop:202610241655`. Before the colon is where the task is: a work of `taskmgr.json` (its common tasks), a repository (`work/repository` when several works have a repository of that name, `work/` for the common tasks of a work that also names a repository), or a path to a folder of tasks; after it, the task's id, looked for in the `done`, `pending` and `aborted` folders and among the subtasks too. The two may also be two arguments (`tm run develop 202610241655`), and the id may then be a path to the task folder, for two tasks with one id at different levels. The first prompt is made of the task's `task.txt`, its `prompt.txt` when it has one (the prompt is then what to do and the task text its context; without one the task text is what to do) and the list of its other files, with the task folder's path. A repository's task runs in the repository's source folder (`source_path`), so Claude works on the code, with the task folder added (`--add-dir`) so its files can be read; any other task runs in its own folder. Whatever follows goes to `claude` as it is: `-p` prints the answer and exits, `--model opus` picks a model, and so on. `--dry-run` prints the folder, the command and the prompt without starting claude; `tm run --help` has the details. Exits as claude does.  
+
 `tm push`  
 Pushes `taskmgr.json` and the tasks folders to the remote server once, by hand, the same push the sync daemon does (see [docs/taskmgrd.md](docs/taskmgrd.md); `SYNC_SERVER` and `SYNC_SERVER_TOKEN` in `.env`). It prints what it pushed and exits, with an error when the server cannot be reached. Every tasks folder is sent each time, so whatever was changed on the server since is put back as it is here; attachments the server already has are not uploaded again. Each run, its start, what it pushed and its end, is logged to `logs/taskmgr.log` (the daemon's own pushes go to `logs/taskmgrd.log`). Every log in `logs/` is kept under 10 MB: past that, its oldest 2 MB are dropped.  
 
@@ -132,7 +135,7 @@ Shows whether the web UI and taskmgrd run under pm2, one row each, with their pm
 With `SYNC_SERVER` empty in `.env` only the web UI is listed. It exits with 1 when one of them is not online, so a script can test it, and then says what to run (`tm start`, or `pm2 logs <name>` for one that errored). Needs pm2 (`./setup.sh` installs it).  
 
 `tm help` (or `tm -h`, `tm --help`)  
-Prints the commands above. To open a folder named like a command (`config`, `push`, `pull`, `start`, `stop`, `restart`, `status` or `help`), prefix it: `tm ./config`.  
+Prints the commands above. To open a folder named like a command (`config`, `run`, `push`, `pull`, `start`, `stop`, `restart`, `status` or `help`), prefix it: `tm ./config`.  
 
 
 Task files
@@ -142,7 +145,10 @@ Each task is a folder `<id> <title>`, the id being its creation minute (`YYYYMMD
 
 `task.txt`  
 Plain text file, just the task details. The first line is the title.  
-A task folder without a `task.txt` is still a task, titled after the folder name.
+A task folder without a `task.txt` is still a task, titled after the folder name.  
+Any other file in the folder is an attachment, except `prompt.txt` (optional): a prompt for an AI  
+agent working on the task, which the web UI's Task panel edits under the task's text (see [docs/Web UI.md](docs/Web%20UI.md))  
+and `tm run` hands to Claude Code with the task text and the list of the attachments (see `Command`).
 
 File example:
 ```
