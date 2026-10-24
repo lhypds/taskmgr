@@ -111,8 +111,28 @@ Pushes `taskmgr.json` and the tasks folders to the remote server once, by hand, 
 `tm pull`  
 Fetches `taskmgr.json` and, for the works and repositories listed in it, every `task.txt` and the other files (attachments, files in folders) from the server, once, by hand. A file or folder that exists is updated when it differs, one that does not is added. A task the server deleted since the last sync (taskmgrd's last push or the last pull, remembered in `.tm-sync-state.json`) is deleted here too, with its folder, unless you changed its `task.txt` here since. Other files the server lacks are never deleted here, since taskmgrd does not push files over its size limits. A task or file you deleted here is fetched again if the server still has it (push first, or taskmgrd will send it back). Nothing never synced before is ever deleted. `taskmgr.json` is merged, and only for what is already in it: an origin, work or repository you have takes the server's fields (keeping its own `tasks_path` and `source_path`), and one only on the server is not pulled, with its files. Same `.env` settings as `tm push`, and logged to the same `logs/taskmgr.log`. With `POLLING=1` in `.env`, taskmgrd does this pull by itself: once when it starts, before its first push, then every `POLLING_INTERVAL` seconds (600 when not set, ten minutes), logged to its `logs/taskmgrd.log` (see [docs/taskmgrd.md](docs/taskmgrd.md)).  
 
+`tm start`  
+Starts the web UI under pm2, and taskmgrd, the sync daemon, with it when `SYNC_SERVER` is set in `.env`: it runs the `start.sh` of the taskmgr folder (`start.bat` on Windows, see [docs/Web UI.md](docs/Web%20UI.md)), from wherever you are, and prints what it prints.  
+
+`tm stop`  
+Stops both (`stop.sh` / `stop.bat`).  
+
+`tm restart`  
+Pulls the latest code of taskmgr, installs and rebuilds, then stops and starts both (`restart.sh` / `restart.bat`).  
+
+`tm status`  
+Shows whether the web UI and taskmgrd run under pm2, one row each, with their pm2 state (`online`, `stopped`, `errored`, or `not started` when pm2 does not know them), pid, uptime, restart count and memory, and the URL of the web UI when it runs:  
+
+```
+  name      status  pid    uptime  restarts  memory
+  taskmgr   online  41023  3d 2h   0         48 MB   http://localhost:3456
+  taskmgrd  online  41031  3d 2h   0         115 MB  sync daemon
+```
+
+With `SYNC_SERVER` empty in `.env` only the web UI is listed. It exits with 1 when one of them is not online, so a script can test it, and then says what to run (`tm start`, or `pm2 logs <name>` for one that errored). Needs pm2 (`./setup.sh` installs it).  
+
 `tm help` (or `tm -h`, `tm --help`)  
-Prints the commands above. To open a folder named `config`, `push`, `pull` or `help`, prefix it: `tm ./config`.  
+Prints the commands above. To open a folder named like a command (`config`, `push`, `pull`, `start`, `stop`, `restart`, `status` or `help`), prefix it: `tm ./config`.  
 
 
 Task files

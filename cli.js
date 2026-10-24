@@ -1143,15 +1143,20 @@ function createTaskView(screen, onBack) {
   return { open, close };
 }
 
-const USAGE = `Usage: tm [<folder> | config | push | pull | help]
+const USAGE = `Usage: tm [<folder> | config | push | pull | start | stop | restart | status | help]
 
   tm              pick a work and a repository from taskmgr.json, then open its tasks
   tm <folder>     open that folder as a task list (e.g. tm . or tm ~/tasks)
   tm config       open taskmgr.json in the editor (created from taskmgr.json.example if missing)
-  tm push         push taskmgr.json and the tasks folders to the server of taskmgrd now (SYNC_SERVER in .env)  tm pull         fetch taskmgr.json, the tasks and their files from the server, adding, updating and deleting the tasks the server deleted
+  tm push         push taskmgr.json and the tasks folders to the server of taskmgrd now (SYNC_SERVER in .env)
+  tm pull         fetch taskmgr.json, the tasks and their files from the server, adding, updating and deleting the tasks the server deleted
+  tm start        start the web UI under pm2, and taskmgrd, the sync daemon, with it when SYNC_SERVER is set in .env (start.sh / start.bat)
+  tm stop         stop both (stop.sh / stop.bat)
+  tm restart      pull the latest code, install and rebuild, then stop and start both (restart.sh / restart.bat)
+  tm status       show whether the web UI and taskmgrd run under pm2: state, pid, uptime, restarts, memory (exits with 1 when one is not online)
   tm help         show this help (also -h, --help)
 
-To open a folder named "config", "push", "pull" or "help", prefix it: tm ./config
+To open a folder named like a command ("config", "status", ...), prefix it: tm ./config
 
 The editor is EDITOR (or VISUAL) from .env / the environment; default: ${process.platform === 'win32' ? 'notepad' : 'vim'}.
 Config file: ${DEFAULT_CONFIG_PATH}.
@@ -1195,6 +1200,105 @@ function pullNow() {
   process.exit(result.status === null ? 1 : result.status);
 }
 
+// `tm start`, `tm stop`, `tm restart`: start.sh, stop.sh or restart.sh of the project folder (start.bat,
+// stop.bat or restart.bat on Windows), run from anywhere with their output, exiting as they do.
+function runServiceScript(name) {
+  const { spawnSync } = require('child_process');
+  const win = process.platform === 'win32';
+  const script = path.join(__dirname, `${name}.${win ? 'bat' : 'sh'}`);
+  const result = win
+    ? spawnSync('cmd.exe', ['/c', script], { stdio: 'inherit', cwd: __dirname })
+    : spawnSync('bash', [script], { stdio: 'inherit', cwd: __dirname });
+  if (result.error) {
+    console.error(`Cannot run ${script}: ${result.error.code || result.error.message}`);
+    process.exit(1);
+  }
+  process.exit(result.status === null ? 1 : result.status);
+}
+
+// The processes pm2 knows (`pm2 jlist`). pm2 is looked for on PATH, then in pnpm's global folder, for a
+// shell opened before `pnpm setup` put it on PATH (as start.sh does). Throws when neither answers.
+function pm2List() {
+  const { spawnSync } = require('child_process');
+  const win = process.platform === 'win32';
+  const pnpmHome = process.env.PNPM_HOME
+    || path.join(process.env.XDG_DATA_HOME || path.join(require('os').homedir(), '.local', 'share'), 'pnpm');
+  const candidates = ['pm2', path.join(pnpmHome, win ? 'pm2.cmd' : 'pm2')];
+  let lastError = '';
+  for (const cmd of candidates) {
+    const r = spawnSync(win && cmd.includes(' ') ? `"${cmd}"` : cmd, ['jlist'], { encoding: 'utf8', shell: win });
+    if (r.error) { lastError = r.error.code || r.error.message; continue; }
+    if (r.status !== 0) { lastError = (r.stderr || '').trim() || `exit code ${r.status}`; continue; }
+    // When pm2's own daemon was not running, lines about spawning it come before the JSON (its last line).
+    const lines = (r.stdout || '').trim().split('\n');
+    try {
+      return JSON.parse(lines[lines.length - 1]);
+    } catch (e) {
+      throw new Error(`\`${cmd} jlist\` did not answer with JSON: ${e.message}`);
+    }
+  }
+  throw new Error(`pm2 not found (${lastError}). Install it with \`pnpm add -g pm2\` or run ./setup.sh.`);
+}
+
+// "3d 2h", "2h 10m", "5m 12s" or "40s" for a number of milliseconds.
+function formatDuration(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s % 60}s`;
+  return `${s}s`;
+}
+
+// `tm status`: one row per app of ecosystem.config.cjs (the web UI, and taskmgrd when SYNC_SERVER is set
+// in .env) with its pm2 state, as `pm2 status` would show, and the URL of the web UI. Exits with 1 when
+// one of them is not online, so a script can test it.
+function showStatus() {
+  const { apps } = require('./ecosystem.config.cjs');
+  let processes;
+  try {
+    processes = pm2List();
+  } catch (e) {
+    console.error(`Error: ${e.message}`);
+    process.exit(1);
+  }
+  const byName = new Map(processes.map((p) => [p.name, p]));
+  const header = ['name', 'status', 'pid', 'uptime', 'restarts', 'memory', ''];
+  const rows = apps.map((app) => {
+    const p = byName.get(app.name);
+    const env = (p && p.pm2_env) || {};
+    const status = p ? (env.status || 'unknown') : 'not started';
+    const online = status === 'online';
+    const note = app.script === 'server/index.js'
+      ? (online ? `http://localhost:${app.env.PORT}` : '')
+      : (online ? 'sync daemon' : '');
+    return {
+      online,
+      cells: [
+        app.name,
+        status,
+        online && p.pid ? String(p.pid) : '-',
+        online && env.pm_uptime ? formatDuration(Date.now() - env.pm_uptime) : '-',
+        p ? String(env.restart_time || 0) : '-',
+        online && p.monit && p.monit.memory ? `${Math.round(p.monit.memory / 1048576)} MB` : '-',
+        note,
+      ],
+    };
+  });
+  const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r.cells[i].length)));
+  const line = (cells) => '  ' + cells.map((c, i) => (i === cells.length - 1 ? c : c.padEnd(widths[i]))).join('  ').trimEnd();
+  console.log(line(header));
+  for (const r of rows) console.log(line(r.cells));
+  if (apps.length === 1) console.log('  taskmgrd not started (SYNC_SERVER is empty in .env)');
+
+  const down = rows.filter((r) => !r.online);
+  if (down.length === 0) return;
+  const errored = down.filter((r) => r.cells[1] === 'errored');
+  console.log('');
+  console.log(`\`tm start\` starts them${errored.length ? `; \`pm2 logs ${errored[0].cells[0]}\` shows why it errored` : ''}.`);
+  process.exit(1);
+}
+
 function main() {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -1213,6 +1317,14 @@ function main() {
   }
   if (command === 'pull') {
     pullNow();
+    return;
+  }
+  if (command === 'start' || command === 'stop' || command === 'restart') {
+    runServiceScript(command);
+    return;
+  }
+  if (command === 'status') {
+    showStatus();
     return;
   }
 

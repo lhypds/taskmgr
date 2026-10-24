@@ -80,6 +80,7 @@ stopped until the next `./start.sh`. The daemon alone, with pm2's own commands (
 
 `pm2 logs taskmgrd` follows its log  
 `pm2 describe taskmgrd` says whether it runs  
+`tm status` says the same for it and the web UI together, in one table (`tm start` / `tm stop` / `tm restart` run `start.sh` / `stop.sh` / `restart.sh` from anywhere)  
 `pm2 stop taskmgrd` / `pm2 restart taskmgrd` stop it, or restart it alone (a changed `.env` is read again; `./start.sh` for one that empties or sets `SYNC_SERVER`)  
 `pm2 startup` then `pm2 save` make it start with the machine, as the web UI  
 `pnpm run daemon` runs it in the foreground without pm2 (Ctrl+C to stop), to see what it does  
