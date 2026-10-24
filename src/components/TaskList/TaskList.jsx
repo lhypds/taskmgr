@@ -39,7 +39,7 @@ function RowButton({ label, className = "", onClick, children }) {
 
 // Where a task is from: its repository (or work) name, a link to that space. A long name is cut
 // short with an ellipsis, and the whole work / repository path shows on hover. Clicking it must not
-// select (or, doubled, open the folder of) the row around it.
+// select (or, doubled, preview) the row around it.
 export function FromTag({ task }) {
   if (!task.from) return null;
   const { origin, work, repository } = task.space;
@@ -83,10 +83,11 @@ export function TaskActions({ task, className = "", onOpen, onOpenFolder, onDele
 // The tasks as a tree, like the origins tree: `tasks` are the rows in order, each subtask under
 // its task with its `depth`, `through` and `last` (see flattenTasks), drawn with tree lines before
 // its title. `selectedKey` is the row the keyboard shortcuts act on; it is kept scrolled into
-// view. A task's `from` (the work or repository it lives in, in a list of several) shows before
-// its title, on its subtasks too (they are from the same place). With no rows the column header
-// still shows, and `empty` (the "no tasks" message) sits centred under it.
-export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpenFolder, onToggleDone, empty }) {
+// view. A click selects a row, a double click opens its preview (`onPreview`). A task's `from` (the
+// work or repository it lives in, in a list of several) shows before its title, on its subtasks
+// too (they are from the same place). With no rows the column header still shows, and `empty`
+// (the "no tasks" message) sits centred under it.
+export default function TaskList({ tasks, selectedKey, focused, onSelect, onPreview, onToggleDone, empty }) {
   const { t: tr } = useTranslation();
   const selectedRef = useRef(null);
   useEffect(() => {
@@ -113,7 +114,7 @@ export default function TaskList({ tasks, selectedKey, focused, onSelect, onOpen
             tabIndex={0}
             onFocus={() => onSelect(t)}
             onClick={() => onSelect(t)}
-            onDoubleClick={() => onOpenFolder(t)}
+            onDoubleClick={() => onPreview(t)}
           >
             <div>
               <DoneBox

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "@ui";
+import { FolderIcon, TrashIcon } from "@components/icons";
 import { fileUrl } from "@utils/api";
 import { formatSize, previewKind } from "@utils/task";
 import styles from "./taskPreview.module.css";
@@ -55,14 +56,33 @@ function Editor({ task, textRef, onSave, onEndEdit }) {
   );
 }
 
+// An icon button at the left end of the header, grey until hovered like the close button.
+function HeaderButton({ label, onClick, children }) {
+  return (
+    <button type="button" className={styles.headerButton} title={label} aria-label={label} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
 // Look at a task's task.txt, with its attachments under it (`files`, the one at
-// `selectedRel` marked; Home moves it with j / k and opens it with enter; esc calls onUnselect first; double click or `onEdit` starts the edit; with `editing`, e / i in Home, the text is a textarea saved by onSave), a click on a file (or enter) opens it through `onOpenFile`, which previews a PDF, image or text file instead of downloading it; opened with space and closed with space, q, enter or escape.
-export default function TaskPreviewModal({ task, files, selectedRel, onUnselect, editing, onEdit, onEndEdit, onSave, onOpenFile, onClose }) {
+// `selectedRel` marked; Home moves it with j / k and opens it with enter; esc calls onUnselect first; double click or `onEdit` starts the edit; with `editing`, e / i in Home, the text is a textarea saved by onSave), a click on a file (or enter) opens it through `onOpenFile`, which previews a PDF, image or text file instead of downloading it; the buttons at the top left open the task's folder (`onOpenFolder`) and delete the task (`onDelete`, which asks first); opened with space or a double click on the task and closed with space, q, enter or escape.
+export default function TaskPreviewModal({ task, files, selectedRel, onUnselect, editing, onEdit, onEndEdit, onSave, onOpenFile, onOpenFolder, onDelete, onClose }) {
   const { t } = useTranslation();
   const textRef = useRef(null);
   const onEscape = editing ? () => textRef.current?.blur() : selectedRel ? onUnselect : undefined;
+  const actions = task && (
+    <div className={styles.headerButtons}>
+      <HeaderButton label={t("tree.openFolder")} onClick={() => onOpenFolder(task)}>
+        <FolderIcon />
+      </HeaderButton>
+      <HeaderButton label={t("delete.title")} onClick={() => onDelete(task)}>
+        <TrashIcon />
+      </HeaderButton>
+    </div>
+  );
   return (
-    <Modal isOpen={!!task} onClose={onClose} onEscape={onEscape} className={styles.modal}>
+    <Modal isOpen={!!task} onClose={onClose} onEscape={onEscape} className={styles.modal} headerLeft={actions}>
       <div className={styles.body}>
         {editing && task ? (
           <Editor key={task.key} task={task} textRef={textRef} onSave={onSave} onEndEdit={onEndEdit} />

@@ -20,7 +20,7 @@ export const boardStatus = (task) => task.column || ownStatus(task);
 // under it, drawn as a tree like the list (`tasks` are the rows in order, with their `depth`,
 // `through` and `last`, see flattenTasks). Dragging a card into another column sets the task to
 // that status (`onMove`); a subtask stays under its task, in grey when its status is not the
-// column's. As in the list, a click only selects.
+// column's. As in the list, a click only selects and a double click opens the preview (`onPreview`).
 export default function TaskBoard({
   tasks,
   statuses = BOARD_STATUSES,
@@ -28,6 +28,7 @@ export default function TaskBoard({
   focusedStatus,
   onFocusStatus,
   onSelect,
+  onPreview,
   onOpen,
   onOpenFolder,
   onDelete,
@@ -74,6 +75,7 @@ export default function TaskBoard({
           }}
           onDragEnd={() => setDragKey(null)}
           onSelect={onSelect}
+          onPreview={onPreview}
           onOpen={onOpen}
           onOpenFolder={onOpenFolder}
           onDelete={onDelete}
@@ -97,6 +99,7 @@ function Column({
   onDragStart,
   onDragEnd,
   onSelect,
+  onPreview,
   onOpen,
   onOpenFolder,
   onDelete,
@@ -138,7 +141,7 @@ function Column({
                 onDragEnd={onDragEnd}
                 onFocus={() => onSelect(t)}
                 onClick={() => onSelect(t)}
-                onDoubleClick={() => onOpenFolder(t)}
+                onDoubleClick={() => onPreview(t)}
               >
                 <div className={styles.cardTitle}>
                   <FromTag task={t} />

@@ -6,7 +6,9 @@ import styles from "./modal.module.css";
 // opened from a detail view goes before the detail view under it.
 const openStack = [];
 
-const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, className, headerActions, onEscape }) => {
+// `headerLeft` goes before the title at the left end of the header, `headerActions` before the
+// close button at the right end.
+const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, className, headerLeft, headerActions, onEscape }) => {
   const { t } = useTranslation();
   // A click only counts as "outside" when it both starts and ends on the overlay. A drag that
   // begins inside the dialog (selecting text in a field) and is released over the backdrop
@@ -59,6 +61,7 @@ const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, classN
         aria-label={typeof title === "string" ? title : t("common.dialog")}
       >
         <div className={styles.header}>
+          {headerLeft}
           {title && <span className={styles.title}>{title}</span>}
           <div className={styles.headerRight}>
             {headerActions}

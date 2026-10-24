@@ -12,8 +12,11 @@
   --focus: #0969da;
   --line: 1px; /* hairline width */
   --bg: #ffffff;
+  /* One light grey for every shaded surface: the bars (navigator, status bar, toggle), a focused
+     pane head, and a hovered or selected row. Two names, one value, so a bar and the focused head
+     beside it never show two greys. */
   --bg-alt: #f6f6f6;
-  --bg-hover: #f0f0f0;
+  --bg-hover: var(--bg-alt);
   --ok: #1a7f37;
   --warn: #9a6700;
   --err: #cf222e;

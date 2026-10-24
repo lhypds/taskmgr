@@ -11,6 +11,42 @@
   height: 100%;
 }
 
+/* The open folder and delete buttons at the top left of the header: icons alone, grey like the
+   close button on the right and black under the mouse. */
+.headerButtons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.headerButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  line-height: 0;
+}
+
+.headerButton svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.headerButton:hover,
+.headerButton:focus-visible {
+  color: var(--fg);
+}
+
 .files {
   display: flex;
   flex-direction: column;

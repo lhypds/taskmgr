@@ -134,7 +134,7 @@ export default function Home({ all = false }) {
   const [help, setHelp] = useState(false);
   const [command, setCommand] = useState(null); // text after ":" while in command mode
   const [preview, setPreview] = useState(null); // attachment shown in the preview modal
-  const [peek, setPeek] = useState(null); // task whose task.txt is shown on space
+  const [peek, setPeek] = useState(null); // task whose task.txt is shown, on space or a double click
   const [configOpen, setConfigOpen] = useState(false);
   const [editingWork, setEditingWork] = useState(null); // work whose name and income are being edited
   const [adding, setAdding] = useState(null); // what the add modal starts with: { type, origin, work }
@@ -338,7 +338,7 @@ export default function Home({ all = false }) {
   }, [tree, query, view, showDone, showPending, showAbort, boardStatuses, monthKey]);
 
   // No row is selected until one is chosen, or when the selected task is not in this list (a new
-  // folder, a filter, a deleted task); j / k then start from the first row.
+  // folder, a filter, a deleted task); j (or a wheel notch down) then starts from the first row.
   const selectedIndex = visible.findIndex((t) => t.key === selectedKey);
   const selected = visible[selectedIndex] || null;
 
@@ -356,6 +356,11 @@ export default function Home({ all = false }) {
   const peekFiles = peekAttachments.files.filter((f) => !f.isDir);
   const [peekFileRel, setPeekFileRel] = useState(null);
   const peekFile = peekFiles.find((f) => f.rel === peekFileRel) || null;
+  const closePeek = () => {
+    setPeek(null);
+    setPeekFileRel(null);
+    setPeekEditing(false);
+  };
   // d on a file asks in a popup; confirming (d again, or the button) deletes it and moves the highlight to its neighbour.
   const [removingFile, setRemovingFile] = useState(null); // { hook, list, file, setRel }
   const deleteFile = (hook, list, file, setRel) => setRemovingFile({ hook, list, file, setRel });
@@ -370,12 +375,22 @@ export default function Home({ all = false }) {
     else window.open(api.fileUrl(task.space, file.rel), "_blank", "noreferrer");
   };
 
+  // One step of the list's selection, for j / k and the wheel. Above the first row there is a
+  // "nothing chosen" state: up from the first row drops the selection, as esc does, further up
+  // stays there, and down from there comes back to the first row.
+  function stepListSelection(name) {
+    if (["k", "up"].includes(name) && selectedIndex <= 0) setSelectedKey(null);
+    else {
+      const move = moveIndex(name, selectedIndex, visible.length);
+      if (move >= 0) setSelectedKey(visible[move].key);
+    }
+  }
+
   // The wheel over the task list moves the selection, which scrolls itself into view. (The board
   // scrolls as usual.)
   const [scrollEl, setScrollEl] = useState(null);
   useWheelSteps(scrollEl, (dir) => {
-    const move = moveIndex(dir > 0 ? "down" : "up", selectedIndex, visible.length);
-    if (move >= 0) setSelectedKey(visible[move].key);
+    stepListSelection(dir > 0 ? "down" : "up");
     setPane("tasks");
   });
 
@@ -498,6 +513,7 @@ export default function Home({ all = false }) {
       const i = visible.findIndex((t) => t.key === confirm.key);
       setSelectedKey(visible[Math.max(0, i - 1)]?.key ?? null);
       setConfirm(null);
+      if (peek?.key === confirm.key) closePeek(); // deleted from its preview: nothing left to show
       await reload();
       showToast(t("toast.deleted"));
     } catch (e) {
@@ -691,8 +707,10 @@ export default function Home({ all = false }) {
         if (move >= 0) setPeekFileRel(peekFiles[move].rel);
         return true;
       }
-      if (name === "d" && peekFile) {
-        deleteFile(peekAttachments, peekFiles, peekFile, setPeekFileRel);
+      if (name === "d") {
+        // the chosen attachment, else the task itself; each asks first
+        if (peekFile) deleteFile(peekAttachments, peekFiles, peekFile, setPeekFileRel);
+        else setConfirm(peekTask);
         return true;
       }
       if (["enter", "space"].includes(name) && peekFile) {
@@ -781,7 +799,8 @@ export default function Home({ all = false }) {
     const moveFrom = view === "board" ? movable.findIndex((task) => task.key === selectedKey) : selectedIndex;
     const move = moveIndex(name, moveFrom, movable.length);
     if (move !== null) {
-      if (move >= 0) setSelectedKey(movable[move].key);
+      if (view === "list") stepListSelection(name); // with the "nothing chosen" state above the first row
+      else if (move >= 0) setSelectedKey(movable[move].key);
       return true;
     }
     const t = selected;
@@ -855,6 +874,7 @@ export default function Home({ all = false }) {
           setPane(boardStatus(t));
           setSelectedKey(t.key);
         }}
+        onPreview={setPeek}
         onOpen={openEditor}
         onOpenFolder={openFolder}
         onDelete={setConfirm}
@@ -895,7 +915,7 @@ export default function Home({ all = false }) {
           selectedKey={selected?.key}
           focused={pane === "tasks"}
           onSelect={(t) => setSelectedKey(t.key)}
-          onOpenFolder={openFolder}
+          onPreview={setPeek}
           onToggleDone={toggleDone}
           empty={empty}
         />
@@ -1256,7 +1276,7 @@ export default function Home({ all = false }) {
         onPreview={(file) => setPreview({ ...file, space: creating.space })}
       />
 
-      <TaskPreviewModal task={peekTask} editing={peekEditing} onEdit={() => setPeekEditing(true)} onEndEdit={() => setPeekEditing(false)} onSave={saveText} onOpenFile={(file) => openFile(file, peek)} files={peekFiles} selectedRel={peekFile?.rel} onUnselect={() => setPeekFileRel(null)} onClose={() => { setPeek(null); setPeekFileRel(null); setPeekEditing(false); }} />
+      <TaskPreviewModal task={peekTask} editing={peekEditing} onEdit={() => setPeekEditing(true)} onEndEdit={() => setPeekEditing(false)} onSave={saveText} onOpenFile={(file) => openFile(file, peek)} onOpenFolder={openFolder} onDelete={setConfirm} files={peekFiles} selectedRel={peekFile?.rel} onUnselect={() => setPeekFileRel(null)} onClose={closePeek} />
 
       {/* after the task preview, so it stacks in front of it */}
       <FilePreviewModal space={preview?.space} file={preview} onClose={() => setPreview(null)} />
