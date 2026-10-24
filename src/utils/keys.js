@@ -11,6 +11,13 @@ export function isTyping(e) {
 // Enter and space on a focused button, link or checkbox keep their native click.
 const isControl = (el) => !!el?.closest?.("button, a, input, label");
 
+// On mousedown of a text a double click edits: the second press of the double click is stopped,
+// so the browser does not select the word under the pointer, which would flash before the editor
+// opens. A single press (and a drag that selects text) is left alone.
+export function noDoubleClickSelect(e) {
+  if (e.detail > 1) e.preventDefault();
+}
+
 // Key name in the terminal's terms: "j", "enter", "space", "up", "left", ...
 export function keyName(e) {
   switch (e.key) {

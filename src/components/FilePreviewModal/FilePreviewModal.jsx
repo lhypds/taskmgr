@@ -1,11 +1,52 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useState } from "react";
-import { Modal } from "@ui";
-import { fileUrl } from "@utils/api";
+import { useEffect, useRef, useState } from "react";
+import { Modal, showToast } from "@ui";
+import { DownloadIcon, TrashIcon } from "@components/icons";
+import { fileUrl, saveFile } from "@utils/api";
+import { noDoubleClickSelect } from "@utils/keys";
 import { previewKind } from "@utils/task";
 import styles from "./preview.module.css";
 
-function TextView({ url }) {
+// A text file in a textarea, caret at the end, as the task preview edits task.txt: a blur saves
+// (onSave(text), when it changed) and ends the edit, and so does esc; cmd/ctrl+s saves and keeps editing.
+function Editor({ value, textRef, onSave, onEndEdit }) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    const el = textRef.current;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [textRef]);
+
+  const save = () => {
+    if (draft !== value) onSave(draft);
+  };
+
+  return (
+    <textarea
+      ref={textRef}
+      className={styles.text}
+      value={draft}
+      spellCheck={false}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        save();
+        onEndEdit();
+      }}
+      onKeyDown={(e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+          e.preventDefault();
+          save();
+        }
+      }}
+    />
+  );
+}
+
+// A text file (txt, md, ...) as it is, read from `url`. With `editing` it is in the editor instead
+// (a double click on the text asks for that through onEdit; onEndEdit says the edit is over), and
+// onSave(text) writes it, resolving to whether it did: the text shown is then the saved one.
+function TextView({ url, editing, onEdit, onEndEdit, onSave, textRef }) {
   const { t } = useTranslation();
   const [text, setText] = useState(null);
   const [error, setError] = useState("");
@@ -23,30 +64,83 @@ function TextView({ url }) {
 
   if (error) return <p className={styles.note}>{error}</p>;
   if (text === null) return <p className={`muted ${styles.note}`}>{t("common.loading")}</p>;
-  return <pre className={styles.text}>{text}</pre>;
+  if (editing) {
+    return (
+      <Editor value={text} textRef={textRef} onSave={(draft) => onSave(draft).then((ok) => ok && setText(draft))} onEndEdit={onEndEdit} />
+    );
+  }
+  return (
+    <pre className={styles.text} onMouseDown={noDoubleClickSelect} onDoubleClick={onEdit}>
+      {text}
+    </pre>
+  );
 }
 
 // An attachment shown in the page: a PDF in the browser's own viewer, an image that zooms to full
-// size on a click, or a text file as it is. `file` is { name, rel } from a task's files.
-export default function FilePreviewModal({ space, file, onClose }) {
+// size on a click, or a text file as it is, in the font and over the grid the task's text has, and
+// editable as that is in the task preview: a double click on the text (or `onEdit`, e / i in Home)
+// turns it into a textarea; `editing` says it is one, onEndEdit that the edit is over (a blur, or
+// esc). The text is written as typed, and onSaved is called so the file's size is re-read. Beside
+// the name, download and delete (onDelete, which asks first; greyed out without it). `file` is
+// { name, rel } from a task's files.
+export default function FilePreviewModal({ space, file, editing, onEdit, onEndEdit, onSaved, onDelete, onClose }) {
   const { t } = useTranslation();
   const [zoom, setZoom] = useState(false);
+  const textRef = useRef(null); // the textarea while the text is edited
   useEffect(() => setZoom(false), [file]);
 
   const kind = file ? previewKind(file.name) : null;
   const url = file ? fileUrl(space, file.rel) : "";
 
+  // Write the text as typed; says whether it did (a failure is shown as a toast).
+  async function save(text) {
+    try {
+      await saveFile(space, file.rel, text);
+      onSaved?.();
+      return true;
+    } catch (e) {
+      showToast(e.message, 4000);
+      return false;
+    }
+  }
+
   return (
     <Modal
       isOpen={!!file}
       onClose={onClose}
+      onEscape={editing ? () => textRef.current?.blur() : undefined}
       title={file?.name}
       className={styles.modal}
-      headerActions={
+      tight
+      titleActions={
         file && (
-          <a className="btn" href={fileUrl(space, file.rel, true)}>
-            {t("preview.download")}
-          </a>
+          <>
+            {/* neither keeps the focus, so space, enter and q stay the preview's keys */}
+            <a
+              className="btn"
+              href={fileUrl(space, file.rel, true)}
+              tabIndex={-1}
+              onClick={(e) => e.currentTarget.blur()}
+              title={t("preview.download")}
+              aria-label={t("preview.download")}
+            >
+              <DownloadIcon />
+            </a>
+            <button
+              type="button"
+              className="btn"
+              tabIndex={-1}
+              disabled={!onDelete}
+              onClick={(e) => {
+                e.currentTarget.blur();
+                onDelete();
+              }}
+              title={t("attach.deleteTitle")}
+              aria-label={t("attach.deleteTitle")}
+            >
+              <TrashIcon />
+            </button>
+          </>
         )
       }
     >
@@ -58,7 +152,9 @@ export default function FilePreviewModal({ space, file, onClose }) {
               <img src={url} alt={file.name} draggable={false} />
             </div>
           )}
-          {kind === "text" && <TextView url={url} />}
+          {kind === "text" && (
+            <TextView url={url} editing={editing} onEdit={onEdit} onEndEdit={onEndEdit} onSave={save} textRef={textRef} />
+          )}
         </div>
       )}
     </Modal>

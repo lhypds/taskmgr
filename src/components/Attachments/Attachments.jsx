@@ -51,6 +51,7 @@ export default function Attachments({ className, space, files, pending = [], bus
                     onClick={(e) => {
                       if (!onPreview || !previewKind(f.name)) return;
                       e.preventDefault();
+                      e.currentTarget.blur(); // a focused link would keep space and enter from closing the preview
                       onPreview(f);
                     }}
                   >

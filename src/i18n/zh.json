@@ -97,8 +97,6 @@
   "panel": {
     "heading": "任务",
     "none": "未选择任务。",
-    "undo": "撤销",
-    "redo": "重做",
     "prompt": "Prompt",
     "showPrompt": "显示 prompt（prompt.txt）",
     "hidePrompt": "隐藏 prompt",

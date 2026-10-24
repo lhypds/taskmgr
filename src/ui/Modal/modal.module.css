@@ -40,6 +40,14 @@
   white-space: nowrap;
 }
 
+/* Buttons right after the title, which gives way (its ellipsis) before they do. */
+.titleActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
 .headerRight {
   display: flex;
   align-items: center;
@@ -66,4 +74,33 @@
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+}
+
+/* `tight` (the previews): the header row (its buttons, 22px tall) sits `--modal-top` from the top
+   edge (16px, as far as the content is from the sides and the bottom; a dialog may set its own on
+   the `.modal`), and the content has no room over it, so the bordered box starts close under the
+   title or the buttons. */
+.modal[data-tight="true"] .header {
+  min-height: calc(30px + var(--modal-top, 16px));
+  padding-top: var(--modal-top, 16px);
+}
+
+/* ... and its close sits up in the corner, 10px from the top edge, above the row. */
+.modal[data-tight="true"] .closeButton {
+  align-self: flex-start;
+  margin-top: calc(10px - var(--modal-top, 16px));
+}
+
+/* Its title ("Task", a file's name, "Claude: ..."): plain, not a heading, and lower than the row's
+   centre, so that the text's bottom edge meets the bottom edge of the 22px buttons beside it. CJK
+   glyphs reach a little under the Latin baseline, and it is their bottom that reads as the text's
+   edge: 2px puts it on the buttons' edge (tuned by eye on a 2x screen). */
+.modal[data-tight="true"] .title {
+  font-weight: 400;
+  position: relative;
+  top: 2px;
+}
+
+.modal[data-tight="true"] .content {
+  padding-top: 0;
 }

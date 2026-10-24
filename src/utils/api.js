@@ -139,6 +139,9 @@ export const uploadFile = (space, rel, file) =>
 
 export const deleteFile = (space, rel) => request(`/api/file?${q({ ...sp(space), rel })}`, { method: "DELETE" });
 
+// Write a text attachment as typed (the preview's editor); resolves to the task's files after the write.
+export const saveFile = (space, rel, text) => request("/api/file", json("PUT", { ...sp(space), rel, text }));
+
 export const fileUrl = (space, rel, download = false) =>
   `/api/file?${q({ ...sp(space), rel, ...(download ? { download: "1" } : {}) })}`;
 

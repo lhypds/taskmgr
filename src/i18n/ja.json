@@ -97,8 +97,6 @@
   "panel": {
     "heading": "タスク",
     "none": "タスクが選択されていません。",
-    "undo": "元に戻す",
-    "redo": "やり直す",
     "prompt": "プロンプト",
     "showPrompt": "プロンプトを表示（prompt.txt）",
     "hidePrompt": "プロンプトを隠す",

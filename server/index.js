@@ -34,6 +34,7 @@ const { getEditor } = require('../utils/editorUtils');
 const { resolveConfig, POLL_STATE_PATH } = require('./config');
 const { createAuthApp } = require('./auth');
 const { createSyncApp, isMirrored, spaceKey } = require('./sync');
+const { createAiApp } = require('../ai/routes');
 const { trimLogs } = require('../utils/logfile');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -759,6 +760,23 @@ app.delete('/api/file', (req, res) => {
   fs.unlinkSync(abs);
   res.json({ files: listFiles(root, taskDir) });
 });
+
+// Write an attachment as text, as typed in the preview's editor (a file directly inside a task
+// folder, not the task file). Answers the task's attachments, with the file's new size.
+app.put('/api/file', (req, res) => {
+  const body = req.body || {};
+  const { root } = spaceFrom(body);
+  const abs = resolveInsideRoot(root, String(body.rel || ''));
+  const taskDir = path.dirname(abs);
+  if (!isTaskFolder(taskDir) || path.basename(abs) === TASK_FILE) throw new HttpError(400, 'Not an attachment.');
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) throw new HttpError(404, 'File not found.');
+  if (typeof body.text !== 'string') throw new HttpError(400, 'Missing text.');
+  fs.writeFileSync(abs, body.text.replace(/\r\n/g, '\n'), 'utf8');
+  res.json({ files: listFiles(root, taskDir) });
+});
+
+// Running Claude Code on a task from the panel, and answering what it asks (see ai/routes.js).
+app.use(createAiApp({ config, logFile: path.join(PROJECT_ROOT, 'logs', 'ai.log') }));
 
 app.use('/api', (req, res) => { throw new HttpError(404, 'Unknown API route.'); });
 

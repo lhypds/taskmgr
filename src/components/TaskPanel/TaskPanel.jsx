@@ -1,18 +1,22 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
-import { BrainIcon, RedoIcon, TrashIcon, UndoIcon } from "@components/icons";
+import { BrainIcon, TrashIcon } from "@components/icons";
 import Attachments from "@components/Attachments";
+import { RunButton } from "@ai";
 import styles from "./panel.module.css";
 
 // The selected task beside the list: its task.txt as written, editable in place. It is saved
 // when the text loses focus or on cmd/ctrl+s; esc ends the edit, saving it. onSave(task, text)
 // writes it. When `focusKey` is the task's key, the text named by `focusArea` ("task", or "prompt")
 // takes the focus and onFocused is called.
-// Under a head like the tree's: "Task", with the brain, undo, redo and delete at its right;
-// onDelete(task) asks before deleting. The brain (onTogglePrompt) shows and hides the task's prompt,
-// its prompt.txt (`promptOpen`): the text is then split in two, the prompt under a divider that says
-// "Prompt" and carries the prompt's own undo, redo and delete (onDeletePrompt(task) asks first).
+// Under a head like the tree's: "Task", with the brain and delete at its right; onDelete(task)
+// asks before deleting. The brain (onTogglePrompt) shows and hides the task's prompt, its
+// prompt.txt (`promptOpen`): the text is then split in two, the prompt under a divider that says
+// "Prompt" and carries the prompt's own delete (onDeletePrompt(task) asks first).
 // Typing a prompt creates the file, onSavePrompt(task, text) writing it; a blank one deletes it.
+// The divider also carries the run button (see ai/web), greyed out until the task has a prompt:
+// onRun(task) starts Claude Code on the task and opens the run's dialog, or opens the dialog of the
+// run the task has (`run`, see useRuns), which the button shows with a dot while it goes.
 // `section` is the text the keyboard is on, "task" or "prompt" (null while an attachment is), shown
 // by which head is highlighted; onSection(area) is called when a text is clicked into.
 // Under the texts, the task's attachments; files dropped anywhere on the panel are uploaded into
@@ -35,6 +39,8 @@ export default function TaskPanel({
   onSection,
   onSavePrompt,
   onDeletePrompt,
+  run,
+  onRun,
 }) {
   const { t } = useTranslation();
   const textRef = useRef(null);
@@ -43,44 +49,6 @@ export default function TaskPanel({
   const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
   const hasPrompt = attachments.prompt != null; // not while unread (undefined) or without a file (null)
   const focusOf = (area) => !!task && focusKey === task.key && focusArea === area;
-
-  // A text's own undo history, the one cmd/ctrl+z walks, so the buttons and the keys agree. The
-  // text keeps the focus (the buttons do not take it on mousedown), so a click does not save it.
-  function edit(ref, command) {
-    const el = ref.current;
-    if (!el) return;
-    el.focus();
-    document.execCommand(command);
-  }
-
-  const editButtons = (ref) => (
-    <>
-      <button
-        type="button"
-        className="btn"
-        tabIndex={-1}
-        disabled={!task}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => edit(ref, "undo")}
-        title={t("panel.undo")}
-        aria-label={t("panel.undo")}
-      >
-        <UndoIcon />
-      </button>
-      <button
-        type="button"
-        className="btn"
-        tabIndex={-1}
-        disabled={!task}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => edit(ref, "redo")}
-        title={t("panel.redo")}
-        aria-label={t("panel.redo")}
-      >
-        <RedoIcon />
-      </button>
-    </>
-  );
 
   return (
     <div
@@ -126,7 +94,6 @@ export default function TaskPanel({
           >
             <BrainIcon />
           </button>
-          {editButtons(textRef)}
           <button
             type="button"
             className="btn"
@@ -145,22 +112,35 @@ export default function TaskPanel({
       </div>
       {task ? (
         <>
-          {/* keyed by id, which a rename (a new first line) keeps, so saving does not lose the focus */}
-          <TaskText
-            key={`${task.space.work}/${task.space.repository || ""}/${task.id}`}
-            task={task}
-            textRef={textRef}
-            focus={focusOf("task")}
-            onFocused={onFocused}
-            onFocus={() => onSection("task")}
-            onSave={onSave}
-          />
+          {/* The task's part: its text, with its files under it. The text is keyed by id, which a
+              rename (a new first line) keeps, so saving does not lose the focus. */}
+          <div className={styles.region}>
+            <TaskText
+              key={`${task.space.work}/${task.space.repository || ""}/${task.id}`}
+              task={task}
+              textRef={textRef}
+              focus={focusOf("task")}
+              onFocused={onFocused}
+              onFocus={() => onSection("task")}
+              onSave={onSave}
+            />
+            <Attachments
+              className={styles.files}
+              space={task.space}
+              files={attachments.files}
+              selectedRel={selectedFile}
+              busy={attachments.uploading}
+              onAdd={attachments.add}
+              onRemove={attachments.remove}
+              onPreview={onPreview}
+            />
+          </div>
           {promptOpen && (
             <>
               <div className={styles.divider} data-focused={focused && section === "prompt"}>
                 <span className={styles.barTitle}>{t("panel.prompt")}</span>
                 <div className={styles.barActions}>
-                  {editButtons(promptRef)}
+                  <RunButton run={run} disabled={!hasPrompt} onClick={() => onRun(task)} />
                   <button
                     type="button"
                     className="btn"
@@ -177,28 +157,21 @@ export default function TaskPanel({
                   </button>
                 </div>
               </div>
-              <PromptText
-                key={`prompt:${task.space.work}/${task.space.repository || ""}/${task.id}`}
-                task={task}
-                prompt={attachments.prompt}
-                textRef={promptRef}
-                focus={focusOf("prompt")}
-                onFocused={onFocused}
-                onFocus={() => onSection("prompt")}
-                onSave={onSavePrompt}
-              />
+              {/* The prompt's part: its text. */}
+              <div className={styles.region}>
+                <PromptText
+                  key={`prompt:${task.space.work}/${task.space.repository || ""}/${task.id}`}
+                  task={task}
+                  prompt={attachments.prompt}
+                  textRef={promptRef}
+                  focus={focusOf("prompt")}
+                  onFocused={onFocused}
+                  onFocus={() => onSection("prompt")}
+                  onSave={onSavePrompt}
+                />
+              </div>
             </>
           )}
-          <Attachments
-            className={styles.files}
-            space={task.space}
-            files={attachments.files}
-            selectedRel={selectedFile}
-            busy={attachments.uploading}
-            onAdd={attachments.add}
-            onRemove={attachments.remove}
-            onPreview={onPreview}
-          />
           {over && <div className={styles.dropOverlay}>{t("panel.dropFiles")}</div>}
         </>
       ) : (

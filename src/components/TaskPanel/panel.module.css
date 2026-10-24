@@ -6,6 +6,16 @@
   min-height: 100%;
 }
 
+/* The two parts of the panel: the task's (its text, then its files) and, with the prompt shown, the
+   prompt's (its text). Each is a column, the two sharing the pane's height equally; in the task's,
+   the text takes what the files leave. */
+.region {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* The files under the text (their "Files" head close under the line), and the overlay while files
    are dragged over the panel. */
 .files {
@@ -16,7 +26,7 @@
 
 .dropOverlay {
   position: absolute;
-  inset: 40px 0 0 0;
+  inset: 32px 0 0 0; /* under the head */
   z-index: 2;
   display: flex;
   align-items: center;
@@ -28,7 +38,8 @@
   pointer-events: none;
 }
 
-/* The head, as the tree's "Origins": it stays at the top while the details scroll. */
+/* The head, as the tree's "Origins" and as tall as the "Prompt" divider: it stays at the top while
+   the details scroll. */
 .bar {
   position: sticky;
   top: 0;
@@ -37,7 +48,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  height: 40px;
+  height: 32px;
   padding: 0 12px;
   background: var(--bg);
   border-bottom: var(--line) solid var(--border);
@@ -57,8 +68,8 @@
   gap: 4px;
 }
 
-/* Between the task's text and its prompt: "Prompt", with the prompt's undo, redo and delete at its
-   right, highlighted as the head is while the keyboard is on the prompt. */
+/* Between the task's text and its prompt: "Prompt", with the prompt's run and delete at its right,
+   highlighted as the head is while the keyboard is on the prompt. */
 .divider {
   flex: none;
   display: flex;

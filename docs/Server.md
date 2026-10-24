@@ -183,6 +183,57 @@ becomes `name (1).ext`, `name (2).ext`, ...; a hidden name or `task.txt` is refu
 `DELETE /api/file?work=&repository=&rel=`  
 Delete one attachment (not `task.txt`). `{ files }`.  
 
+`PUT /api/file` `{ work, repository, rel, text }`  
+Write one attachment as text, as the web UI's preview edits a text file (not `task.txt`; line ends become `\n`). `{ files }`.  
+
+
+AI
+--
+
+Defined in `ai/routes.js` (every AI-related piece of tm is in `ai/`): runs of Claude Code on a task, started from the Task panel  
+and followed in the browser, through the Claude Agent SDK (see `ai/session.js`). A run, as answered:  
+```
+{ "id": "b6f397354f17", "task": { "work": "acme", "repository": "alpha", "rel": "202610241655 Fix mail", "id": "202610241655", "title": "Fix mail", "key": "acme/alpha/202610241655 Fix mail" },
+  "cwd": "/home/me/acme/alpha", "taskDir": "/home/me/acme/alpha/tasks/202610241655 Fix mail",
+  "status": "running", "startedAt": 1761300000000, "endedAt": null, "error": null,
+  "pending": { "id": "c8990b3bf3b2", "kind": "question", "i": 2 }, "model": "claude-fable-5-1", "sessionId": "...", "cost": null, "billed": false,
+  "items": [ ... ] }
+```
+`status` is `running`, `done`, `failed` or `stopped`; `pending` is what Claude waits for an answer to (`null` otherwise):  
+`kind` `permission` or `question`, `i` the index of its item. `cost` is what the run's tokens would cost at API prices (from the  
+result; `null` before), `billed` whether that is paid: Claude Code used with an API key, not a claude.ai login (the web UI shows  
+the cost only then). `items` is the transcript, each item by `type`:  
+`text` `{ text }` (Claude's, grown as it is written), `tool` `{ id, name, summary, done, isError?, result? }` (a tool call, `summary` what  
+it is about, `result` its output once `done`), `permission` `{ toolName, summary, reason, decision, cancelled? }` (`decision` `allow`,  
+`deny` or `null` while pending), `question` `{ questions, answers, cancelled? }` (`questions` as the AskUserQuestion tool asks them,  
+`answers` by question text or `null` while pending), `result` `{ subtype, isError, durationMs, turns, costUsd, text }` and `error` `{ message }`.  
+`GET /api/ai/runs` answers the runs with their transcripts; the others answer a run without it.  
+
+`GET /api/ai/events`  
+The runs, live: a `text/event-stream` (SSE). It starts with `snapshot` `{ runs }` (every run, with its transcript), then sends  
+`run` (a run as above, without `items`: its state changed), `item` `{ run, i, item }` (an item of a run's transcript, new or  
+changed), `delta` `{ run, i, text }` (text appended to item `i`) and `remove` `{ run }` as they happen, with a comment every  
+25 seconds to keep the connection.  
+
+`GET /api/ai/runs`  
+Every run the server has, with its transcript: `{ runs }`.  
+
+`POST /api/ai/run` `{ work, repository?, rel }`  
+Start Claude Code on that task: in the repository's source folder (`source_path`) for a repository's task, else in the task  
+folder, with the task folder readable either way, and the same first prompt as `tm run`. 201 `{ run }`, with its transcript;  
+409 while the task has a run going, 400 when the source folder is missing.  
+
+`POST /api/ai/runs/:id/answer` `{ pending, decision }` or `{ pending, answers }`  
+Answer the run's pending question `pending` (its id): `decision` `allow` or `deny` for a permission, `answers` for a  
+question, an object from each question's text to the answer (the label picked, several joined by `, `, or a text of one's  
+own). `{ run }`; 409 when that question is not pending any more.  
+
+`POST /api/ai/runs/:id/stop`  
+Stop a run: Claude Code is interrupted and a pending question refused. `{ run }`; 409 when it is over.  
+
+`DELETE /api/ai/runs/:id`  
+Forget a finished run, transcript and all. `{ ok: true }`; 409 while it runs.  
+
 
 Sync
 ----

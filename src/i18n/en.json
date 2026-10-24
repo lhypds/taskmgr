@@ -97,8 +97,6 @@
   "panel": {
     "heading": "Task",
     "none": "No task selected.",
-    "undo": "Undo",
-    "redo": "Redo",
     "prompt": "Prompt",
     "showPrompt": "Show the prompt (prompt.txt)",
     "hidePrompt": "Hide the prompt",

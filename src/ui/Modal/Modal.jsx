@@ -6,9 +6,10 @@ import styles from "./modal.module.css";
 // opened from a detail view goes before the detail view under it.
 const openStack = [];
 
-// `headerLeft` goes before the title at the left end of the header, `headerActions` before the
-// close button at the right end.
-const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, className, headerLeft, headerActions, onEscape }) => {
+// `titleActions` goes right after the title (buttons about what it names), `headerActions` at the
+// right end, before the close button. With `tight` the content starts close under the header: for
+// a preview, whose content is a bordered box, the usual gap reads as a band of blank space.
+const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, className, titleActions, headerActions, onEscape, tight }) => {
   const { t } = useTranslation();
   // A click only counts as "outside" when it both starts and ends on the overlay. A drag that
   // begins inside the dialog (selecting text in a field) and is released over the backdrop
@@ -56,13 +57,14 @@ const Modal = ({ isOpen, onClose, title, children, closeOnOverlay = true, classN
     <div className={styles.overlay} onPointerDown={handleOverlayPointerDown} onClick={handleOverlayClick}>
       <div
         className={[styles.modal, className].filter(Boolean).join(" ")}
+        data-tight={tight}
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === "string" ? title : t("common.dialog")}
       >
         <div className={styles.header}>
-          {headerLeft}
           {title && <span className={styles.title}>{title}</span>}
+          {titleActions && <div className={styles.titleActions}>{titleActions}</div>}
           <div className={styles.headerRight}>
             {headerActions}
             <button type="button" className={styles.closeButton} onClick={onClose} aria-label={t("common.close")}>

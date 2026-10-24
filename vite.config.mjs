@@ -20,6 +20,7 @@ export default defineConfig({
       '@pages': path.resolve(__dirname, 'src/pages'),
       '@utils': path.resolve(__dirname, 'src/utils'),
       '@store': path.resolve(__dirname, 'src/store'),
+      '@ai': path.resolve(__dirname, 'ai/web'), // the AI parts of the UI live with the rest of the AI code, in ai/
     },
   },
 })
